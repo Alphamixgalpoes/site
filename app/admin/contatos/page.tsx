@@ -306,23 +306,15 @@ function ContatoRow({ contato }: { contato: Contato }) {
         <p className="text-xs text-gray-400 mt-0.5 truncate">
           {[contato.empresa, contato.telefone].filter(Boolean).join(" · ")}
         </p>
-      </div>
-
-      {/* Tags extras */}
-      {tagsExtras.length > 0 && (
-        <div className="hidden md:flex gap-1 shrink-0">
+        <div className="flex flex-wrap items-center gap-1 mt-1">
+          <span className="text-xs text-gray-400">{tipoLabel(contato.tipo_principal)}</span>
           {tagsExtras.map((t) => (
             <span key={t} className="text-xs border border-gray-200 text-gray-400 px-1.5 py-0.5">
               {tipoLabel(t)}
             </span>
           ))}
         </div>
-      )}
-
-      {/* Tipo principal */}
-      <span className="text-xs text-gray-400 shrink-0 hidden sm:block">
-        {tipoLabel(contato.tipo_principal)}
-      </span>
+      </div>
     </Link>
   );
 }

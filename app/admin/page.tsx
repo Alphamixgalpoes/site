@@ -190,14 +190,14 @@ export default function ImoveisPage() {
     <div className="space-y-5">
 
       {/* Topo */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Imóveis</h1>
           <p className="text-sm text-gray-400 mt-0.5">
             {stats.total} total · {stats.publicados} publicados · {stats.ocultos} ocultos
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           {/* Geocodificar todos */}
           <button
             onClick={geocodificarTodos}
@@ -369,12 +369,15 @@ export default function ImoveisPage() {
                 {/* Info principal */}
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">{g.titulo}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">
+                  <p className="text-xs text-gray-400 mt-0.5 truncate">
                     {[g.bairro, g.cidade].filter(Boolean).join(", ")}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5 md:hidden">
+                    {tipoLabel(g.tipo)}{g.area_construida_m2 ? ` · ${g.area_construida_m2} m²` : ""}{g.valor ? ` · R$ ${Number(g.valor).toLocaleString("pt-BR")}` : ""}
                   </p>
                 </div>
 
-                {/* Badges de dados */}
+                {/* Badges de dados — desktop */}
                 <div className="hidden md:flex items-center gap-4 text-xs text-gray-500 shrink-0">
                   <span className="w-20 text-center">{tipoLabel(g.tipo)}</span>
                   <span className="w-20 text-right">{g.area_construida_m2 ? `${g.area_construida_m2} m²` : "—"}</span>

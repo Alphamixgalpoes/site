@@ -187,20 +187,16 @@ export default function ProcessosPage() {
                   {[p.parte_a, p.parte_b].filter(Boolean).join(" → ")}
                   {p.galpao_titulo && ` · ${p.galpao_titulo}`}
                 </p>
+                <p className="text-xs text-gray-300 mt-0.5">
+                  {[
+                    p.valor ? `R$ ${Number(p.valor).toLocaleString("pt-BR")}` : null,
+                    new Date(p.created_at).toLocaleDateString("pt-BR"),
+                  ].filter(Boolean).join(" · ")}
+                </p>
               </div>
-
-              {p.valor && (
-                <span className="hidden md:block text-xs text-gray-400 shrink-0">
-                  R$ {Number(p.valor).toLocaleString("pt-BR")}
-                </span>
-              )}
 
               <span className={`text-xs px-2.5 py-1 font-medium shrink-0 ${statusCls[p.status] ?? "bg-gray-100 text-gray-500"}`}>
                 {statusLabel[p.status] ?? p.status}
-              </span>
-
-              <span className="hidden md:block text-xs text-gray-300 shrink-0">
-                {new Date(p.created_at).toLocaleDateString("pt-BR")}
               </span>
             </Link>
           ))}

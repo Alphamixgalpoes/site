@@ -82,22 +82,15 @@ export default function LeadsPage() {
                     <span className="text-xs text-gray-400">{lead.empresa}</span>
                   )}
                 </div>
-              </div>
-
-              {/* Galpão */}
-              <div className="hidden md:block text-xs text-gray-400 max-w-[200px] truncate shrink-0">
-                {lead.galpao_titulo ?? "—"}
-              </div>
-
-              {/* Data */}
-              <div className="hidden md:block text-xs text-gray-400 shrink-0 w-28 text-right">
-                {new Date(lead.created_at).toLocaleDateString("pt-BR", {
-                  day: "2-digit",
-                  month: "2-digit",
-                  year: "2-digit",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
+                <p className="text-xs text-gray-300 mt-0.5 truncate">
+                  {[
+                    lead.galpao_titulo,
+                    new Date(lead.created_at).toLocaleDateString("pt-BR", {
+                      day: "2-digit", month: "2-digit", year: "2-digit",
+                      hour: "2-digit", minute: "2-digit",
+                    }),
+                  ].filter(Boolean).join(" · ")}
+                </p>
               </div>
 
               {/* Ação */}

@@ -131,9 +131,9 @@ export default function ConsultaPage() {
         </PDFDownloadLink>
       </div>
 
-      <div className="flex gap-8">
+      <div className="flex flex-col md:flex-row gap-6 md:gap-8">
         {/* Painel de filtros */}
-        <aside className="w-64 shrink-0 space-y-6">
+        <aside className="w-full md:w-64 shrink-0 space-y-6">
           <div className="bg-white border border-gray-200 p-5 space-y-5">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Filtros</p>
 
