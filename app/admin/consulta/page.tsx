@@ -29,6 +29,8 @@ type Galpao = {
   potencia_eletrica_kva: number | null;
   vagas_estacionamento: number;
   descricao: string | null;
+  latitude: number | null;
+  longitude: number | null;
   galpao_imagens: { storage_path: string; ordem: number }[];
 };
 
@@ -59,7 +61,7 @@ export default function ConsultaPage() {
         .select(`id, titulo, tipo, valor, cidade, bairro, endereco, publicado,
           area_construida_m2, area_total_m2, pe_direito_m, numero_docas,
           acesso_carreta, sprinklers, guarita, potencia_eletrica_kva,
-          vagas_estacionamento, descricao,
+          vagas_estacionamento, descricao, latitude, longitude,
           galpao_imagens (storage_path, ordem)`)
         .order("created_at", { ascending: false });
       setGalpoes(data ?? []);
