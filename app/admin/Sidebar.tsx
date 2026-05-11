@@ -7,7 +7,8 @@ import { createClient } from "@/lib/supabase-browser";
 const nav = [
   { label: "Imóveis", href: "/admin" },
   { label: "Leads", href: "/admin/leads" },
-  { label: "Documentos", href: "/admin/documentos" },
+  { label: "Processos", href: "/admin/processos" },
+  { label: "Emissões", href: "/admin/emissoes" },
 ];
 
 type Props = { open: boolean; onClose: () => void };
