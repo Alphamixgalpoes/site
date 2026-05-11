@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase-server";
 import Link from "next/link";
+import PublicHeader from "./PublicHeader";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -19,27 +20,7 @@ export default async function Home() {
   return (
     <div className="min-h-screen bg-white text-gray-900 font-sans">
 
-      {/* Header */}
-      <header className="border-b border-gray-200 sticky top-0 bg-white z-50">
-        <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div>
-            <span className="text-lg font-semibold tracking-tight text-gray-900">Petrus Imóveis</span>
-            <span className="ml-3 text-sm text-gray-400 hidden sm:inline">Galpões Industriais</span>
-          </div>
-          <nav className="hidden md:flex items-center gap-8 text-sm text-gray-600">
-            <a href="#imoveis" className="hover:text-gray-900 transition-colors">Imóveis</a>
-            <a href="#servicos" className="hover:text-gray-900 transition-colors">Servicos</a>
-            <a href="#sobre" className="hover:text-gray-900 transition-colors">Sobre</a>
-            <a href="#contato" className="hover:text-gray-900 transition-colors">Contato</a>
-          </nav>
-          <a
-            href="https://wa.me/5511999999999"
-            className="text-sm bg-gray-900 text-white px-4 py-2 hover:bg-gray-700 transition-colors"
-          >
-            Fale Conosco
-          </a>
-        </div>
-      </header>
+      <PublicHeader />
 
       {/* Hero */}
       <section className="bg-gray-950 text-white">
