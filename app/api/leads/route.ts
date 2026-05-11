@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
   if (process.env.RESEND_API_KEY && process.env.RESEND_TO_EMAIL) {
     await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL ?? "Petrus Imóveis <onboarding@resend.dev>",
-      to: process.env.RESEND_TO_EMAIL,
+      to: process.env.RESEND_TO_EMAIL!.split(",").map((e) => e.trim()),
       subject: `Novo lead: ${nome.trim()}`,
       html: `
         <div style="font-family: sans-serif; max-width: 480px; color: #111;">
