@@ -83,7 +83,7 @@ export default async function GalpaoPage({ params }: { params: Promise<{ id: str
 
               <div className="mt-6 space-y-3">
                 <a
-                  href={`https://wa.me/5511995571212?text=Olá, tenho interesse no imóvel: ${encodeURIComponent(g.titulo)}`}
+                  href={`https://wa.me/5511995571212?text=${encodeURIComponent(`Olá, tenho interesse no imóvel abaixo e gostaria de mais informações:\n\n*${g.titulo}*\n${tipoLabel} · ${g.cidade}${g.valor ? `\nR$ ${Number(g.valor).toLocaleString("pt-BR")}` : ""}`)}`}
                   className="block text-center bg-gray-900 text-white px-6 py-3 text-sm font-medium hover:bg-gray-700 transition-colors"
                 >
                   Consultar pelo WhatsApp

@@ -43,7 +43,7 @@ export default function PublicHeader() {
         </nav>
 
         <a
-          href="https://wa.me/5511995571212"
+          href="https://wa.me/5511995571212?text=Olá%2C%20vim%20pelo%20site%20da%20Petrus%20Imóveis%20e%20gostaria%20de%20informações."
           className="text-sm bg-gray-900 text-white px-4 py-2 hover:bg-gray-700 transition-colors"
         >
           Fale Conosco

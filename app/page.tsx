@@ -204,7 +204,7 @@ export default async function Home() {
           </div>
           <div className="flex flex-col justify-center gap-4">
             <a
-              href="https://wa.me/5511995571212"
+              href="https://wa.me/5511995571212?text=Olá%2C%20gostaria%20de%20informações%20sobre%20galpões%20disponíveis%20na%20Petrus%20Imóveis."
               className="block text-center bg-gray-900 text-white px-8 py-4 text-sm font-medium hover:bg-gray-700 transition-colors"
             >
               Conversar pelo WhatsApp
