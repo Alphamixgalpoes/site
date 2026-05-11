@@ -48,6 +48,13 @@ const styles = StyleSheet.create({
 
   pageNum: { fontSize: 7, color: "#9ca3af" },
   semResultados: { textAlign: "center", color: "#9ca3af", marginTop: 40 },
+
+  // Mapa
+  mapaBox: { marginBottom: 24, borderWidth: 1, borderColor: "#e5e7eb" },
+  mapaTitle: { fontSize: 8, fontFamily: "Helvetica-Bold", color: "#374151", textTransform: "uppercase", letterSpacing: 0.8, padding: 10, borderBottomWidth: 1, borderBottomColor: "#e5e7eb" },
+  mapaImg: { width: "100%", height: 250, objectFit: "cover" },
+  mapaLegenda: { flexDirection: "row", gap: 16, padding: 8, backgroundColor: "#f9fafb" },
+  mapaLegendaText: { fontSize: 7, color: "#6b7280" },
 });
 
 type Galpao = {
@@ -68,8 +75,26 @@ type Galpao = {
   potencia_eletrica_kva: number | null;
   vagas_estacionamento: number;
   descricao: string | null;
+  latitude: number | null;
+  longitude: number | null;
   galpao_imagens: { storage_path: string; ordem: number }[];
 };
+
+function buildMapUrl(galpoes: Galpao[]): string | null {
+  const comCoordenadas = galpoes.filter((g) => g.latitude && g.longitude);
+  if (comCoordenadas.length === 0) return null;
+
+  const lats = comCoordenadas.map((g) => g.latitude as number);
+  const lngs = comCoordenadas.map((g) => g.longitude as number);
+  const centerLat = lats.reduce((a, b) => a + b, 0) / lats.length;
+  const centerLng = lngs.reduce((a, b) => a + b, 0) / lngs.length;
+
+  const markers = comCoordenadas
+    .map((g) => `${g.latitude},${g.longitude},ol-marker`)
+    .join("|");
+
+  return `https://staticmap.openstreetmap.de/staticmap.php?center=${centerLat},${centerLng}&zoom=13&size=600x250&markers=${markers}`;
+}
 
 type Filtros = Record<string, string>;
 
@@ -120,6 +145,24 @@ export function PDFRelatorio({
             </View>
           </View>
         )}
+
+        {/* Mapa de localização */}
+        {(() => {
+          const mapUrl = buildMapUrl(galpoes);
+          if (!mapUrl) return null;
+          const comCoordenadas = galpoes.filter((g) => g.latitude && g.longitude).length;
+          return (
+            <View style={styles.mapaBox}>
+              <Text style={styles.mapaTitle}>Localização dos imóveis</Text>
+              <Image src={mapUrl} style={styles.mapaImg} />
+              <View style={styles.mapaLegenda}>
+                <Text style={styles.mapaLegendaText}>
+                  {comCoordenadas} imóvel(is) com localização disponível · © OpenStreetMap contributors
+                </Text>
+              </View>
+            </View>
+          );
+        })()}
 
         {/* Resultados */}
         {galpoes.length === 0 ? (
