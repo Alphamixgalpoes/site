@@ -97,6 +97,27 @@ export default function GalpaoForm({ initial, imagens }: {
       galpaoId = data.id;
     }
 
+    // Geocodificar endereço
+    if (form.endereco || form.cidade) {
+      try {
+        const params = new URLSearchParams({
+          endereco: form.endereco,
+          bairro: form.bairro,
+          cidade: form.cidade,
+          cep: form.cep,
+        });
+        const geoRes = await fetch(`/api/geocode?${params}`);
+        if (geoRes.ok) {
+          const { lat, lng } = await geoRes.json();
+          if (lat && lng) {
+            await supabase.from("galpoes").update({ latitude: lat, longitude: lng }).eq("id", galpaoId);
+          }
+        }
+      } catch {
+        // geocoding optional, ignore errors
+      }
+    }
+
     // Upload imagens novas
     if (files && files.length > 0) {
       for (let i = 0; i < files.length; i++) {

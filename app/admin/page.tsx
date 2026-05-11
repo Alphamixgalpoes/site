@@ -6,6 +6,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase-browser";
 import { PDFRelatorio } from "./consulta/PDFRelatorio";
 
+const MapaGalpoes = dynamic(() => import("./MapaGalpoes"), { ssr: false, loading: () => <div className="h-[520px] flex items-center justify-center text-sm text-gray-400 border border-gray-200 bg-gray-50">Carregando mapa...</div> });
+
 const PDFDownloadLink = dynamic(
   () => import("@react-pdf/renderer").then((m) => m.PDFDownloadLink),
   { ssr: false, loading: () => <button className="bg-gray-200 text-gray-400 px-4 py-2 text-sm cursor-not-allowed">PDF...</button> }
@@ -30,6 +32,8 @@ type Galpao = {
   potencia_eletrica_kva: number | null;
   vagas_estacionamento: number;
   descricao: string | null;
+  latitude: number | null;
+  longitude: number | null;
   galpao_imagens: { storage_path: string; ordem: number }[];
 };
 
@@ -42,6 +46,7 @@ export default function ImoveisPage() {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [maisAberto, setMaisAberto] = useState(false);
   const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+  const [view, setView] = useState<"lista" | "mapa">("lista");
 
   // Filtros
   const [tipo, setTipo] = useState("todos");
@@ -67,7 +72,7 @@ export default function ImoveisPage() {
       .select(`id, titulo, tipo, valor, cidade, bairro, endereco, publicado,
         area_construida_m2, area_total_m2, pe_direito_m, numero_docas,
         acesso_carreta, sprinklers, guarita, potencia_eletrica_kva,
-        vagas_estacionamento, descricao,
+        vagas_estacionamento, descricao, latitude, longitude,
         galpao_imagens (storage_path, ordem)`)
       .order("created_at", { ascending: false });
     setGalpoes(data ?? []);
@@ -153,6 +158,21 @@ export default function ImoveisPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {/* Vista lista / mapa */}
+          <div className="flex border border-gray-200">
+            <button
+              onClick={() => setView("lista")}
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${view === "lista" ? "bg-gray-900 text-white" : "text-gray-500 hover:text-gray-900"}`}
+            >
+              Lista
+            </button>
+            <button
+              onClick={() => setView("mapa")}
+              className={`px-3 py-1.5 text-xs font-medium transition-colors ${view === "mapa" ? "bg-gray-900 text-white" : "text-gray-500 hover:text-gray-900"}`}
+            >
+              Mapa
+            </button>
+          </div>
           <PDFDownloadLink
             document={<PDFRelatorio galpoes={filtrados} filtros={filtrosAtivos} supabaseUrl={supabaseUrl} />}
             fileName={`petrus-imoveis-${new Date().toISOString().slice(0, 10)}.pdf`}
@@ -268,9 +288,15 @@ export default function ImoveisPage() {
         </p>
       )}
 
-      {/* Lista */}
+      {/* Lista / Mapa */}
       {loading ? (
         <div className="text-sm text-gray-400 py-12 text-center">Carregando...</div>
+      ) : view === "mapa" ? (
+        <MapaGalpoes
+          galpoes={filtrados.filter((g): g is typeof g & { latitude: number; longitude: number } =>
+            g.latitude !== null && g.longitude !== null
+          )}
+        />
       ) : filtrados.length === 0 ? (
         <div className="text-sm text-gray-400 py-12 text-center">Nenhum galpão encontrado.</div>
       ) : (
