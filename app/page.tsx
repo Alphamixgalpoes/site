@@ -23,29 +23,29 @@ export default async function Home() {
       <PublicHeader />
 
       {/* Hero */}
-      <section className="bg-gray-950 text-white">
+      <section className="bg-[#2e3092] text-white">
         <div className="max-w-6xl mx-auto px-6 py-28 md:py-40">
-          <p className="text-sm font-medium tracking-widest text-gray-400 uppercase mb-6">
+          <p className="text-sm font-medium tracking-widest text-white/60 uppercase mb-6">
             Alphaville · Barueri · Tambore
           </p>
           <h1 className="text-4xl md:text-6xl font-semibold leading-tight max-w-3xl">
-            Galpoes industriais para venda e locacao
+            Galpões industriais para venda e locação
           </h1>
-          <p className="mt-6 text-lg text-gray-400 max-w-xl leading-relaxed">
-            Atendimento especializado para empresas que buscam espacos logisticos e industriais na regiao metropolitana de Sao Paulo.
+          <p className="mt-6 text-lg text-white/70 max-w-xl leading-relaxed">
+            Atendimento especializado para empresas que buscam espaços logísticos e industriais na região metropolitana de São Paulo.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row gap-4">
             <a
               href="#contato"
-              className="inline-block bg-white text-gray-900 px-8 py-3 text-sm font-medium hover:bg-gray-100 transition-colors"
+              className="inline-block bg-[#ed1c23] text-white px-8 py-3 text-sm font-medium hover:opacity-90 transition-opacity"
             >
               Consultar disponibilidade
             </a>
             <a
               href="#servicos"
-              className="inline-block border border-gray-600 text-gray-300 px-8 py-3 text-sm font-medium hover:border-gray-400 transition-colors"
+              className="inline-block border border-white/40 text-white/80 px-8 py-3 text-sm font-medium hover:border-white transition-colors"
             >
-              Ver servicos
+              Ver serviços
             </a>
           </div>
         </div>
@@ -158,7 +158,7 @@ export default async function Home() {
           </div>
           <div className="bg-gray-100 h-72 md:h-96 flex items-end p-8">
             <div>
-              <p className="text-2xl font-semibold text-gray-900">Petrus Prime Engineering</p>
+              <p className="text-2xl font-semibold text-gray-900">Alphamix Galpões</p>
               <p className="mt-1 text-sm text-gray-500">Alphaville · Barueri · SP</p>
             </div>
           </div>
@@ -166,7 +166,7 @@ export default async function Home() {
       </section>
 
       {/* Regiao */}
-      <section id="regiao" className="py-24 bg-gray-950 text-white">
+      <section id="regiao" className="py-24 bg-[#2e3092] text-white">
         <div className="max-w-6xl mx-auto px-6">
           <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase mb-4">Regiao de Atuacao</p>
           <h2 className="text-3xl font-semibold max-w-xl">
@@ -198,19 +198,19 @@ export default async function Home() {
             </p>
             <div className="mt-8 space-y-4 text-sm text-gray-600">
               <p><span className="font-medium text-gray-900">WhatsApp</span> — (11) 99557-1212</p>
-              <p><span className="font-medium text-gray-900">E-mail</span> — contato@petrusimóveis.com.br</p>
+              <p><span className="font-medium text-gray-900">E-mail</span> — contato@alphamixgalpoes.com.br</p>
               <p><span className="font-medium text-gray-900">CRECI-SP</span> — 000000-F</p>
             </div>
           </div>
           <div className="flex flex-col justify-center gap-4">
             <a
-              href="https://wa.me/5511995571212?text=Olá%2C%20gostaria%20de%20informações%20sobre%20galpões%20disponíveis%20na%20Petrus%20Imóveis."
-              className="block text-center bg-gray-900 text-white px-8 py-4 text-sm font-medium hover:bg-gray-700 transition-colors"
+              href="https://wa.me/5511995571212?text=Olá%2C%20gostaria%20de%20informações%20sobre%20galpões%20disponíveis%20na%20Alphamix%20Galpões."
+              className="block text-center bg-[#ed1c23] text-white px-8 py-4 text-sm font-medium hover:opacity-90 transition-opacity"
             >
               Conversar pelo WhatsApp
             </a>
             <a
-              href="mailto:contato@petrusimoveis.com.br"
+              href="mailto:contato@alphamixgalpoes.com.br"
               className="block text-center border border-gray-300 text-gray-700 px-8 py-4 text-sm font-medium hover:border-gray-500 transition-colors"
             >
               Enviar e-mail
@@ -220,9 +220,9 @@ export default async function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-gray-200 bg-gray-950 text-gray-500">
+      <footer className="border-t border-gray-200 bg-[#2e3092] text-white/60">
         <div className="max-w-6xl mx-auto px-6 py-8 flex flex-col md:flex-row justify-between items-center gap-4 text-sm">
-          <p>Petrus Imoveis — Galpoes Industriais · Alphaville e Barueri</p>
+          <p>Alphamix Galpões — Galpões Industriais · Alphaville e Barueri</p>
           <p>CRECI-SP 000000-F</p>
         </div>
       </footer>

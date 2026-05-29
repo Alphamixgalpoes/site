@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
 
@@ -33,10 +34,19 @@ export default function Sidebar({ open, onClose }: Props) {
         ${open ? "translate-x-0" : "-translate-x-full"}
       `}
     >
-      <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between">
-        <div>
-          <p className="text-sm font-semibold text-gray-900">Petrus Imóveis</p>
-          <p className="text-xs text-gray-400 mt-0.5">Painel do Corretor</p>
+      <div className="px-4 py-4 border-b border-gray-200 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Image
+            src="/alphamix-logo.png"
+            alt="Alphamix Galpões"
+            width={36}
+            height={36}
+            className="object-contain"
+          />
+          <div>
+            <p className="text-xs font-semibold text-[#2e3092]">Alphamix Galpões</p>
+            <p className="text-xs text-gray-400">Painel do Corretor</p>
+          </div>
         </div>
         <button
           onClick={onClose}
@@ -60,7 +70,7 @@ export default function Sidebar({ open, onClose }: Props) {
               onClick={onClose}
               className={`flex items-center px-3 py-2.5 text-sm rounded transition-colors ${
                 active
-                  ? "bg-gray-900 text-white font-medium"
+                  ? "bg-[#2e3092] text-white font-medium"
                   : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
               }`}
             >

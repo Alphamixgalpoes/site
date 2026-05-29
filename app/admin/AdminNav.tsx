@@ -19,7 +19,7 @@ export default function AdminNav() {
       <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-6">
           <Link href="/" className="text-sm font-semibold text-gray-900">
-            Petrus Imóveis
+            Alphamix Galpões
           </Link>
           <span className="text-gray-300">|</span>
           <Link href="/admin" className="text-sm text-gray-600 hover:text-gray-900 transition-colors">

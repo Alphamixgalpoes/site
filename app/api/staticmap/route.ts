@@ -7,7 +7,7 @@ export async function GET(req: NextRequest) {
 
   const res = await fetch(url, {
     headers: {
-      "User-Agent": "PetrusImoveis/1.0 (petrusweb.vercel.app)",
+      "User-Agent": "AlphamixGalpoes/1.0 (petrusweb.vercel.app)",
     },
   });
 

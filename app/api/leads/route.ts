@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
 
   if (process.env.RESEND_API_KEY && process.env.RESEND_TO_EMAIL) {
     await resend.emails.send({
-      from: process.env.RESEND_FROM_EMAIL ?? "Petrus Imóveis <onboarding@resend.dev>",
+      from: process.env.RESEND_FROM_EMAIL ?? "Alphamix Galpões <onboarding@resend.dev>",
       to: process.env.RESEND_TO_EMAIL!.split(",").map((e) => e.trim()),
       subject: `Novo lead: ${nome.trim()}`,
       html: `
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
               Abrir WhatsApp
             </a>
           </div>
-          <p style="margin-top: 24px; font-size: 12px; color: #999;">Petrus Imóveis · petrusweb.vercel.app</p>
+          <p style="margin-top: 24px; font-size: 12px; color: #999;">Alphamix Galpões · petrusweb.vercel.app</p>
         </div>
       `,
     });

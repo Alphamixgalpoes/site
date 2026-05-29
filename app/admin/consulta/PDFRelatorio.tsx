@@ -126,12 +126,12 @@ export function PDFRelatorio({
   const filtrosAtivos = Object.entries(filtros).filter(([, v]) => v && v !== "todos" && v !== "");
 
   return (
-    <Document title="Relatório de Galpões — Petrus Imóveis">
+    <Document title="Relatório de Galpões — Alphamix Galpões">
       <Page size="A4" style={styles.page}>
         {/* Header */}
         <View style={styles.header} fixed>
           <View style={styles.headerLeft}>
-            <Text style={styles.headerTitle}>Petrus Imóveis</Text>
+            <Text style={styles.headerTitle}>Alphamix Galpões</Text>
             <Text style={styles.headerSub}>Galpões Industriais · Alphaville e Barueri</Text>
           </View>
           <View style={styles.headerRight}>
@@ -241,7 +241,7 @@ export function PDFRelatorio({
         {/* Footer */}
         <View style={styles.footer} fixed>
           <Text style={styles.footerText}>
-            Documento emitido por Petrus Imóveis · CRECI-SP 000000-F · Uso restrito · Não reproduzir sem autorização
+            Documento emitido por Alphamix Galpões · CRECI-SP 000000-F · Uso restrito · Não reproduzir sem autorização
           </Text>
           <Text style={styles.pageNum} render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
         </View>

@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Petrus Imóveis — Galpões Industriais em Alphaville e Barueri",
+  title: "Alphamix Galpões — Galpões Industriais em Alphaville e Barueri",
   description: "Especialistas em venda e locação de galpões industriais na região de Alphaville, Barueri e Tamboré. Atendimento direto com corretor especializado.",
 };
 

@@ -69,7 +69,7 @@ export default function DocumentosPage() {
         <p>
           O painel de documentos permitirá gerar contratos e checklists preenchidos automaticamente com os dados
           já cadastrados no sistema — imóvel, partes e condições da negociação. Os documentos serão exportados
-          em PDF no padrão Petrus Imóveis e estarão disponíveis para download e assinatura digital.
+          em PDF no padrão Alphamix Galpões e estarão disponíveis para download e assinatura digital.
         </p>
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 
 const navLinks = [
   { label: "Imóveis", href: "#imoveis" },
@@ -15,9 +16,10 @@ export default function PublicHeader() {
 
   return (
     <header className="border-b border-gray-200 sticky top-0 bg-white z-50">
-      <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          {/* Hamburger — mobile only */}
+      <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
+
+        {/* Esquerda — hamburger mobile + nav desktop */}
+        <div className="flex items-center gap-6">
           <button
             onClick={() => setOpen((v) => !v)}
             className="md:hidden flex flex-col gap-1 p-1 text-gray-600 hover:text-gray-900 transition-colors"
@@ -27,34 +29,37 @@ export default function PublicHeader() {
             <span className="block w-5 h-0.5 bg-current" />
             <span className="block w-5 h-0.5 bg-current" />
           </button>
-          <div>
-            <span className="text-lg font-semibold tracking-tight text-gray-900">Petrus Imóveis</span>
-            <span className="ml-3 text-sm text-gray-400 hidden sm:inline">Galpões Industriais</span>
-          </div>
+
+          <nav className="hidden md:flex items-center gap-8 text-sm text-gray-600">
+            {navLinks.map((l) => (
+              <a key={l.href} href={l.href} className="hover:text-gray-900 transition-colors">
+                {l.label}
+              </a>
+            ))}
+          </nav>
         </div>
 
-        {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-8 text-sm text-gray-600">
-          {navLinks.map((l) => (
-            <a key={l.href} href={l.href} className="hover:text-gray-900 transition-colors">
-              {l.label}
-            </a>
-          ))}
-        </nav>
-
-        <div className="flex items-center gap-3">
+        {/* Direita — ações + logo */}
+        <div className="flex items-center gap-4">
           <Link
             href="/login"
-            className="text-xs border border-gray-300 text-gray-600 px-3 py-1.5 hover:border-gray-900 hover:text-gray-900 transition-colors"
+            className="text-xs border border-[#2e3092] text-[#2e3092] px-3 py-1.5 hover:bg-[#2e3092] hover:text-white transition-colors"
           >
             Área do corretor
           </Link>
           <a
-            href="https://wa.me/5511995571212?text=Olá%2C%20vim%20pelo%20site%20da%20Petrus%20Imóveis%20e%20gostaria%20de%20informações."
-            className="hidden sm:block text-sm bg-gray-900 text-white px-4 py-2 hover:bg-gray-700 transition-colors"
+            href="https://wa.me/5511995571212?text=Olá%2C%20vim%20pelo%20site%20da%20Alphamix%20Galpões%20e%20gostaria%20de%20informações."
+            className="hidden sm:block text-sm bg-[#ed1c23] text-white px-4 py-2 hover:opacity-90 transition-opacity"
           >
             Fale Conosco
           </a>
+          <Image
+            src="/alphamix-logo.png"
+            alt="Alphamix Galpões"
+            width={48}
+            height={48}
+            className="object-contain"
+          />
         </div>
       </div>
 

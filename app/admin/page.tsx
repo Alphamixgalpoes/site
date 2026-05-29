@@ -85,7 +85,7 @@ export default function ImoveisPage() {
                 baseUrl={typeof window !== "undefined" ? window.location.origin : ""}
               />
             }
-            fileName={`petrus-imoveis-${new Date().toISOString().slice(0, 10)}.pdf`}
+            fileName={`alphamix-galpoes-${new Date().toISOString().slice(0, 10)}.pdf`}
           >
             {({ loading: l }) => (
               <button

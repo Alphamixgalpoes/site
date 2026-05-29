@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase-server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import LeadForm from "./LeadForm";
 
 export default async function GalpaoPage({ params }: { params: Promise<{ id: string }> }) {
@@ -43,14 +44,16 @@ export default async function GalpaoPage({ params }: { params: Promise<{ id: str
 
       {/* Header */}
       <header className="border-b border-gray-200 sticky top-0 bg-white z-50">
-        <div className="max-w-6xl mx-auto px-4 md:px-6 py-4 flex items-center justify-between">
-          <Link href="/" className="text-lg font-semibold tracking-tight text-gray-900">Petrus Imóveis</Link>
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between">
           <a
             href="https://wa.me/5511995571212"
-            className="text-sm bg-gray-900 text-white px-4 py-2 hover:bg-gray-700 transition-colors"
+            className="text-sm bg-[#ed1c23] text-white px-4 py-2 hover:opacity-90 transition-opacity"
           >
             Fale Conosco
           </a>
+          <Link href="/">
+            <Image src="/alphamix-logo.png" alt="Alphamix Galpões" width={48} height={48} className="object-contain" />
+          </Link>
         </div>
       </header>
 
@@ -84,12 +87,12 @@ export default async function GalpaoPage({ params }: { params: Promise<{ id: str
               <div className="mt-6 space-y-3">
                 <a
                   href={`https://wa.me/5511995571212?text=${encodeURIComponent(`Olá, tenho interesse no imóvel abaixo e gostaria de mais informações:\n\n*${g.titulo}*\n${tipoLabel} · ${g.cidade}${g.valor ? `\nR$ ${Number(g.valor).toLocaleString("pt-BR")}` : ""}`)}`}
-                  className="block text-center bg-gray-900 text-white px-6 py-3 text-sm font-medium hover:bg-gray-700 transition-colors"
+                  className="block text-center bg-[#ed1c23] text-white px-6 py-3 text-sm font-medium hover:opacity-90 transition-opacity"
                 >
                   Consultar pelo WhatsApp
                 </a>
                 <a
-                  href="mailto:contato@petrusimoveis.com.br"
+                  href="mailto:contato@alphamixgalpoes.com.br"
                   className="block text-center border border-gray-300 text-gray-700 px-6 py-3 text-sm font-medium hover:border-gray-500 transition-colors"
                 >
                   Enviar e-mail
@@ -163,9 +166,9 @@ export default async function GalpaoPage({ params }: { params: Promise<{ id: str
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-gray-200 bg-gray-950 text-gray-500 mt-20">
+      <footer className="border-t border-gray-200 bg-[#2e3092] text-white/60 mt-20">
         <div className="max-w-6xl mx-auto px-6 py-8 flex flex-col md:flex-row justify-between items-center gap-4 text-sm">
-          <p>Petrus Imóveis — Galpões Industriais · Alphaville e Barueri</p>
+          <p>Alphamix Galpões — Galpões Industriais · Alphaville e Barueri</p>
           <p>CRECI-SP 000000-F</p>
         </div>
       </footer>
