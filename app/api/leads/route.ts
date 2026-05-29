@@ -7,8 +7,6 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
 export async function POST(req: NextRequest) {
   const { nome, telefone, empresa, galpao_id, galpao_titulo } = await req.json();
 
@@ -30,6 +28,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (process.env.RESEND_API_KEY && process.env.RESEND_TO_EMAIL) {
+    const resend = new Resend(process.env.RESEND_API_KEY);
     await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL ?? "Alphamix Galpões <onboarding@resend.dev>",
       to: process.env.RESEND_TO_EMAIL!.split(",").map((e) => e.trim()),
