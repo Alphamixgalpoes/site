@@ -110,7 +110,7 @@ export default function CategoriaEditor({ categoria, onUpdate, onDelete, onItens
         <button
           {...attributes}
           {...listeners}
-          className="text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing shrink-0 touch-none"
+          className="text-gray-400 hover:text-gray-700 cursor-grab active:cursor-grabbing shrink-0 touch-none"
           tabIndex={-1}
         >
           ⠿
@@ -136,7 +136,7 @@ export default function CategoriaEditor({ categoria, onUpdate, onDelete, onItens
 
         <button
           onClick={deletarCategoria}
-          className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all text-xs shrink-0"
+          className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all text-xs shrink-0"
           title="Remover categoria"
         >
           ✕
@@ -185,7 +185,7 @@ export default function CategoriaEditor({ categoria, onUpdate, onDelete, onItens
         ) : (
           <button
             onClick={() => setMostrarForm(true)}
-            className="text-xs text-gray-300 hover:text-gray-600 transition-colors"
+            className="text-xs text-gray-500 hover:text-gray-900 transition-colors"
           >
             + Novo item
           </button>
