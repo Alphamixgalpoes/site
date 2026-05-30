@@ -1,8 +1,68 @@
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase-server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import LeadForm from "./LeadForm";
+
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.alphamixgalpoes.com.br";
+
+export async function generateMetadata(
+  { params }: { params: Promise<{ id: string }> }
+): Promise<Metadata> {
+  const { id } = await params;
+  const supabase = await createClient();
+
+  const { data: g } = await supabase
+    .from("galpoes")
+    .select("id, titulo, categoria, tipo, cidade, bairro, area_construida_m2, area_total_m2, valor, descricao, galpao_imagens (storage_path, ordem)")
+    .eq("id", id)
+    .eq("publicado", true)
+    .single();
+
+  if (!g) return {};
+
+  const tipoLabel = g.tipo === "venda" ? "Venda" : g.tipo === "locacao" ? "Locação" : "Venda/Locação";
+  const categoriaLabel = g.categoria === "loja" ? "Loja" : g.categoria === "terreno" ? "Terreno" : "Galpão";
+  const localLabel = g.bairro ? `${g.bairro}, ${g.cidade}` : g.cidade;
+  const areaLabel = g.area_construida_m2 ? ` · ${g.area_construida_m2} m²` : "";
+
+  const title = `${categoriaLabel} para ${tipoLabel} — ${localLabel}${areaLabel}`;
+  const description = g.descricao
+    ? g.descricao.slice(0, 155)
+    : `${categoriaLabel} para ${tipoLabel.toLowerCase()} em ${localLabel}. ${g.area_construida_m2 ? `Área construída: ${g.area_construida_m2} m².` : ""} Atendimento direto com corretor especializado — Alphamix Galpões.`;
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const imagens = (g.galpao_imagens ?? []).sort(
+    (a: { ordem: number }, b: { ordem: number }) => a.ordem - b.ordem
+  );
+  const ogImage = imagens[0]
+    ? `${supabaseUrl}/storage/v1/object/public/galpoes/${imagens[0].storage_path}`
+    : `${siteUrl}/og-image.png`;
+
+  const pageUrl = `${siteUrl}/galpoes/${id}`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: pageUrl },
+    openGraph: {
+      type: "website",
+      locale: "pt_BR",
+      url: pageUrl,
+      siteName: "Alphamix Galpões",
+      title,
+      description,
+      images: [{ url: ogImage, width: 1200, height: 630, alt: title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImage],
+    },
+  };
+}
 
 export default async function GalpaoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -20,7 +80,6 @@ export default async function GalpaoPage({ params }: { params: Promise<{ id: str
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const imagens = ([...(g.galpao_imagens ?? [])]).sort((a: { ordem: number }, b: { ordem: number }) => a.ordem - b.ordem);
   const tipoLabel = g.tipo === "venda" ? "Venda" : g.tipo === "locacao" ? "Locação" : "Venda / Locação";
-
   const categoriaLabel = g.categoria === "loja" ? "Loja" : g.categoria === "terreno" ? "Terreno" : "Galpão";
   const usoTerrenoLabel = g.uso_terreno === "galpao" ? "Para galpão" : g.uso_terreno === "loja" ? "Para loja" : g.uso_terreno === "ambos" ? "Galpão e loja" : null;
 
@@ -44,8 +103,50 @@ export default async function GalpaoPage({ params }: { params: Promise<{ id: str
     { label: "Condomínio", value: g.condominio ? `Sim${g.valor_condominio ? ` — R$ ${Number(g.valor_condominio).toLocaleString("pt-BR")}/mês` : ""}` : null },
   ].filter((i) => i.value);
 
+  // JSON-LD para a página do imóvel
+  const primeiraImagem = imagens[0]
+    ? `${supabaseUrl}/storage/v1/object/public/galpoes/${imagens[0].storage_path}`
+    : null;
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "RealEstateListing",
+    name: g.titulo,
+    description: g.descricao ?? undefined,
+    url: `${siteUrl}/galpoes/${id}`,
+    ...(primeiraImagem && { image: primeiraImagem }),
+    ...(g.valor && {
+      offers: {
+        "@type": "Offer",
+        price: g.valor,
+        priceCurrency: "BRL",
+        priceSpecification: g.tipo === "locacao"
+          ? { "@type": "UnitPriceSpecification", billingDuration: "P1M" }
+          : undefined,
+      },
+    }),
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: g.cidade,
+      streetAddress: g.bairro ?? undefined,
+      addressRegion: "SP",
+      addressCountry: "BR",
+    },
+    ...(g.area_construida_m2 && {
+      floorSize: {
+        "@type": "QuantitativeValue",
+        value: g.area_construida_m2,
+        unitCode: "MTK",
+      },
+    }),
+  };
+
   return (
     <div className="min-h-screen bg-white text-gray-900">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
 
       {/* Header */}
       <header className="border-b border-gray-200 sticky top-0 bg-white z-50">

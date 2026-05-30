@@ -11,6 +11,7 @@ const nav = [
   { label: "Leads", href: "/admin/leads" },
   { label: "Processos", href: "/admin/processos" },
   { label: "Emissões", href: "/admin/emissoes" },
+  { label: "SEO", href: "/admin/seo" },
 ];
 
 type Props = { open: boolean; onClose: () => void };
