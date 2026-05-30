@@ -17,7 +17,7 @@ type Props = {
 
 export default function ProcessoTipoEditor({ tipo, onUpdate, onDelete }: Props) {
   const [categorias, setCategorias] = useState<CategoriaTemplate[]>(tipo.categorias);
-  const [aberto, setAberto] = useState(false);
+  const [aberto, setAberto] = useState(true);
   const [editandoLabel, setEditandoLabel] = useState(false);
   const [label, setLabel] = useState(tipo.label);
   const [novaCategLabel, setNovaCategLabel] = useState("");
@@ -45,6 +45,16 @@ export default function ProcessoTipoEditor({ tipo, onUpdate, onDelete }: Props) 
     await supabase.from("processo_tipos").update({ label: val }).eq("id", tipo.id);
     onUpdate(tipo.id, { label: val });
     setEditandoLabel(false);
+  }
+
+  async function deletarTipo() {
+    const totalItens = categorias.reduce((acc, c) => acc + c.itens.length, 0);
+    if (!window.confirm(
+      `Excluir o tipo "${tipo.label}"?\n\nIsso vai remover ${categorias.length} categorias e ${totalItens} itens do template.\nProcessos já criados com este tipo NÃO serão afetados.\n\nEsta ação não pode ser desfeita.`
+    )) return;
+    const supabase = createClient();
+    await supabase.from("processo_tipos").delete().eq("id", tipo.id);
+    onDelete(tipo.id);
   }
 
   async function toggleAtivo() {
@@ -102,11 +112,11 @@ export default function ProcessoTipoEditor({ tipo, onUpdate, onDelete }: Props) 
   return (
     <div ref={setNodeRef} style={style} className="border border-gray-200 bg-white">
       {/* Header do tipo */}
-      <div className="flex items-center gap-3 px-4 py-3 group">
+      <div className="flex items-center gap-3 px-4 py-3 group" title="Clique no título para editar">
         <button
           {...attributes}
           {...listeners}
-          className="text-gray-200 hover:text-gray-400 cursor-grab active:cursor-grabbing shrink-0 touch-none"
+          className="text-gray-400 hover:text-gray-700 cursor-grab active:cursor-grabbing shrink-0 touch-none"
           tabIndex={-1}
         >
           ⠿
@@ -131,7 +141,7 @@ export default function ProcessoTipoEditor({ tipo, onUpdate, onDelete }: Props) 
           </p>
         )}
 
-        <span className="text-xs text-gray-300 shrink-0">{totalItens} itens</span>
+        <span className="text-xs text-gray-500 shrink-0">{totalItens} itens</span>
 
         <button
           onClick={toggleAtivo}
@@ -141,6 +151,14 @@ export default function ProcessoTipoEditor({ tipo, onUpdate, onDelete }: Props) 
           title={tipo.ativo ? "Desativar tipo" : "Ativar tipo"}
         >
           {tipo.ativo ? "ativo" : "inativo"}
+        </button>
+
+        <button
+          onClick={deletarTipo}
+          className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all text-xs shrink-0"
+          title="Excluir tipo"
+        >
+          ✕
         </button>
 
         <button
@@ -196,7 +214,7 @@ export default function ProcessoTipoEditor({ tipo, onUpdate, onDelete }: Props) 
             ) : (
               <button
                 onClick={() => setMostrarFormCateg(true)}
-                className="text-xs text-gray-300 hover:text-gray-600 transition-colors"
+                className="text-xs text-gray-500 hover:text-gray-900 transition-colors"
               >
                 + Nova categoria
               </button>

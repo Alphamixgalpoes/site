@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase-browser";
-import { getItensPadrao } from "./itens-padrao";
 
 type Processo = {
   id: string;
@@ -124,8 +123,8 @@ export default function ProcessosPage() {
       .eq("slug", tipo)
       .single();
 
-    if (templateTipo?.processo_tipo_categorias?.length > 0) {
-      const categorias = (templateTipo.processo_tipo_categorias as any[])
+    if ((templateTipo?.processo_tipo_categorias?.length ?? 0) > 0) {
+      const categorias = (templateTipo!.processo_tipo_categorias as any[])
         .sort((a, b) => a.ordem - b.ordem);
 
       // Insere categorias do processo
@@ -148,18 +147,6 @@ export default function ProcessosPage() {
           ordem: item.ordem,
         }))
       );
-      if (itens.length > 0) {
-        await supabase.from("processo_itens").insert(itens);
-      }
-    } else {
-      // Fallback: usa itens-padrao.ts
-      const itens = getItensPadrao(tipo).map((item) => ({
-        processo_id: proc.id,
-        categoria: item.categoria,
-        titulo: item.titulo,
-        descricao: item.descricao ?? null,
-        ordem: item.ordem,
-      }));
       if (itens.length > 0) {
         await supabase.from("processo_itens").insert(itens);
       }

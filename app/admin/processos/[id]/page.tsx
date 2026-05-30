@@ -92,7 +92,7 @@ function ItemRow({
       <button
         {...attributes}
         {...listeners}
-        className="mt-0.5 text-gray-200 hover:text-gray-400 cursor-grab active:cursor-grabbing shrink-0 touch-none"
+        className="mt-0.5 text-gray-400 hover:text-gray-700 cursor-grab active:cursor-grabbing shrink-0 touch-none"
         tabIndex={-1}
       >
         ⠿
@@ -127,7 +127,7 @@ function ItemRow({
                 </a>
               )}
               <button onClick={() => onRemoverArquivo(item)}
-                className="text-xs text-gray-300 hover:text-red-400 transition-colors" title="Remover arquivo">
+                className="text-xs text-gray-400 hover:text-red-500 transition-colors" title="Remover arquivo">
                 ✕
               </button>
             </div>
@@ -137,7 +137,7 @@ function ItemRow({
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) onUpload(item, f); e.target.value = ""; }}
               />
               <button onClick={() => fileRef.current?.click()} disabled={uploading}
-                className="text-xs text-gray-300 hover:text-gray-600 transition-colors disabled:opacity-40">
+                className="text-xs text-gray-500 hover:text-gray-900 transition-colors disabled:opacity-40">
                 {uploading ? "Enviando..." : "+ Anexar"}
               </button>
             </>
@@ -146,7 +146,7 @@ function ItemRow({
       </div>
 
       <button onClick={() => onRemove(item.id)}
-        className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all text-xs shrink-0 mt-0.5">
+        className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all text-xs shrink-0 mt-0.5">
         ✕
       </button>
     </div>
@@ -248,6 +248,7 @@ export default function ProcessoDetalhePage() {
 
   async function removerItem(itemId: string) {
     const item = itens.find((i) => i.id === itemId);
+    if (!window.confirm(`Excluir "${item?.titulo}"?`)) return;
     if (item?.arquivo_path) {
       const supabase = createClient();
       await supabase.storage.from("processos").remove([item.arquivo_path]);
@@ -402,7 +403,7 @@ export default function ProcessoDetalhePage() {
                           />
                         ))}
                         {itensCat.length === 0 && (
-                          <div className="px-4 py-3 text-xs text-gray-300">Nenhum item nesta categoria.</div>
+                          <div className="px-4 py-3 text-xs text-gray-400">Nenhum item nesta categoria.</div>
                         )}
                       </div>
                     </SortableContext>
@@ -465,7 +466,7 @@ function CategoriaDragRow({ id, label, children }: { id: string; label: string; 
     <div ref={setNodeRef} style={style}>
       <div className="flex items-center gap-2 mb-3">
         <button {...attributes} {...listeners}
-          className="text-gray-200 hover:text-gray-400 cursor-grab active:cursor-grabbing touch-none"
+          className="text-gray-400 hover:text-gray-700 cursor-grab active:cursor-grabbing touch-none"
           tabIndex={-1}>
           ⠿
         </button>

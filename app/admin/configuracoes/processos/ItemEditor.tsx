@@ -46,6 +46,7 @@ export default function ItemEditor({ item, onUpdate, onDelete }: Props) {
   }
 
   async function deletar() {
+    if (!window.confirm(`Excluir o item "${item.titulo}"?`)) return;
     const supabase = createClient();
     await supabase.from("processo_tipo_itens").delete().eq("id", item.id);
     onDelete(item.id);
@@ -61,7 +62,7 @@ export default function ItemEditor({ item, onUpdate, onDelete }: Props) {
       <button
         {...attributes}
         {...listeners}
-        className="mt-0.5 text-gray-200 hover:text-gray-400 cursor-grab active:cursor-grabbing shrink-0 touch-none"
+        className="mt-0.5 text-gray-400 hover:text-gray-700 cursor-grab active:cursor-grabbing shrink-0 touch-none"
         tabIndex={-1}
       >
         ⠿
@@ -101,14 +102,14 @@ export default function ItemEditor({ item, onUpdate, onDelete }: Props) {
             className="text-xs text-gray-400 cursor-text hover:text-gray-500 transition-colors min-h-[1rem]"
             onClick={() => setEditandoDesc(true)}
           >
-            {item.descricao ?? <span className="italic opacity-40">+ descrição</span>}
+            {item.descricao ?? <span className="italic text-gray-300">+ descrição</span>}
           </p>
         )}
       </div>
 
       <button
         onClick={deletar}
-        className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all text-xs shrink-0 mt-0.5"
+        className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all text-xs shrink-0 mt-0.5"
         title="Remover item"
       >
         ✕
