@@ -53,7 +53,7 @@ export default function LeadForm({ galpaoId, galpaoTitulo }: Props) {
     );
   }
 
-  const inp = "w-full border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-gray-900 bg-white placeholder:text-gray-300";
+  const inp = "w-full border border-gray-200 px-3 py-2 text-sm text-gray-900 rounded-sm focus:outline-none focus:border-[#2e3092] bg-white placeholder:text-gray-300 transition-colors";
 
   return (
     <div className="mt-6 pt-6 border-t border-gray-200">
@@ -86,7 +86,7 @@ export default function LeadForm({ galpaoId, galpaoTitulo }: Props) {
         <button
           type="submit"
           disabled={loading}
-          className="w-full border border-gray-900 text-gray-900 px-6 py-2.5 text-sm font-medium hover:bg-gray-900 hover:text-white transition-colors disabled:opacity-40"
+          className="w-full bg-[#2e3092] text-white px-6 py-2.5 text-sm font-bold rounded-sm hover:bg-[#252880] transition-colors disabled:opacity-40"
         >
           {loading ? "Enviando..." : "Enviar"}
         </button>
