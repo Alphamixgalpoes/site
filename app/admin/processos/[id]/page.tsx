@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase-browser";
@@ -23,6 +23,9 @@ type Item = {
   descricao: string | null;
   feito: boolean;
   ordem: number;
+  arquivo_path: string | null;
+  arquivo_nome: string | null;
+  arquivo_tipo: string | null;
 };
 
 const categorias = [
@@ -46,12 +49,18 @@ const tipoLabel: Record<string, string> = {
 
 const inp = "border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-gray-900 bg-white w-full placeholder:text-gray-300";
 
+const ACCEPTED = ".pdf,.png,.jpg,.jpeg";
+const MAX_MB = 10;
+
 export default function ProcessoDetalhePage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
   const [processo, setProcesso] = useState<Processo | null>(null);
   const [itens, setItens] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
+  const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
+  const [uploading, setUploading] = useState<Record<string, boolean>>({});
+  const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   // novo item
   const [novoTitulo, setNovoTitulo] = useState("");
@@ -68,8 +77,26 @@ export default function ProcessoDetalhePage() {
       supabase.from("processo_itens").select("*").eq("processo_id", id).order("ordem"),
     ]);
     setProcesso(proc);
-    setItens(its ?? []);
+    const items = its ?? [];
+    setItens(items);
     setLoading(false);
+    await loadSignedUrls(items);
+  }
+
+  async function loadSignedUrls(items: Item[]) {
+    const comArquivo = items.filter((i) => i.arquivo_path);
+    if (comArquivo.length === 0) return;
+    const supabase = createClient();
+    const urls: Record<string, string> = {};
+    await Promise.all(
+      comArquivo.map(async (item) => {
+        const { data } = await supabase.storage
+          .from("processos")
+          .createSignedUrl(item.arquivo_path!, 3600);
+        if (data?.signedUrl) urls[item.id] = data.signedUrl;
+      })
+    );
+    setSignedUrls(urls);
   }
 
   async function toggleFeito(item: Item) {
@@ -101,9 +128,84 @@ export default function ProcessoDetalhePage() {
   }
 
   async function removerItem(itemId: string) {
+    const item = itens.find((i) => i.id === itemId);
+    if (item?.arquivo_path) {
+      const supabase = createClient();
+      await supabase.storage.from("processos").remove([item.arquivo_path]);
+    }
     setItens((prev) => prev.filter((i) => i.id !== itemId));
     const supabase = createClient();
     await supabase.from("processo_itens").delete().eq("id", itemId);
+  }
+
+  async function handleUpload(item: Item, file: File) {
+    if (file.size > MAX_MB * 1024 * 1024) {
+      alert(`Arquivo muito grande. Máximo: ${MAX_MB}MB`);
+      return;
+    }
+    setUploading((prev) => ({ ...prev, [item.id]: true }));
+    const supabase = createClient();
+
+    // Remove arquivo anterior se existir
+    if (item.arquivo_path) {
+      await supabase.storage.from("processos").remove([item.arquivo_path]);
+    }
+
+    const ext = file.name.split(".").pop()?.toLowerCase() ?? "bin";
+    const path = `${id}/${item.id}/${Date.now()}.${ext}`;
+
+    const { error: uploadError } = await supabase.storage
+      .from("processos")
+      .upload(path, file, { upsert: true });
+
+    if (uploadError) {
+      alert("Erro ao fazer upload. Tente novamente.");
+      setUploading((prev) => ({ ...prev, [item.id]: false }));
+      return;
+    }
+
+    const tipo = ext === "pdf" ? "pdf" : ["png", "jpg", "jpeg"].includes(ext) ? "imagem" : ext;
+
+    await supabase.from("processo_itens").update({
+      arquivo_path: path,
+      arquivo_nome: file.name,
+      arquivo_tipo: tipo,
+      feito: true,
+    }).eq("id", item.id);
+
+    // Gerar signed URL para o novo arquivo
+    const { data: signed } = await supabase.storage
+      .from("processos")
+      .createSignedUrl(path, 3600);
+
+    setItens((prev) => prev.map((i) =>
+      i.id === item.id
+        ? { ...i, arquivo_path: path, arquivo_nome: file.name, arquivo_tipo: tipo, feito: true }
+        : i
+    ));
+    if (signed?.signedUrl) {
+      setSignedUrls((prev) => ({ ...prev, [item.id]: signed.signedUrl }));
+    }
+    setUploading((prev) => ({ ...prev, [item.id]: false }));
+  }
+
+  async function handleRemoverArquivo(item: Item) {
+    if (!item.arquivo_path) return;
+    const supabase = createClient();
+    await supabase.storage.from("processos").remove([item.arquivo_path]);
+    await supabase.from("processo_itens").update({
+      arquivo_path: null,
+      arquivo_nome: null,
+      arquivo_tipo: null,
+    }).eq("id", item.id);
+    setItens((prev) => prev.map((i) =>
+      i.id === item.id ? { ...i, arquivo_path: null, arquivo_nome: null, arquivo_tipo: null } : i
+    ));
+    setSignedUrls((prev) => {
+      const next = { ...prev };
+      delete next[item.id];
+      return next;
+    });
   }
 
   if (loading) return <div className="text-sm text-gray-400 py-12 text-center">Carregando...</div>;
@@ -187,12 +289,64 @@ export default function ProcessoDetalhePage() {
                   >
                     {item.feito && <span className="text-white text-xs leading-none">✓</span>}
                   </button>
+
                   <div className={`flex-1 min-w-0 ${item.feito ? "opacity-40" : ""}`}>
                     <p className={`text-sm text-gray-900 ${item.feito ? "line-through" : ""}`}>{item.titulo}</p>
                     {item.descricao && (
                       <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">{item.descricao}</p>
                     )}
+
+                    {/* Zona de arquivo */}
+                    <div className="mt-2">
+                      {item.arquivo_nome ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-gray-400 bg-gray-50 border border-gray-200 px-2 py-0.5 truncate max-w-[200px]">
+                            {item.arquivo_tipo === "pdf" ? "PDF" : "IMG"} · {item.arquivo_nome}
+                          </span>
+                          {signedUrls[item.id] && (
+                            <a
+                              href={signedUrls[item.id]}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-gray-400 hover:text-gray-900 transition-colors"
+                              title="Abrir arquivo"
+                            >
+                              ↗
+                            </a>
+                          )}
+                          <button
+                            onClick={() => handleRemoverArquivo(item)}
+                            className="text-xs text-gray-300 hover:text-red-400 transition-colors"
+                            title="Remover arquivo"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          <input
+                            ref={(el) => { fileInputRefs.current[item.id] = el; }}
+                            type="file"
+                            accept={ACCEPTED}
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) handleUpload(item, file);
+                              e.target.value = "";
+                            }}
+                          />
+                          <button
+                            onClick={() => fileInputRefs.current[item.id]?.click()}
+                            disabled={uploading[item.id]}
+                            className="text-xs text-gray-300 hover:text-gray-600 transition-colors disabled:opacity-40"
+                          >
+                            {uploading[item.id] ? "Enviando..." : "+ Anexar"}
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
+
                   <button
                     onClick={() => removerItem(item.id)}
                     className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all text-xs shrink-0 mt-0.5"
