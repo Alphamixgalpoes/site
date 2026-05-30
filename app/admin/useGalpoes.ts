@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase-browser";
+import type { ConfigCampo } from "@/lib/visibilidade";
 
 export type Galpao = {
   id: string;
@@ -13,9 +14,11 @@ export type Galpao = {
   cidade: string;
   bairro: string | null;
   endereco: string | null;
+  cep: string | null;
   publicado: boolean;
   area_construida_m2: number | null;
   area_total_m2: number | null;
+  area_piso_m2: number | null;
   pe_direito_m: number | null;
   numero_docas: number;
   acesso_carreta: boolean;
@@ -23,14 +26,19 @@ export type Galpao = {
   guarita: boolean;
   potencia_eletrica_kva: number | null;
   vagas_estacionamento: number;
+  condominio: boolean;
+  valor_condominio: number | null;
   descricao: string | null;
+  observacoes: string | null;
+  campos_visibilidade: Record<string, { card: boolean; ficha: boolean }>;
   latitude: number | null;
   longitude: number | null;
-  galpao_imagens: { storage_path: string; ordem: number }[];
+  galpao_imagens: { id: string; storage_path: string; ordem: number }[];
 };
 
 export function useGalpoes() {
   const [galpoes, setGalpoes] = useState<Galpao[]>([]);
+  const [configCampos, setConfigCampos] = useState<ConfigCampo[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [geocodingProgress, setGeocodingProgress] = useState<string | null>(null);
@@ -53,15 +61,20 @@ export function useGalpoes() {
 
   async function load() {
     const supabase = createClient();
-    const { data } = await supabase
-      .from("galpoes")
-      .select(`id, titulo, tipo, categoria, uso_terreno, valor, cidade, bairro, endereco, publicado,
-        area_construida_m2, area_total_m2, pe_direito_m, numero_docas,
-        acesso_carreta, sprinklers, guarita, potencia_eletrica_kva,
-        vagas_estacionamento, descricao, latitude, longitude,
-        galpao_imagens (storage_path, ordem)`)
-      .order("created_at", { ascending: false });
+    const [{ data }, { data: cfg }] = await Promise.all([
+      supabase
+        .from("galpoes")
+        .select(`id, titulo, tipo, categoria, uso_terreno, valor, cidade, bairro, endereco, cep, publicado,
+          area_construida_m2, area_total_m2, area_piso_m2, pe_direito_m, numero_docas,
+          acesso_carreta, sprinklers, guarita, potencia_eletrica_kva,
+          vagas_estacionamento, condominio, valor_condominio, descricao, observacoes,
+          campos_visibilidade, latitude, longitude,
+          galpao_imagens (id, storage_path, ordem)`)
+        .order("created_at", { ascending: false }),
+      supabase.from("config_campos").select("*").order("label"),
+    ]);
     setGalpoes(data ?? []);
+    setConfigCampos((cfg ?? []) as ConfigCampo[]);
     setLoading(false);
   }
 
@@ -171,7 +184,7 @@ export function useGalpoes() {
   }
 
   return {
-    galpoes, loading, deletingId, setDeletingId, geocodingProgress,
+    galpoes, configCampos, loading, deletingId, setDeletingId, geocodingProgress,
     filtroCategoria, setFiltroCategoria,
     tipo, setTipo, cidade, setCidade, cidades,
     areaMin, setAreaMin, areaMax, setAreaMax,
