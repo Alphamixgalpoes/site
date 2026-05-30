@@ -18,10 +18,10 @@ type Processo = {
   created_at: string;
 };
 
-const tipoLabel: Record<string, string> = {
-  venda: "Venda",
-  locacao: "Locação",
-  regularizacao: "Regularização",
+type TipoDisponivel = {
+  id: string;
+  slug: string;
+  label: string;
 };
 
 const statusLabel: Record<string, string> = {
@@ -36,6 +36,7 @@ const statusCls: Record<string, string> = {
   pausado: "bg-gray-100 text-gray-500",
 };
 
+// Cores fixas para os 3 tipos originais; novos tipos usam cor padrão
 const tipoCls: Record<string, string> = {
   venda: "bg-gray-900 text-white",
   locacao: "bg-gray-700 text-white",
@@ -47,6 +48,7 @@ const inp = "border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:outlin
 
 export default function ProcessosPage() {
   const [processos, setProcessos] = useState<Processo[]>([]);
+  const [tiposDisponiveis, setTiposDisponiveis] = useState<TipoDisponivel[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -65,13 +67,29 @@ export default function ProcessosPage() {
 
   async function load() {
     const supabase = createClient();
-    const { data } = await supabase
-      .from("processos")
-      .select("*")
-      .order("created_at", { ascending: false });
-    setProcessos(data ?? []);
+    const [{ data: procs }, { data: tipos }] = await Promise.all([
+      supabase.from("processos").select("*").order("created_at", { ascending: false }),
+      supabase.from("processo_tipos").select("id, slug, label").eq("ativo", true).order("ordem"),
+    ]);
+    setProcessos(procs ?? []);
+    // Fallback: se a tabela ainda não existir, usa os 3 hardcoded
+    if (tipos && tipos.length > 0) {
+      setTiposDisponiveis(tipos);
+      setTipo(tipos[0].slug);
+    } else {
+      setTiposDisponiveis([
+        { id: "venda", slug: "venda", label: "Venda" },
+        { id: "locacao", slug: "locacao", label: "Locação" },
+        { id: "regularizacao", slug: "regularizacao", label: "Regularização" },
+      ]);
+    }
     setLoading(false);
   }
+
+  // Mapa slug -> label para exibição na lista
+  const tipoLabelMap: Record<string, string> = Object.fromEntries(
+    tiposDisponiveis.map((t) => [t.slug, t.label])
+  );
 
   async function criar() {
     if (!titulo.trim()) return;
@@ -93,16 +111,58 @@ export default function ProcessosPage() {
 
     if (error || !proc) { setSaving(false); return; }
 
-    const itens = getItensPadrao(tipo).map((item) => ({
-      processo_id: proc.id,
-      categoria: item.categoria,
-      titulo: item.titulo,
-      descricao: item.descricao ?? null,
-      ordem: item.ordem,
-    }));
+    // Tenta usar template do banco
+    const { data: templateTipo } = await supabase
+      .from("processo_tipos")
+      .select(`
+        id,
+        processo_tipo_categorias (
+          id, slug, label, ordem,
+          processo_tipo_itens ( titulo, descricao, ordem )
+        )
+      `)
+      .eq("slug", tipo)
+      .single();
 
-    if (itens.length > 0) {
-      await supabase.from("processo_itens").insert(itens);
+    if (templateTipo?.processo_tipo_categorias?.length > 0) {
+      const categorias = (templateTipo.processo_tipo_categorias as any[])
+        .sort((a, b) => a.ordem - b.ordem);
+
+      // Insere categorias do processo
+      await supabase.from("processo_categorias").insert(
+        categorias.map((c) => ({
+          processo_id: proc.id,
+          slug: c.slug,
+          label: c.label,
+          ordem: c.ordem,
+        }))
+      );
+
+      // Insere itens do processo
+      const itens = categorias.flatMap((c: any) =>
+        (c.processo_tipo_itens ?? []).map((item: any) => ({
+          processo_id: proc.id,
+          categoria: c.slug,
+          titulo: item.titulo,
+          descricao: item.descricao ?? null,
+          ordem: item.ordem,
+        }))
+      );
+      if (itens.length > 0) {
+        await supabase.from("processo_itens").insert(itens);
+      }
+    } else {
+      // Fallback: usa itens-padrao.ts
+      const itens = getItensPadrao(tipo).map((item) => ({
+        processo_id: proc.id,
+        categoria: item.categoria,
+        titulo: item.titulo,
+        descricao: item.descricao ?? null,
+        ordem: item.ordem,
+      }));
+      if (itens.length > 0) {
+        await supabase.from("processo_itens").insert(itens);
+      }
     }
 
     setSaving(false);
@@ -112,7 +172,8 @@ export default function ProcessosPage() {
   }
 
   function resetForm() {
-    setTitulo(""); setTipo("venda"); setParteA(""); setParteB(""); setValor(""); setNotas("");
+    const primeiroTipo = tiposDisponiveis[0]?.slug ?? "venda";
+    setTitulo(""); setTipo(primeiroTipo); setParteA(""); setParteB(""); setValor(""); setNotas("");
   }
 
   const filtrados = processos.filter((p) => {
@@ -126,6 +187,10 @@ export default function ProcessosPage() {
     concluido: processos.filter((p) => p.status === "concluido").length,
     pausado: processos.filter((p) => p.status === "pausado").length,
   };
+
+  // Labels de partes dependendo do tipo selecionado
+  const labelParteA = tipo === "locacao" ? "Locador" : "Vendedor / Proprietário";
+  const labelParteB = tipo === "locacao" ? "Locatário" : tipo === "regularizacao" ? "Responsável" : "Comprador";
 
   return (
     <div className="space-y-5">
@@ -150,9 +215,9 @@ export default function ProcessosPage() {
       <div className="flex flex-wrap gap-3">
         <select className="border border-gray-200 px-2.5 py-1.5 text-sm text-gray-700 focus:outline-none focus:border-gray-900 bg-white" value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)}>
           <option value="todos">Todos os tipos</option>
-          <option value="venda">Venda</option>
-          <option value="locacao">Locação</option>
-          <option value="regularizacao">Regularização</option>
+          {tiposDisponiveis.map((t) => (
+            <option key={t.slug} value={t.slug}>{t.label}</option>
+          ))}
         </select>
         <select className="border border-gray-200 px-2.5 py-1.5 text-sm text-gray-700 focus:outline-none focus:border-gray-900 bg-white" value={filtroStatus} onChange={(e) => setFiltroStatus(e.target.value)}>
           <option value="todos">Todos os status</option>
@@ -178,7 +243,7 @@ export default function ProcessosPage() {
               className="flex items-center gap-4 px-4 py-3.5 hover:bg-gray-50 transition-colors"
             >
               <span className={`text-xs px-2 py-0.5 font-medium shrink-0 ${tipoCls[p.tipo] ?? "bg-gray-100 text-gray-600"}`}>
-                {tipoLabel[p.tipo] ?? p.tipo}
+                {tipoLabelMap[p.tipo] ?? p.tipo}
               </span>
 
               <div className="flex-1 min-w-0">
@@ -221,23 +286,19 @@ export default function ProcessosPage() {
               <div>
                 <label className="text-xs text-gray-500 block mb-1">Tipo *</label>
                 <select className={sel} value={tipo} onChange={(e) => setTipo(e.target.value)}>
-                  <option value="venda">Venda</option>
-                  <option value="locacao">Locação</option>
-                  <option value="regularizacao">Regularização</option>
+                  {tiposDisponiveis.map((t) => (
+                    <option key={t.slug} value={t.slug}>{t.label}</option>
+                  ))}
                 </select>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1">
-                    {tipo === "locacao" ? "Locador" : "Vendedor / Proprietário"}
-                  </label>
+                  <label className="text-xs text-gray-500 block mb-1">{labelParteA}</label>
                   <input className={inp} placeholder="Nome ou empresa" value={parteA} onChange={(e) => setParteA(e.target.value)} />
                 </div>
                 <div>
-                  <label className="text-xs text-gray-500 block mb-1">
-                    {tipo === "locacao" ? "Locatário" : tipo === "regularizacao" ? "Responsável" : "Comprador"}
-                  </label>
+                  <label className="text-xs text-gray-500 block mb-1">{labelParteB}</label>
                   <input className={inp} placeholder="Nome ou empresa" value={parteB} onChange={(e) => setParteB(e.target.value)} />
                 </div>
               </div>
