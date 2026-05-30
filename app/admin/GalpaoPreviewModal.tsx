@@ -2,9 +2,12 @@
 
 import { useEffect } from "react";
 import GalpaoCardPreview from "./GalpaoCardPreview";
+import ImageGallery from "@/app/components/ImageGallery";
 import { campoVisivel } from "@/lib/visibilidade";
 import type { ConfigCampo } from "@/lib/visibilidade";
 import type { Galpao } from "./useGalpoes";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
 type Props = {
   galpao: Galpao;
@@ -27,6 +30,11 @@ function FichaRow({ label, value }: { label: string; value: string | null | unde
 export default function GalpaoPreviewModal({ galpao: g, configCampos, onClose }: Props) {
   const overrides = g.campos_visibilidade ?? {};
   const cv = (chave: string) => campoVisivel(chave, "ficha", configCampos, overrides);
+
+  const imagens = [...g.galpao_imagens]
+    .filter((i) => i.visivel_site !== false)
+    .sort((a, b) => a.ordem - b.ordem);
+  const capaIndex = Math.max(0, imagens.findIndex((i) => i.is_capa));
 
   const tipoLabel = g.tipo === "venda" ? "Venda" : g.tipo === "locacao" ? "Locação" : "Venda / Locação";
   const categoriaLabel = g.categoria === "loja" ? "Loja" : g.categoria === "terreno" ? "Terreno" : "Galpão";
@@ -86,6 +94,14 @@ export default function GalpaoPreviewModal({ galpao: g, configCampos, onClose }:
           <p className="text-xs text-gray-400 mb-2">Card na listagem</p>
           <GalpaoCardPreview galpao={g} configCampos={configCampos} />
         </div>
+
+        {/* Galeria pública — só imagens visíveis no site */}
+        {imagens.length > 0 && (
+          <div className="px-5 pt-6">
+            <p className="text-xs text-gray-400 mb-2">Galeria na página do anúncio ({imagens.length} foto{imagens.length !== 1 ? "s" : ""})</p>
+            <ImageGallery images={imagens} supabaseUrl={supabaseUrl} alt={g.titulo} initialIndex={capaIndex} />
+          </div>
+        )}
 
         {/* Separador */}
         <div className="mx-5 my-6 border-t border-gray-200" />

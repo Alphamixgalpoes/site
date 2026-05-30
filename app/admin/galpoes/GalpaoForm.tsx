@@ -225,21 +225,25 @@ export default function GalpaoForm({
   async function removeImagem(imagemId: string, path: string) {
     const supabase = createClient();
     await supabase.storage.from("galpoes").remove([path]);
-    await supabase.from("galpao_imagens").delete().eq("id", imagemId);
+    const { error: delErr } = await supabase.from("galpao_imagens").delete().eq("id", imagemId);
+    if (delErr) { setError(`Erro ao excluir imagem: ${delErr.message}`); return; }
     setExistingImagens((imgs) => imgs.filter((i) => i.id !== imagemId));
   }
 
   async function definirCapa(imagemId: string) {
     if (!form.id) return;
     const supabase = createClient();
-    await supabase.from("galpao_imagens").update({ is_capa: false }).eq("galpao_id", form.id);
-    await supabase.from("galpao_imagens").update({ is_capa: true }).eq("id", imagemId);
+    const { error: e1 } = await supabase.from("galpao_imagens").update({ is_capa: false }).eq("galpao_id", form.id);
+    if (e1) { setError(`Erro ao redefinir capa: ${e1.message}`); return; }
+    const { error: e2 } = await supabase.from("galpao_imagens").update({ is_capa: true }).eq("id", imagemId);
+    if (e2) { setError(`Erro ao definir capa: ${e2.message}`); return; }
     setExistingImagens((imgs) => imgs.map((i) => ({ ...i, is_capa: i.id === imagemId })));
   }
 
   async function toggleVisibilidadeSite(imagemId: string, atual: boolean) {
     const supabase = createClient();
-    await supabase.from("galpao_imagens").update({ visivel_site: !atual }).eq("id", imagemId);
+    const { error: updErr } = await supabase.from("galpao_imagens").update({ visivel_site: !atual }).eq("id", imagemId);
+    if (updErr) { setError(`Erro ao alterar visibilidade: ${updErr.message}`); return; }
     setExistingImagens((imgs) => imgs.map((i) => i.id === imagemId ? { ...i, visivel_site: !atual } : i));
   }
 
