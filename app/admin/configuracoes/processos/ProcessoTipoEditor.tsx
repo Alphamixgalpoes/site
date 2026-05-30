@@ -47,6 +47,16 @@ export default function ProcessoTipoEditor({ tipo, onUpdate, onDelete }: Props) 
     setEditandoLabel(false);
   }
 
+  async function deletarTipo() {
+    const totalItens = categorias.reduce((acc, c) => acc + c.itens.length, 0);
+    if (!window.confirm(
+      `Excluir o tipo "${tipo.label}"?\n\nIsso vai remover ${categorias.length} categorias e ${totalItens} itens do template.\nProcessos já criados com este tipo NÃO serão afetados.\n\nEsta ação não pode ser desfeita.`
+    )) return;
+    const supabase = createClient();
+    await supabase.from("processo_tipos").delete().eq("id", tipo.id);
+    onDelete(tipo.id);
+  }
+
   async function toggleAtivo() {
     const supabase = createClient();
     await supabase.from("processo_tipos").update({ ativo: !tipo.ativo }).eq("id", tipo.id);
@@ -102,7 +112,7 @@ export default function ProcessoTipoEditor({ tipo, onUpdate, onDelete }: Props) 
   return (
     <div ref={setNodeRef} style={style} className="border border-gray-200 bg-white">
       {/* Header do tipo */}
-      <div className="flex items-center gap-3 px-4 py-3 group">
+      <div className="flex items-center gap-3 px-4 py-3 group" title="Clique no título para editar">
         <button
           {...attributes}
           {...listeners}
@@ -141,6 +151,14 @@ export default function ProcessoTipoEditor({ tipo, onUpdate, onDelete }: Props) 
           title={tipo.ativo ? "Desativar tipo" : "Ativar tipo"}
         >
           {tipo.ativo ? "ativo" : "inativo"}
+        </button>
+
+        <button
+          onClick={deletarTipo}
+          className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all text-xs shrink-0"
+          title="Excluir tipo"
+        >
+          ✕
         </button>
 
         <button

@@ -86,6 +86,7 @@ export default function CategoriaEditor({ categoria, onUpdate, onDelete, onItens
   }
 
   async function deletarCategoria() {
+    if (!window.confirm(`Excluir a categoria "${categoria.label}"?\nTodos os itens desta categoria serão removidos do template.`)) return;
     const supabase = createClient();
     await supabase.from("processo_tipo_categorias").delete().eq("id", categoria.id);
     onDelete(categoria.id);

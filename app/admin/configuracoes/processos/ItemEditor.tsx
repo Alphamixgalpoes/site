@@ -46,6 +46,7 @@ export default function ItemEditor({ item, onUpdate, onDelete }: Props) {
   }
 
   async function deletar() {
+    if (!window.confirm(`Excluir o item "${item.titulo}"?`)) return;
     const supabase = createClient();
     await supabase.from("processo_tipo_itens").delete().eq("id", item.id);
     onDelete(item.id);

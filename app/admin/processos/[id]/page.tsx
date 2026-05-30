@@ -248,6 +248,7 @@ export default function ProcessoDetalhePage() {
 
   async function removerItem(itemId: string) {
     const item = itens.find((i) => i.id === itemId);
+    if (!window.confirm(`Excluir "${item?.titulo}"?`)) return;
     if (item?.arquivo_path) {
       const supabase = createClient();
       await supabase.storage.from("processos").remove([item.arquivo_path]);
