@@ -1,20 +1,24 @@
 import { createClient } from "@/lib/supabase-server";
 import PublicHeader from "./PublicHeader";
 import GalpoesGrid from "./GalpoesGrid";
+import type { ConfigCampo } from "@/lib/visibilidade";
 
 export default async function Home() {
   const supabase = await createClient();
 
-  const { data: galpoes } = await supabase
-    .from("galpoes")
-    .select(`
-      id, titulo, tipo, categoria, uso_terreno, valor, cidade, bairro,
-      area_construida_m2, area_total_m2, pe_direito_m, numero_docas,
-      acesso_carreta, vagas_estacionamento, descricao,
-      galpao_imagens (storage_path, ordem)
-    `)
-    .eq("publicado", true)
-    .order("created_at", { ascending: false });
+  const [{ data: galpoes }, { data: configCampos }] = await Promise.all([
+    supabase
+      .from("galpoes")
+      .select(`
+        id, titulo, tipo, categoria, uso_terreno, valor, cidade, bairro,
+        area_construida_m2, area_total_m2, pe_direito_m, numero_docas,
+        acesso_carreta, vagas_estacionamento, descricao, campos_visibilidade,
+        galpao_imagens (storage_path, ordem)
+      `)
+      .eq("publicado", true)
+      .order("created_at", { ascending: false }),
+    supabase.from("config_campos").select("*"),
+  ]);
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
@@ -90,6 +94,7 @@ export default async function Home() {
             <GalpoesGrid
               galpoes={galpoes as Parameters<typeof GalpoesGrid>[0]["galpoes"]}
               supabaseUrl={supabaseUrl!}
+              configCampos={(configCampos ?? []) as ConfigCampo[]}
             />
           </div>
         </section>

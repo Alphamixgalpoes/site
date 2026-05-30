@@ -1,16 +1,16 @@
 import { createClient } from "@/lib/supabase-server";
 import { notFound } from "next/navigation";
 import GalpaoForm from "../GalpaoForm";
+import type { ConfigCampo } from "@/lib/visibilidade";
 
 export default async function EditarGalpaoPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: galpao } = await supabase
-    .from("galpoes")
-    .select("*")
-    .eq("id", id)
-    .single();
+  const [{ data: galpao }, { data: configCampos }] = await Promise.all([
+    supabase.from("galpoes").select("*").eq("id", id).single(),
+    supabase.from("config_campos").select("*").order("label"),
+  ]);
 
   if (!galpao) notFound();
 
@@ -36,7 +36,11 @@ export default async function EditarGalpaoPage({ params }: { params: Promise<{ i
   return (
     <div>
       <h1 className="text-xl font-semibold text-gray-900 mb-8">Editar Galpão</h1>
-      <GalpaoForm initial={initial} imagens={imagens ?? []} />
+      <GalpaoForm
+        initial={initial}
+        imagens={imagens ?? []}
+        configCampos={(configCampos ?? []) as ConfigCampo[]}
+      />
     </div>
   );
 }

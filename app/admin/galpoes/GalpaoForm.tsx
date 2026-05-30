@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
+import type { ConfigCampo, OverridesVisibilidade } from "@/lib/visibilidade";
 
 type Galpao = {
   id?: string;
@@ -29,6 +30,7 @@ type Galpao = {
   valor_condominio: string;
   descricao: string;
   observacoes: string;
+  campos_visibilidade?: OverridesVisibilidade;
 };
 
 const empty: Galpao = {
@@ -37,19 +39,33 @@ const empty: Galpao = {
   area_piso_m2: "", pe_direito_m: "", numero_docas: "0", acesso_carreta: false,
   potencia_eletrica_kva: "", sprinklers: false, guarita: false,
   vagas_estacionamento: "0", condominio: false, valor_condominio: "",
-  descricao: "", observacoes: "",
+  descricao: "", observacoes: "", campos_visibilidade: {},
 };
 
-export default function GalpaoForm({ initial, imagens }: {
+type WarningInfo = {
+  confidenciaisVisiveis: string[];
+  diferentesDopadrao: { label: string; detalhes: string }[];
+};
+
+export default function GalpaoForm({
+  initial,
+  imagens,
+  configCampos = [],
+}: {
   initial?: Partial<Galpao> & { id?: string };
   imagens?: { id: string; storage_path: string; ordem: number }[];
+  configCampos?: ConfigCampo[];
 }) {
   const router = useRouter();
   const [form, setForm] = useState<Galpao>({ ...empty, ...initial });
+  const [visibilidade, setVisibilidade] = useState<OverridesVisibilidade>(
+    (initial?.campos_visibilidade as OverridesVisibilidade) ?? {}
+  );
   const [files, setFiles] = useState<FileList | null>(null);
   const [existingImagens, setExistingImagens] = useState(imagens ?? []);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [warningModal, setWarningModal] = useState<WarningInfo | null>(null);
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
@@ -57,10 +73,73 @@ export default function GalpaoForm({ initial, imagens }: {
     setForm((f) => ({ ...f, [field]: value }));
   }
 
+  function setVis(campo: string, contexto: "card" | "ficha", valor: boolean) {
+    setVisibilidade((prev) => {
+      const config = configCampos.find((c) => c.campo_chave === campo);
+      const cardAtual = prev[campo]?.card ?? config?.visivel_card ?? true;
+      const fichaAtual = prev[campo]?.ficha ?? config?.visivel_ficha ?? true;
+      return {
+        ...prev,
+        [campo]: {
+          card: contexto === "card" ? valor : cardAtual,
+          ficha: contexto === "ficha" ? valor : fichaAtual,
+        },
+      };
+    });
+  }
+
+  function calcularAvisos(): WarningInfo {
+    const confidenciaisVisiveis: string[] = [];
+    const diferentesDopadrao: { label: string; detalhes: string }[] = [];
+
+    for (const config of configCampos) {
+      const override = visibilidade[config.campo_chave];
+      const cardEfetivo = override?.card ?? config.visivel_card;
+      const fichaEfetivo = override?.ficha ?? config.visivel_ficha;
+
+      if (config.confidencial && (cardEfetivo || fichaEfetivo)) {
+        const contextos = [cardEfetivo && "Card", fichaEfetivo && "Ficha"].filter(Boolean).join(" e ");
+        confidenciaisVisiveis.push(`${config.label} → ${contextos}`);
+      }
+
+      if (!config.confidencial && override) {
+        const diffs: string[] = [];
+        if (cardEfetivo !== config.visivel_card)
+          diffs.push(`Card ${cardEfetivo ? "ativado" : "desativado"} (padrão: ${config.visivel_card ? "ativado" : "desativado"})`);
+        if (fichaEfetivo !== config.visivel_ficha)
+          diffs.push(`Ficha ${fichaEfetivo ? "ativada" : "desativada"} (padrão: ${config.visivel_ficha ? "ativada" : "desativada"})`);
+        if (diffs.length > 0)
+          diferentesDopadrao.push({ label: config.label, detalhes: diffs.join(", ") });
+      }
+    }
+
+    return { confidenciaisVisiveis, diferentesDopadrao };
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    const avisos = calcularAvisos();
+    if (avisos.confidenciaisVisiveis.length > 0 || avisos.diferentesDopadrao.length > 0) {
+      setWarningModal(avisos);
+      return;
+    }
+    await doSave();
+  }
+
+  async function doSave() {
     setSaving(true);
     setError("");
+    setWarningModal(null);
+
+    // Calcular overrides finais — só armazena diferenças em relação ao padrão global
+    const overridesFinal: OverridesVisibilidade = {};
+    for (const [campo, valores] of Object.entries(visibilidade)) {
+      const global = configCampos.find((c) => c.campo_chave === campo);
+      if (!global) continue;
+      if (valores.card !== global.visivel_card || valores.ficha !== global.visivel_ficha) {
+        overridesFinal[campo] = valores;
+      }
+    }
 
     const supabase = createClient();
     const payload = {
@@ -87,6 +166,7 @@ export default function GalpaoForm({ initial, imagens }: {
       valor_condominio: form.valor_condominio ? Number(form.valor_condominio) : null,
       descricao: form.descricao,
       observacoes: form.observacoes,
+      campos_visibilidade: overridesFinal,
       updated_at: new Date().toISOString(),
     };
 
@@ -101,28 +181,17 @@ export default function GalpaoForm({ initial, imagens }: {
       galpaoId = data.id;
     }
 
-    // Geocodificar endereço
     if (form.endereco || form.cidade) {
       try {
-        const params = new URLSearchParams({
-          endereco: form.endereco,
-          bairro: form.bairro,
-          cidade: form.cidade,
-          cep: form.cep,
-        });
+        const params = new URLSearchParams({ endereco: form.endereco, bairro: form.bairro, cidade: form.cidade, cep: form.cep });
         const geoRes = await fetch(`/api/geocode?${params}`);
         if (geoRes.ok) {
           const { lat, lng } = await geoRes.json();
-          if (lat && lng) {
-            await supabase.from("galpoes").update({ latitude: lat, longitude: lng }).eq("id", galpaoId);
-          }
+          if (lat && lng) await supabase.from("galpoes").update({ latitude: lat, longitude: lng }).eq("id", galpaoId);
         }
-      } catch {
-        // geocoding optional, ignore errors
-      }
+      } catch { /* geocoding optional */ }
     }
 
-    // Upload imagens novas
     if (files && files.length > 0) {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
@@ -130,11 +199,7 @@ export default function GalpaoForm({ initial, imagens }: {
         const path = `${galpaoId}/${Date.now()}-${i}.${ext}`;
         const { error: uploadError } = await supabase.storage.from("galpoes").upload(path, file);
         if (!uploadError) {
-          await supabase.from("galpao_imagens").insert({
-            galpao_id: galpaoId,
-            storage_path: path,
-            ordem: existingImagens.length + i,
-          });
+          await supabase.from("galpao_imagens").insert({ galpao_id: galpaoId, storage_path: path, ordem: existingImagens.length + i });
         }
       }
     }
@@ -150,202 +215,312 @@ export default function GalpaoForm({ initial, imagens }: {
     setExistingImagens((imgs) => imgs.filter((i) => i.id !== imagemId));
   }
 
-  const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
-    <div>
-      <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
-      {children}
-    </div>
-  );
+  // ── Componentes auxiliares de campos ────────────────────────────────────────
 
   const inputClass = "w-full border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-gray-900";
 
-  return (
-    <form onSubmit={handleSubmit} className="space-y-8">
-
-      {/* Identificação */}
-      <section>
-        <h2 className="text-sm font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">Identificação</h2>
-        <div className="grid md:grid-cols-2 gap-4">
-          <div className="md:col-span-2">
-            <Field label="Título interno *">
-              <input className={inputClass} value={form.titulo} onChange={(e) => set("titulo", e.target.value)} required />
-            </Field>
-          </div>
-          <Field label="Categoria *">
-            <select className={inputClass} value={form.categoria} onChange={(e) => set("categoria", e.target.value)}>
-              <option value="galpao">Galpão</option>
-              <option value="loja">Loja</option>
-              <option value="terreno">Terreno</option>
-            </select>
-          </Field>
-          {form.categoria === "terreno" && (
-            <Field label="Uso do terreno">
-              <select className={inputClass} value={form.uso_terreno} onChange={(e) => set("uso_terreno", e.target.value)}>
-                <option value="">Não especificado</option>
-                <option value="galpao">Para Galpão</option>
-                <option value="loja">Para Loja</option>
-                <option value="ambos">Galpão e Loja</option>
-              </select>
-            </Field>
-          )}
-          <Field label="Negócio *">
-            <select className={inputClass} value={form.tipo} onChange={(e) => set("tipo", e.target.value)}>
-              <option value="locacao">Locação</option>
-              <option value="venda">Venda</option>
-              <option value="venda_locacao">Venda e Locação</option>
-            </select>
-          </Field>
-          <Field label="Valor (R$)">
-            <input type="number" className={inputClass} value={form.valor} onChange={(e) => set("valor", e.target.value)} />
-          </Field>
+  /** Campo fixo — título, categoria, tipo, cidade */
+  function FieldFixo({ label, children }: { label: string; children: React.ReactNode }) {
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <label className="text-xs font-medium text-gray-600">{label}</label>
+          <span className="text-xs text-gray-300">📌 sempre visível</span>
         </div>
-      </section>
-
-      {/* Localização */}
-      <section>
-        <h2 className="text-sm font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">Localização</h2>
-        <div className="grid md:grid-cols-2 gap-4">
-          <div className="md:col-span-2">
-            <Field label="Endereço">
-              <input className={inputClass} value={form.endereco} onChange={(e) => set("endereco", e.target.value)} />
-            </Field>
-          </div>
-          <Field label="Bairro">
-            <input className={inputClass} value={form.bairro} onChange={(e) => set("bairro", e.target.value)} />
-          </Field>
-          <Field label="Cidade">
-            <input className={inputClass} value={form.cidade} onChange={(e) => set("cidade", e.target.value)} />
-          </Field>
-          <Field label="CEP">
-            <input className={inputClass} value={form.cep} onChange={(e) => set("cep", e.target.value)} />
-          </Field>
-        </div>
-      </section>
-
-      {/* Áreas */}
-      <section>
-        <h2 className="text-sm font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">Áreas e Dimensões</h2>
-        <div className="grid md:grid-cols-2 gap-4">
-          <Field label="Área total do terreno (m²)">
-            <input type="number" className={inputClass} value={form.area_total_m2} onChange={(e) => set("area_total_m2", e.target.value)} />
-          </Field>
-          <Field label="Área construída (m²)">
-            <input type="number" className={inputClass} value={form.area_construida_m2} onChange={(e) => set("area_construida_m2", e.target.value)} />
-          </Field>
-          <Field label="Área de piso operacional (m²)">
-            <input type="number" className={inputClass} value={form.area_piso_m2} onChange={(e) => set("area_piso_m2", e.target.value)} />
-          </Field>
-          <Field label="Pé direito livre (m)">
-            <input type="number" step="0.1" className={inputClass} value={form.pe_direito_m} onChange={(e) => set("pe_direito_m", e.target.value)} />
-          </Field>
-        </div>
-      </section>
-
-      {/* Infraestrutura */}
-      <section>
-        <h2 className="text-sm font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">Infraestrutura</h2>
-        <div className="grid md:grid-cols-2 gap-4">
-          <Field label="Número de docas">
-            <input type="number" className={inputClass} value={form.numero_docas} onChange={(e) => set("numero_docas", e.target.value)} />
-          </Field>
-          <Field label="Potência elétrica (kVA)">
-            <input type="number" className={inputClass} value={form.potencia_eletrica_kva} onChange={(e) => set("potencia_eletrica_kva", e.target.value)} />
-          </Field>
-          <Field label="Vagas de estacionamento">
-            <input type="number" className={inputClass} value={form.vagas_estacionamento} onChange={(e) => set("vagas_estacionamento", e.target.value)} />
-          </Field>
-        </div>
-        <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3">
-          {([
-            ["acesso_carreta", "Acesso para carreta"],
-            ["sprinklers", "Sprinklers"],
-            ["guarita", "Guarita"],
-            ["condominio", "Condomínio"],
-          ] as [keyof Galpao, string][]).map(([field, label]) => (
-            <label key={field} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form[field] as boolean}
-                onChange={(e) => set(field, e.target.checked)}
-                className="w-4 h-4"
-              />
-              {label}
-            </label>
-          ))}
-        </div>
-        {form.condominio && (
-          <div className="mt-4">
-            <Field label="Valor do condomínio (R$/mês)">
-              <input type="number" className={inputClass} value={form.valor_condominio} onChange={(e) => set("valor_condominio", e.target.value)} />
-            </Field>
-          </div>
-        )}
-      </section>
-
-      {/* Descrição */}
-      <section>
-        <h2 className="text-sm font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">Descrição e Observações</h2>
-        <div className="space-y-4">
-          <Field label="Descrição (aparece no site)">
-            <textarea rows={4} className={inputClass} value={form.descricao} onChange={(e) => set("descricao", e.target.value)} />
-          </Field>
-          <Field label="Observações internas">
-            <textarea rows={3} className={inputClass} value={form.observacoes} onChange={(e) => set("observacoes", e.target.value)} />
-          </Field>
-        </div>
-      </section>
-
-      {/* Imagens */}
-      <section>
-        <h2 className="text-sm font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">Imagens</h2>
-        {existingImagens.length > 0 && (
-          <div className="flex flex-wrap gap-3 mb-4">
-            {existingImagens.map((img) => (
-              <div key={img.id} className="relative group">
-                <img
-                  src={`${supabaseUrl}/storage/v1/object/public/galpoes/${img.storage_path}`}
-                  alt=""
-                  className="w-24 h-24 object-cover border border-gray-200"
-                />
-                <button
-                  type="button"
-                  onClick={() => removeImagem(img.id, img.storage_path)}
-                  className="absolute top-1 right-1 bg-red-600 text-white text-xs w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  x
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-        <input
-          type="file"
-          accept="image/*"
-          multiple
-          onChange={(e) => setFiles(e.target.files)}
-          className="text-sm text-gray-600"
-        />
-        <p className="mt-1 text-xs text-gray-400">Selecione uma ou mais imagens (JPG, PNG, WEBP)</p>
-      </section>
-
-      {error && <p className="text-sm text-red-600">{error}</p>}
-
-      <div className="flex gap-3 pt-4 border-t border-gray-200">
-        <button
-          type="submit"
-          disabled={saving}
-          className="bg-gray-900 text-white px-8 py-2.5 text-sm font-medium hover:bg-gray-700 transition-colors disabled:opacity-50"
-        >
-          {saving ? "Salvando..." : form.id ? "Salvar alterações" : "Cadastrar galpão"}
-        </button>
-        <button
-          type="button"
-          onClick={() => router.push("/admin")}
-          className="border border-gray-300 text-gray-600 px-6 py-2.5 text-sm hover:border-gray-500 transition-colors"
-        >
-          Cancelar
-        </button>
+        {children}
       </div>
-    </form>
+    );
+  }
+
+  /** Campo configurável — com toggles Card / Ficha */
+  function FieldVis({ label, campoChave, children }: { label: string; campoChave: string; children: React.ReactNode }) {
+    const config = configCampos.find((c) => c.campo_chave === campoChave);
+    const cardVal = visibilidade[campoChave]?.card ?? config?.visivel_card ?? true;
+    const fichaVal = visibilidade[campoChave]?.ficha ?? config?.visivel_ficha ?? true;
+    const isConfidencial = config?.confidencial ?? false;
+
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-1">
+          <label className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
+            {label}
+            {isConfidencial && <span className="text-amber-600 text-xs font-semibold">🔒</span>}
+          </label>
+          <div className="flex items-center gap-3 text-xs text-gray-400 shrink-0 ml-2">
+            <label className="flex items-center gap-1 cursor-pointer">
+              <input type="checkbox" checked={cardVal} onChange={(e) => setVis(campoChave, "card", e.target.checked)} className="w-3 h-3 accent-[#2e3092]" />
+              Card
+            </label>
+            <label className="flex items-center gap-1 cursor-pointer">
+              <input type="checkbox" checked={fichaVal} onChange={(e) => setVis(campoChave, "ficha", e.target.checked)} className="w-3 h-3 accent-[#2e3092]" />
+              Ficha
+            </label>
+          </div>
+        </div>
+        {children}
+      </div>
+    );
+  }
+
+  /** Linha para campo booleano (checkbox) com toggles Card / Ficha */
+  function BoolVis({ label, campoChave, field }: { label: string; campoChave: string; field: keyof Galpao }) {
+    const config = configCampos.find((c) => c.campo_chave === campoChave);
+    const cardVal = visibilidade[campoChave]?.card ?? config?.visivel_card ?? true;
+    const fichaVal = visibilidade[campoChave]?.ficha ?? config?.visivel_ficha ?? true;
+    const isConfidencial = config?.confidencial ?? false;
+
+    return (
+      <div className="flex items-center justify-between gap-2">
+        <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={form[field] as boolean}
+            onChange={(e) => set(field, e.target.checked)}
+            className="w-4 h-4"
+          />
+          {label}
+          {isConfidencial && <span className="text-amber-600 text-xs">🔒</span>}
+        </label>
+        <div className="flex items-center gap-3 text-xs text-gray-400 shrink-0">
+          <label className="flex items-center gap-1 cursor-pointer">
+            <input type="checkbox" checked={cardVal} onChange={(e) => setVis(campoChave, "card", e.target.checked)} className="w-3 h-3 accent-[#2e3092]" />
+            Card
+          </label>
+          <label className="flex items-center gap-1 cursor-pointer">
+            <input type="checkbox" checked={fichaVal} onChange={(e) => setVis(campoChave, "ficha", e.target.checked)} className="w-3 h-3 accent-[#2e3092]" />
+            Ficha
+          </label>
+        </div>
+      </div>
+    );
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+
+  return (
+    <>
+      <form onSubmit={handleSubmit} className="space-y-8">
+
+        {/* Identificação */}
+        <section>
+          <h2 className="text-sm font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">Identificação</h2>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <FieldFixo label="Título interno *">
+                <input className={inputClass} value={form.titulo} onChange={(e) => set("titulo", e.target.value)} required />
+              </FieldFixo>
+            </div>
+            <FieldFixo label="Categoria *">
+              <select className={inputClass} value={form.categoria} onChange={(e) => set("categoria", e.target.value)}>
+                <option value="galpao">Galpão</option>
+                <option value="loja">Loja</option>
+                <option value="terreno">Terreno</option>
+              </select>
+            </FieldFixo>
+            {form.categoria === "terreno" && (
+              <FieldVis label="Uso do terreno" campoChave="uso_terreno">
+                <select className={inputClass} value={form.uso_terreno} onChange={(e) => set("uso_terreno", e.target.value)}>
+                  <option value="">Não especificado</option>
+                  <option value="galpao">Para Galpão</option>
+                  <option value="loja">Para Loja</option>
+                  <option value="ambos">Galpão e Loja</option>
+                </select>
+              </FieldVis>
+            )}
+            <FieldFixo label="Negócio *">
+              <select className={inputClass} value={form.tipo} onChange={(e) => set("tipo", e.target.value)}>
+                <option value="locacao">Locação</option>
+                <option value="venda">Venda</option>
+                <option value="venda_locacao">Venda e Locação</option>
+              </select>
+            </FieldFixo>
+            <FieldVis label="Valor (R$)" campoChave="valor">
+              <input type="number" className={inputClass} value={form.valor} onChange={(e) => set("valor", e.target.value)} />
+            </FieldVis>
+          </div>
+        </section>
+
+        {/* Localização */}
+        <section>
+          <h2 className="text-sm font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">Localização</h2>
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="md:col-span-2">
+              <FieldVis label="Endereço" campoChave="endereco">
+                <input className={inputClass} value={form.endereco} onChange={(e) => set("endereco", e.target.value)} />
+              </FieldVis>
+            </div>
+            <FieldVis label="Bairro" campoChave="bairro">
+              <input className={inputClass} value={form.bairro} onChange={(e) => set("bairro", e.target.value)} />
+            </FieldVis>
+            <FieldFixo label="Cidade">
+              <input className={inputClass} value={form.cidade} onChange={(e) => set("cidade", e.target.value)} />
+            </FieldFixo>
+            <FieldVis label="CEP" campoChave="cep">
+              <input className={inputClass} value={form.cep} onChange={(e) => set("cep", e.target.value)} />
+            </FieldVis>
+          </div>
+        </section>
+
+        {/* Áreas */}
+        <section>
+          <h2 className="text-sm font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">Áreas e Dimensões</h2>
+          <div className="grid md:grid-cols-2 gap-4">
+            <FieldVis label="Área total do terreno (m²)" campoChave="area_total_m2">
+              <input type="number" className={inputClass} value={form.area_total_m2} onChange={(e) => set("area_total_m2", e.target.value)} />
+            </FieldVis>
+            <FieldVis label="Área construída (m²)" campoChave="area_construida_m2">
+              <input type="number" className={inputClass} value={form.area_construida_m2} onChange={(e) => set("area_construida_m2", e.target.value)} />
+            </FieldVis>
+            <FieldVis label="Área de piso operacional (m²)" campoChave="area_piso_m2">
+              <input type="number" className={inputClass} value={form.area_piso_m2} onChange={(e) => set("area_piso_m2", e.target.value)} />
+            </FieldVis>
+            <FieldVis label="Pé direito livre (m)" campoChave="pe_direito_m">
+              <input type="number" step="0.1" className={inputClass} value={form.pe_direito_m} onChange={(e) => set("pe_direito_m", e.target.value)} />
+            </FieldVis>
+          </div>
+        </section>
+
+        {/* Infraestrutura */}
+        <section>
+          <h2 className="text-sm font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">Infraestrutura</h2>
+          <div className="grid md:grid-cols-2 gap-4">
+            <FieldVis label="Número de docas" campoChave="numero_docas">
+              <input type="number" className={inputClass} value={form.numero_docas} onChange={(e) => set("numero_docas", e.target.value)} />
+            </FieldVis>
+            <FieldVis label="Potência elétrica (kVA)" campoChave="potencia_eletrica_kva">
+              <input type="number" className={inputClass} value={form.potencia_eletrica_kva} onChange={(e) => set("potencia_eletrica_kva", e.target.value)} />
+            </FieldVis>
+            <FieldVis label="Vagas de estacionamento" campoChave="vagas_estacionamento">
+              <input type="number" className={inputClass} value={form.vagas_estacionamento} onChange={(e) => set("vagas_estacionamento", e.target.value)} />
+            </FieldVis>
+          </div>
+          <div className="mt-4 space-y-3">
+            <BoolVis label="Acesso para carreta" campoChave="acesso_carreta" field="acesso_carreta" />
+            <BoolVis label="Sprinklers" campoChave="sprinklers" field="sprinklers" />
+            <BoolVis label="Guarita" campoChave="guarita" field="guarita" />
+            <BoolVis label="Condomínio" campoChave="condominio" field="condominio" />
+          </div>
+          {form.condominio && (
+            <div className="mt-4">
+              <FieldVis label="Valor do condomínio (R$/mês)" campoChave="valor_condominio">
+                <input type="number" className={inputClass} value={form.valor_condominio} onChange={(e) => set("valor_condominio", e.target.value)} />
+              </FieldVis>
+            </div>
+          )}
+        </section>
+
+        {/* Descrição */}
+        <section>
+          <h2 className="text-sm font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">Descrição e Observações</h2>
+          <div className="space-y-4">
+            <FieldVis label="Descrição (aparece no site)" campoChave="descricao">
+              <textarea rows={4} className={inputClass} value={form.descricao} onChange={(e) => set("descricao", e.target.value)} />
+            </FieldVis>
+            <FieldVis label="Observações internas" campoChave="observacoes">
+              <textarea rows={3} className={inputClass} value={form.observacoes} onChange={(e) => set("observacoes", e.target.value)} />
+            </FieldVis>
+          </div>
+        </section>
+
+        {/* Imagens */}
+        <section>
+          <h2 className="text-sm font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">Imagens</h2>
+          {existingImagens.length > 0 && (
+            <div className="flex flex-wrap gap-3 mb-4">
+              {existingImagens.map((img) => (
+                <div key={img.id} className="relative group">
+                  <img
+                    src={`${supabaseUrl}/storage/v1/object/public/galpoes/${img.storage_path}`}
+                    alt=""
+                    className="w-24 h-24 object-cover border border-gray-200"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeImagem(img.id, img.storage_path)}
+                    className="absolute top-1 right-1 bg-red-600 text-white text-xs w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    x
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+          <input type="file" accept="image/*" multiple onChange={(e) => setFiles(e.target.files)} className="text-sm text-gray-600" />
+          <p className="mt-1 text-xs text-gray-400">Selecione uma ou mais imagens (JPG, PNG, WEBP)</p>
+        </section>
+
+        {error && <p className="text-sm text-red-600">{error}</p>}
+
+        <div className="flex gap-3 pt-4 border-t border-gray-200">
+          <button
+            type="submit"
+            disabled={saving}
+            className="bg-gray-900 text-white px-8 py-2.5 text-sm font-medium hover:bg-gray-700 transition-colors disabled:opacity-50"
+          >
+            {saving ? "Salvando..." : form.id ? "Salvar alterações" : "Cadastrar galpão"}
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push("/admin")}
+            className="border border-gray-300 text-gray-600 px-6 py-2.5 text-sm hover:border-gray-500 transition-colors"
+          >
+            Cancelar
+          </button>
+        </div>
+      </form>
+
+      {/* Modal de aviso */}
+      {warningModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-sm shadow-xl max-w-md w-full mx-4 p-6">
+
+            {warningModal.confidenciaisVisiveis.length > 0 && (
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">⚠️</span>
+                  <h3 className="text-sm font-semibold text-amber-700">Campos confidenciais visíveis</h3>
+                </div>
+                <ul className="space-y-1">
+                  {warningModal.confidenciaisVisiveis.map((item) => (
+                    <li key={item} className="text-xs text-gray-600 bg-amber-50 px-3 py-1.5 rounded-sm">{item}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {warningModal.diferentesDopadrao.length > 0 && (
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-lg">ℹ️</span>
+                  <h3 className="text-sm font-semibold text-blue-700">Visibilidade diferente do padrão</h3>
+                </div>
+                <ul className="space-y-1">
+                  {warningModal.diferentesDopadrao.map((item) => (
+                    <li key={item.label} className="text-xs text-gray-600 bg-blue-50 px-3 py-1.5 rounded-sm">
+                      <span className="font-medium">{item.label}</span> — {item.detalhes}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="flex gap-3 mt-5">
+              <button
+                onClick={doSave}
+                className="bg-gray-900 text-white px-5 py-2 text-sm font-medium hover:bg-gray-700 transition-colors"
+              >
+                Salvar mesmo assim
+              </button>
+              <button
+                onClick={() => setWarningModal(null)}
+                className="border border-gray-300 text-gray-600 px-5 py-2 text-sm hover:border-gray-500 transition-colors"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { campoVisivel, type ConfigCampo, type OverridesVisibilidade } from "@/lib/visibilidade";
 
 type Galpao = {
   id: string;
@@ -19,6 +20,7 @@ type Galpao = {
   acesso_carreta: boolean;
   vagas_estacionamento: number;
   descricao: string | null;
+  campos_visibilidade?: OverridesVisibilidade;
   galpao_imagens: { storage_path: string; ordem: number }[];
 };
 
@@ -29,6 +31,7 @@ type UsoTerreno = "todos" | "galpao" | "loja" | "ambos";
 type Props = {
   galpoes: Galpao[];
   supabaseUrl: string;
+  configCampos?: ConfigCampo[];
   initialCategoria?: Categoria;
   initialNegocio?: Negocio;
   initialCidade?: string;
@@ -48,6 +51,7 @@ const inputCls =
 export default function GalpoesGrid({
   galpoes,
   supabaseUrl,
+  configCampos = [],
   initialCategoria,
   initialNegocio,
   initialCidade,
@@ -324,11 +328,13 @@ export default function GalpoesGrid({
                 {/* Conteúdo */}
                 <div className="p-5 flex flex-col flex-1">
                   <h3 className="text-sm font-bold text-gray-900 leading-snug">{g.titulo}</h3>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {g.bairro ? `${g.bairro}, ` : ""}{g.cidade}
-                  </p>
+                  {campoVisivel("bairro", "card", configCampos, g.campos_visibilidade ?? {}) && (
+                    <p className="text-xs text-gray-400 mt-1">
+                      {g.bairro ? `${g.bairro}, ` : ""}{g.cidade}
+                    </p>
+                  )}
 
-                  {g.valor && (
+                  {g.valor && campoVisivel("valor", "card", configCampos, g.campos_visibilidade ?? {}) && (
                     <p className="text-lg font-bold text-gray-900 mt-3">
                       R$ {Number(g.valor).toLocaleString("pt-BR")}
                       {g.tipo === "locacao" && (
@@ -340,12 +346,12 @@ export default function GalpoesGrid({
                   <div className="mt-3 flex flex-wrap gap-1.5">
                     {g.categoria === "terreno" ? (
                       <>
-                        {g.area_total_m2 && (
+                        {g.area_total_m2 && campoVisivel("area_total_m2", "card", configCampos, g.campos_visibilidade ?? {}) && (
                           <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-sm">
                             {g.area_total_m2.toLocaleString("pt-BR")} m²
                           </span>
                         )}
-                        {g.uso_terreno && (
+                        {g.uso_terreno && campoVisivel("uso_terreno", "card", configCampos, g.campos_visibilidade ?? {}) && (
                           <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-sm">
                             {g.uso_terreno === "galpao" ? "Para galpão" : g.uso_terreno === "loja" ? "Para loja" : "Galpão e loja"}
                           </span>
@@ -353,27 +359,27 @@ export default function GalpoesGrid({
                       </>
                     ) : (
                       <>
-                        {g.area_construida_m2 && (
+                        {g.area_construida_m2 && campoVisivel("area_construida_m2", "card", configCampos, g.campos_visibilidade ?? {}) && (
                           <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-sm">
                             {g.area_construida_m2.toLocaleString("pt-BR")} m²
                           </span>
                         )}
-                        {g.pe_direito_m && (
+                        {g.pe_direito_m && campoVisivel("pe_direito_m", "card", configCampos, g.campos_visibilidade ?? {}) && (
                           <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-sm">
                             Pé {g.pe_direito_m}m
                           </span>
                         )}
-                        {g.numero_docas > 0 && (
+                        {g.numero_docas > 0 && campoVisivel("numero_docas", "card", configCampos, g.campos_visibilidade ?? {}) && (
                           <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-sm">
                             {g.numero_docas} doca{g.numero_docas > 1 ? "s" : ""}
                           </span>
                         )}
-                        {g.acesso_carreta && g.categoria === "galpao" && (
+                        {g.acesso_carreta && g.categoria === "galpao" && campoVisivel("acesso_carreta", "card", configCampos, g.campos_visibilidade ?? {}) && (
                           <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-sm">
                             Acesso carreta
                           </span>
                         )}
-                        {g.vagas_estacionamento > 0 && g.categoria === "loja" && (
+                        {g.vagas_estacionamento > 0 && g.categoria === "loja" && campoVisivel("vagas_estacionamento", "card", configCampos, g.campos_visibilidade ?? {}) && (
                           <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-sm">
                             {g.vagas_estacionamento} vagas
                           </span>
