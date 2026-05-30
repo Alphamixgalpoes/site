@@ -5,6 +5,8 @@ import Link from "next/link";
 import Image from "next/image";
 import LeadForm from "./LeadForm";
 import GalpoesGrid from "@/app/GalpoesGrid";
+import { campoVisivel } from "@/lib/visibilidade";
+import type { ConfigCampo, OverridesVisibilidade } from "@/lib/visibilidade";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.alphamixgalpoes.com.br";
 
@@ -76,18 +78,21 @@ export default async function GalpaoPage({
   const sp = await searchParams;
   const supabase = await createClient();
 
-  const { data: g } = await supabase
-    .from("galpoes")
-    .select(`*, galpao_imagens (id, storage_path, ordem)`)
-    .eq("id", id)
-    .eq("publicado", true)
-    .single();
+  const [{ data: g }, { data: configCampos }] = await Promise.all([
+    supabase
+      .from("galpoes")
+      .select(`*, galpao_imagens (id, storage_path, ordem)`)
+      .eq("id", id)
+      .eq("publicado", true)
+      .single(),
+    supabase.from("config_campos").select("*").order("label"),
+  ]);
 
   if (!g) notFound();
 
   const { data: todosGalpoes } = await supabase
     .from("galpoes")
-    .select("id, titulo, tipo, categoria, uso_terreno, valor, cidade, bairro, area_construida_m2, area_total_m2, pe_direito_m, numero_docas, acesso_carreta, vagas_estacionamento, descricao, galpao_imagens(storage_path, ordem)")
+    .select("id, titulo, tipo, categoria, uso_terreno, valor, cidade, bairro, area_construida_m2, area_total_m2, pe_direito_m, numero_docas, acesso_carreta, vagas_estacionamento, descricao, campos_visibilidade, galpao_imagens(storage_path, ordem)")
     .eq("publicado", true)
     .order("updated_at", { ascending: false });
 
@@ -97,25 +102,29 @@ export default async function GalpaoPage({
   const categoriaLabel = g.categoria === "loja" ? "Loja" : g.categoria === "terreno" ? "Terreno" : "Galpão";
   const usoTerrenoLabel = g.uso_terreno === "galpao" ? "Para galpão" : g.uso_terreno === "loja" ? "Para loja" : g.uso_terreno === "ambos" ? "Galpão e loja" : null;
 
+  const cfg = (configCampos ?? []) as ConfigCampo[];
+  const overrides = (g.campos_visibilidade ?? {}) as OverridesVisibilidade;
+  const cv = (chave: string) => campoVisivel(chave, "ficha", cfg, overrides);
+
   const fichaItems = [
     { label: "Categoria", value: categoriaLabel },
-    { label: "Uso indicado", value: usoTerrenoLabel },
+    cv("uso_terreno") ? { label: "Uso indicado", value: usoTerrenoLabel } : null,
     { label: "Negócio", value: tipoLabel },
     { label: "Cidade", value: g.cidade },
-    { label: "Bairro", value: g.bairro },
-    { label: "Endereço", value: g.endereco },
-    { label: "Área total do terreno", value: g.area_total_m2 ? `${g.area_total_m2} m²` : null },
-    { label: "Área construída", value: g.area_construida_m2 ? `${g.area_construida_m2} m²` : null },
-    { label: "Área de piso", value: g.area_piso_m2 ? `${g.area_piso_m2} m²` : null },
-    { label: "Pé direito livre", value: g.pe_direito_m ? `${g.pe_direito_m} m` : null },
-    { label: "Docas", value: g.numero_docas > 0 ? `${g.numero_docas}` : null },
-    { label: "Potência elétrica", value: g.potencia_eletrica_kva ? `${g.potencia_eletrica_kva} kVA` : null },
-    { label: "Vagas", value: g.vagas_estacionamento > 0 ? `${g.vagas_estacionamento}` : null },
-    { label: "Acesso para carreta", value: g.acesso_carreta ? "Sim" : null },
-    { label: "Sprinklers", value: g.sprinklers ? "Sim" : null },
-    { label: "Guarita", value: g.guarita ? "Sim" : null },
-    { label: "Condomínio", value: g.condominio ? `Sim${g.valor_condominio ? ` — R$ ${Number(g.valor_condominio).toLocaleString("pt-BR")}/mês` : ""}` : null },
-  ].filter((i) => i.value);
+    cv("bairro") ? { label: "Bairro", value: g.bairro } : null,
+    cv("endereco") ? { label: "Endereço", value: g.endereco } : null,
+    cv("area_total_m2") ? { label: "Área total do terreno", value: g.area_total_m2 ? `${g.area_total_m2} m²` : null } : null,
+    cv("area_construida_m2") ? { label: "Área construída", value: g.area_construida_m2 ? `${g.area_construida_m2} m²` : null } : null,
+    cv("area_piso_m2") ? { label: "Área de piso", value: g.area_piso_m2 ? `${g.area_piso_m2} m²` : null } : null,
+    cv("pe_direito_m") ? { label: "Pé direito livre", value: g.pe_direito_m ? `${g.pe_direito_m} m` : null } : null,
+    cv("numero_docas") ? { label: "Docas", value: g.numero_docas > 0 ? `${g.numero_docas}` : null } : null,
+    cv("potencia_eletrica_kva") ? { label: "Potência elétrica", value: g.potencia_eletrica_kva ? `${g.potencia_eletrica_kva} kVA` : null } : null,
+    cv("vagas_estacionamento") ? { label: "Vagas", value: g.vagas_estacionamento > 0 ? `${g.vagas_estacionamento}` : null } : null,
+    cv("acesso_carreta") ? { label: "Acesso para carreta", value: g.acesso_carreta ? "Sim" : null } : null,
+    cv("sprinklers") ? { label: "Sprinklers", value: g.sprinklers ? "Sim" : null } : null,
+    cv("guarita") ? { label: "Guarita", value: g.guarita ? "Sim" : null } : null,
+    cv("condominio") ? { label: "Condomínio", value: g.condominio ? `Sim${g.valor_condominio ? ` — R$ ${Number(g.valor_condominio).toLocaleString("pt-BR")}/mês` : ""}` : null } : null,
+  ].filter((i): i is { label: string; value: string | null } => i !== null && i.value !== null && i.value !== undefined);
 
   // JSON-LD para a página do imóvel
   const primeiraImagem = imagens[0]
@@ -199,9 +208,11 @@ export default async function GalpaoPage({
             <div className="border border-gray-200 rounded-sm shadow-sm p-5 md:p-6 lg:sticky lg:top-24">
               <span className="inline-block text-xs font-bold tracking-widest text-[#2e3092] uppercase mb-3">{tipoLabel}</span>
               <h1 className="text-xl font-bold text-gray-900 leading-snug">{g.titulo}</h1>
-              <p className="text-sm text-gray-400 mt-1">{g.bairro ? `${g.bairro}, ` : ""}{g.cidade}</p>
+              <p className="text-sm text-gray-400 mt-1">
+                {cv("bairro") && g.bairro ? `${g.bairro}, ` : ""}{g.cidade}
+              </p>
 
-              {g.valor && (
+              {g.valor && cv("valor") && (
                 <div className="mt-4 pt-4 border-t border-gray-200">
                   <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">{g.tipo === "locacao" ? "Valor mensal" : "Valor"}</p>
                   <p className="text-2xl font-bold text-gray-900 mt-1">
@@ -303,6 +314,7 @@ export default async function GalpaoPage({
           initialNegocio={sp.negocio as "todos" | "venda" | "locacao" | undefined}
           initialCidade={sp.cidade}
           excludeId={id}
+          configCampos={cfg}
         />
       </div>
       </div>
