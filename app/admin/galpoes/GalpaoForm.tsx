@@ -69,7 +69,6 @@ export default function GalpaoForm({
   const [visibilidade, setVisibilidade] = useState<OverridesVisibilidade>(
     (initial?.campos_visibilidade as OverridesVisibilidade) ?? {}
   );
-  const [files, setFiles] = useState<FileList | null>(null);
   const [existingImagens, setExistingImagens] = useState<ImagemExistente[]>(
     (imagens ?? []).map((img) => ({
       ...img,
@@ -78,6 +77,7 @@ export default function GalpaoForm({
     }))
   );
   const [saving, setSaving] = useState(false);
+  const [uploadingImagens, setUploadingImagens] = useState(false);
   const [error, setError] = useState("");
   const [warningModal, setWarningModal] = useState<WarningInfo | null>(null);
 
@@ -206,18 +206,6 @@ export default function GalpaoForm({
       } catch { /* geocoding optional */ }
     }
 
-    if (files && files.length > 0) {
-      for (let i = 0; i < files.length; i++) {
-        const file = files[i];
-        const ext = file.name.split(".").pop();
-        const path = `${galpaoId}/${Date.now()}-${i}.${ext}`;
-        const { error: uploadError } = await supabase.storage.from("galpoes").upload(path, file);
-        if (!uploadError) {
-          await supabase.from("galpao_imagens").insert({ galpao_id: galpaoId, storage_path: path, ordem: existingImagens.length + i });
-        }
-      }
-    }
-
     router.push("/admin");
     router.refresh();
   }
@@ -235,9 +223,14 @@ export default function GalpaoForm({
     const supabase = createClient();
     const { error: e1 } = await supabase.from("galpao_imagens").update({ is_capa: false }).eq("galpao_id", form.id);
     if (e1) { setError(`Erro ao redefinir capa: ${e1.message}`); return; }
-    const { error: e2 } = await supabase.from("galpao_imagens").update({ is_capa: true }).eq("id", imagemId);
+    // Capa deve ser sempre visível no site
+    const { error: e2 } = await supabase.from("galpao_imagens").update({ is_capa: true, visivel_site: true }).eq("id", imagemId);
     if (e2) { setError(`Erro ao definir capa: ${e2.message}`); return; }
-    setExistingImagens((imgs) => imgs.map((i) => ({ ...i, is_capa: i.id === imagemId })));
+    setExistingImagens((imgs) => imgs.map((i) => ({
+      ...i,
+      is_capa: i.id === imagemId,
+      visivel_site: i.id === imagemId ? true : i.visivel_site,
+    })));
   }
 
   async function toggleVisibilidadeSite(imagemId: string, atual: boolean) {
@@ -245,6 +238,31 @@ export default function GalpaoForm({
     const { error: updErr } = await supabase.from("galpao_imagens").update({ visivel_site: !atual }).eq("id", imagemId);
     if (updErr) { setError(`Erro ao alterar visibilidade: ${updErr.message}`); return; }
     setExistingImagens((imgs) => imgs.map((i) => i.id === imagemId ? { ...i, visivel_site: !atual } : i));
+  }
+
+  async function handleUploadImagens(fileList: FileList) {
+    if (!form.id || fileList.length === 0) return;
+    setUploadingImagens(true);
+    setError("");
+    const supabase = createClient();
+    const novas: ImagemExistente[] = [];
+    const proximaOrdem = existingImagens.length;
+    for (let i = 0; i < fileList.length; i++) {
+      const file = fileList[i];
+      const ext = file.name.split(".").pop();
+      const path = `${form.id}/${Date.now()}-${i}.${ext}`;
+      const { error: uploadErr } = await supabase.storage.from("galpoes").upload(path, file);
+      if (uploadErr) { setError(`Erro ao enviar ${file.name}: ${uploadErr.message}`); continue; }
+      const { data, error: insertErr } = await supabase
+        .from("galpao_imagens")
+        .insert({ galpao_id: form.id, storage_path: path, ordem: proximaOrdem + i, visivel_site: true, is_capa: false })
+        .select("id, storage_path, ordem, visivel_site, is_capa")
+        .single();
+      if (insertErr) { setError(`Erro ao salvar imagem: ${insertErr.message}`); continue; }
+      novas.push(data as ImagemExistente);
+    }
+    setExistingImagens((prev) => [...prev, ...novas]);
+    setUploadingImagens(false);
   }
 
   // ── Componentes auxiliares de campos ────────────────────────────────────────
@@ -457,6 +475,8 @@ export default function GalpaoForm({
         {/* Imagens */}
         <section>
           <h2 className="text-sm font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">Imagens</h2>
+
+          {/* Grid de imagens existentes */}
           {existingImagens.length > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-4">
               {existingImagens.map((img) => (
@@ -503,7 +523,7 @@ export default function GalpaoForm({
                             : "border border-gray-300 text-gray-600 hover:border-gray-500"
                         }`}
                       >
-                        {img.is_capa ? "Capa" : "Definir capa"}
+                        {img.is_capa ? "★ Capa" : "Definir capa"}
                       </button>
                     )}
                     <button
@@ -518,9 +538,28 @@ export default function GalpaoForm({
               ))}
             </div>
           )}
-          <input type="file" accept="image/*" multiple onChange={(e) => setFiles(e.target.files)} className="text-sm text-gray-600" />
-          <p className="mt-1 text-xs text-gray-400">Selecione uma ou mais imagens (JPG, PNG, WEBP)</p>
-          {existingImagens.length === 0 && <p className="mt-2 text-xs text-gray-400">Nenhuma imagem cadastrada.</p>}
+
+          {/* Botão de upload */}
+          {form.id ? (
+            <label className={`flex items-center gap-3 w-full border-2 border-dashed border-gray-300 px-5 py-4 cursor-pointer hover:border-gray-400 transition-colors ${uploadingImagens ? "opacity-50 pointer-events-none" : ""}`}>
+              <input
+                type="file"
+                accept="image/*"
+                multiple
+                className="sr-only"
+                onChange={(e) => e.target.files && handleUploadImagens(e.target.files)}
+              />
+              <span className="text-2xl text-gray-400">+</span>
+              <span className="text-sm text-gray-500">
+                {uploadingImagens ? "Enviando..." : existingImagens.length === 0 ? "Adicionar fotos" : "Adicionar mais fotos"}
+              </span>
+              <span className="ml-auto text-xs text-gray-400">JPG, PNG, WEBP</span>
+            </label>
+          ) : (
+            <div className="text-xs text-gray-400 bg-gray-50 border border-gray-200 px-4 py-3">
+              Salve o galpão primeiro para poder adicionar e gerenciar as imagens.
+            </div>
+          )}
         </section>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
