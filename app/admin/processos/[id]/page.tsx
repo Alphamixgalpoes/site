@@ -235,14 +235,24 @@ export default function ProcessoDetalhePage() {
   async function load() {
     const supabase = createClient();
     const [{ data: proc }, { data: its }, { data: cats }, { data: pc }] = await Promise.all([
-      supabase.from("processos").select("*, galpao:galpoes(id, titulo, tipo, area_total)").eq("id", id).single(),
+      supabase.from("processos").select("*").eq("id", id).single(),
       supabase.from("processo_itens").select("*").eq("processo_id", id).order("ordem"),
       supabase.from("processo_categorias").select("*").eq("processo_id", id).order("ordem"),
       supabase.from("processo_contatos").select("id, papel, contato_id, contatos(id, nome, tipo_principal)").eq("processo_id", id),
     ]);
 
     if (proc) {
-      setProcesso(proc as Processo);
+      // Busca galpão vinculado separadamente (evita falha de cache de schema do PostgREST)
+      let galpaoVinculado: GalpaoVinculado | null = null;
+      if (proc.galpao_id) {
+        const { data: g } = await supabase
+          .from("galpoes")
+          .select("id, titulo, tipo, area_total")
+          .eq("id", proc.galpao_id)
+          .single();
+        galpaoVinculado = g ?? null;
+      }
+      setProcesso({ ...proc, galpao: galpaoVinculado } as Processo);
       setEditTitulo(proc.titulo);
       setEditParteA(proc.parte_a ?? "");
       setEditParteB(proc.parte_b ?? "");
