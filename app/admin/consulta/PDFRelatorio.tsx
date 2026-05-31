@@ -59,28 +59,8 @@ const styles = StyleSheet.create({
   mapaLegendaText: { fontSize: 7, color: "#6b7280" },
 });
 
-type Galpao = {
-  id: string;
-  titulo: string;
-  tipo: string;
-  valor: number | null;
-  cidade: string;
-  bairro: string | null;
-  endereco: string | null;
-  area_construida_m2: number | null;
-  area_total_m2: number | null;
-  pe_direito_m: number | null;
-  numero_docas: number;
-  acesso_carreta: boolean;
-  sprinklers: boolean;
-  guarita: boolean;
-  potencia_eletrica_kva: number | null;
-  vagas_estacionamento: number;
-  descricao: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  galpao_imagens: { storage_path: string; ordem: number; is_capa?: boolean }[];
-};
+import type { Galpao } from "@/lib/types";
+
 
 function buildMapUrl(galpoes: Galpao[], baseUrl: string): string | null {
   const comCoordenadas = galpoes.filter((g) => g.latitude && g.longitude);
