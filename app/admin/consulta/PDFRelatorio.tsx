@@ -11,10 +11,11 @@ const styles = StyleSheet.create({
   page: { paddingTop: 50, paddingBottom: 60, paddingHorizontal: 45, fontSize: 9, fontFamily: "Helvetica", color: "#111" },
 
   // Header
-  header: { borderBottomWidth: 1, borderBottomColor: "#e5e7eb", paddingBottom: 12, marginBottom: 16, flexDirection: "row", justifyContent: "space-between", alignItems: "flex-end" },
-  headerLeft: { gap: 2 },
+  header: { borderBottomWidth: 1, borderBottomColor: "#e5e7eb", paddingBottom: 12, marginBottom: 16, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  headerLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
+  headerLogo: { width: 48, height: 48 },
   headerTitle: { fontSize: 14, fontFamily: "Helvetica-Bold", color: "#111" },
-  headerSub: { fontSize: 8, color: "#6b7280" },
+  headerSub: { fontSize: 8, color: "#6b7280", marginTop: 2 },
   headerRight: { fontSize: 8, color: "#6b7280", textAlign: "right", gap: 2 },
 
   // Filtros
@@ -131,8 +132,11 @@ export function PDFRelatorio({
         {/* Header */}
         <View style={styles.header} fixed>
           <View style={styles.headerLeft}>
-            <Text style={styles.headerTitle}>Alphamix Galpões</Text>
-            <Text style={styles.headerSub}>Galpões Industriais · Alphaville e Barueri</Text>
+            <Image src={`${baseUrl}/alphamix-logo.png`} style={styles.headerLogo} />
+            <View>
+              <Text style={styles.headerTitle}>Alphamix Galpões</Text>
+              <Text style={styles.headerSub}>Galpões Industriais · Alphaville e Barueri</Text>
+            </View>
           </View>
           <View style={styles.headerRight}>
             <Text>CRECI-SP 000000-F</Text>
