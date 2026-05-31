@@ -3,6 +3,7 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { campoVisivel, type ConfigCampo, type OverridesVisibilidade } from "@/lib/visibilidade";
+import { tipoLabel } from "@/lib/galpao-utils";
 
 type Galpao = {
   id: string;
@@ -287,7 +288,6 @@ export default function GalpoesGrid({
           {filtrados.map((g) => {
             const imagens = [...g.galpao_imagens].sort((a, b) => a.ordem - b.ordem);
             const capa = imagens.find((i) => i.is_capa) ?? imagens[0];
-            const tipoLabel = g.tipo === "venda" ? "Venda" : g.tipo === "locacao" ? "Locação" : "Venda / Locação";
             const tipoBg = g.tipo === "venda"
               ? "bg-[#2e3092] text-white"
               : g.tipo === "locacao"
@@ -321,7 +321,7 @@ export default function GalpoesGrid({
                     </div>
                   )}
                   <span className={`absolute top-3 left-3 text-xs font-bold px-2 py-1 rounded-sm ${tipoBg}`}>
-                    {tipoLabel}
+                    {tipoLabel(g.tipo)}
                   </span>
                 </div>
 

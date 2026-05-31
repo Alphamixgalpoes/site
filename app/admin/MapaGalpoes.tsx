@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import Link from "next/link";
+import { tipoLabel } from "@/lib/galpao-utils";
 
 type GalpaoPin = {
   id: string;
@@ -17,8 +18,6 @@ type GalpaoPin = {
   latitude: number;
   longitude: number;
 };
-
-const tipoLabel = (t: string) => t === "venda" ? "Venda" : t === "locacao" ? "Locação" : "V/L";
 
 function makeIcon(publicado: boolean) {
   const color = publicado ? "#16a34a" : "#6b7280";

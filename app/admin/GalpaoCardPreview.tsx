@@ -3,9 +3,8 @@
 import { campoVisivel } from "@/lib/visibilidade";
 import type { ConfigCampo } from "@/lib/visibilidade";
 import type { Galpao } from "./useGalpoes";
-
 import { SUPABASE_URL } from "@/lib/constants";
-const supabaseUrl = SUPABASE_URL;
+import { tipoLabel } from "@/lib/galpao-utils";
 
 type Props = {
   galpao: Galpao;
@@ -19,7 +18,6 @@ export default function GalpaoCardPreview({ galpao: g, configCampos }: Props) {
 
   const cv = (chave: string) => campoVisivel(chave, "card", configCampos, overrides);
 
-  const tipoLabel = g.tipo === "venda" ? "Venda" : g.tipo === "locacao" ? "Locação" : "Venda / Locação";
   const tipoBg =
     g.tipo === "venda"
       ? "bg-[#2e3092] text-white"
@@ -33,7 +31,7 @@ export default function GalpaoCardPreview({ galpao: g, configCampos }: Props) {
       <div className="relative bg-gray-100 h-52 overflow-hidden shrink-0">
         {capa ? (
           <img
-            src={`${supabaseUrl}/storage/v1/object/public/galpoes/${capa.storage_path}`}
+            src={`${SUPABASE_URL}/storage/v1/object/public/galpoes/${capa.storage_path}`}
             alt={g.titulo}
             className="w-full h-full object-cover"
           />
@@ -43,7 +41,7 @@ export default function GalpaoCardPreview({ galpao: g, configCampos }: Props) {
           </div>
         )}
         <span className={`absolute top-3 left-3 text-xs font-bold px-2 py-1 rounded-sm ${tipoBg}`}>
-          {tipoLabel}
+          {tipoLabel(g.tipo)}
         </span>
       </div>
 

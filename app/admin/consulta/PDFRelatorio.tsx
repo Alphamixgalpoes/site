@@ -1,3 +1,4 @@
+import { tipoLabel } from "@/lib/galpao-utils";
 import {
   Document,
   Page,
@@ -105,9 +106,6 @@ function buildMapUrl(galpoes: Galpao[], baseUrl: string): string | null {
 }
 
 type Filtros = Record<string, string>;
-
-const tipoLabel = (t: string) =>
-  t === "venda" ? "Venda" : t === "locacao" ? "Locação" : "Venda / Locação";
 
 export function PDFRelatorio({
   galpoes,

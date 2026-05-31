@@ -4,10 +4,7 @@ import Link from "next/link";
 import { Galpao } from "./useGalpoes";
 
 import { SUPABASE_URL } from "@/lib/constants";
-const supabaseUrl = SUPABASE_URL;
-
-const tipoLabel = (t: string) =>
-  t === "venda" ? "Venda" : t === "locacao" ? "Locação" : "V/L";
+import { tipoLabel } from "@/lib/galpao-utils";
 
 type Props = {
   galpao: Galpao;
@@ -45,7 +42,7 @@ export default function GalpaoRow({
         <div className="w-16 h-12 bg-gray-100 shrink-0 overflow-hidden">
           {capa ? (
             <img
-              src={`${supabaseUrl}/storage/v1/object/public/galpoes/${capa.storage_path}`}
+              src={`${SUPABASE_URL}/storage/v1/object/public/galpoes/${capa.storage_path}`}
               alt=""
               className="w-full h-full object-cover"
             />
