@@ -8,6 +8,8 @@ import GalpoesGrid from "@/app/GalpoesGrid";
 import ImageGallery from "@/app/components/ImageGallery";
 import { campoVisivel } from "@/lib/visibilidade";
 import type { ConfigCampo, OverridesVisibilidade } from "@/lib/visibilidade";
+import { SUPABASE_URL } from "@/lib/constants";
+import { tipoLabel, categoriaLabel, usoTerrenoLabel } from "@/lib/galpao-utils";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.alphamixgalpoes.com.br";
 
@@ -26,23 +28,20 @@ export async function generateMetadata(
 
   if (!g) return {};
 
-  const tipoLabel = g.tipo === "venda" ? "Venda" : g.tipo === "locacao" ? "Locação" : "Venda/Locação";
-  const categoriaLabel = g.categoria === "loja" ? "Loja" : g.categoria === "terreno" ? "Terreno" : "Galpão";
   const localLabel = g.bairro ? `${g.bairro}, ${g.cidade}` : g.cidade;
   const areaLabel = g.area_construida_m2 ? ` · ${g.area_construida_m2} m²` : "";
 
-  const title = `${categoriaLabel} para ${tipoLabel} — ${localLabel}${areaLabel}`;
+  const title = `${categoriaLabel(g.categoria)} para ${tipoLabel(g.tipo)} — ${localLabel}${areaLabel}`;
   const description = g.descricao
     ? g.descricao.slice(0, 155)
-    : `${categoriaLabel} para ${tipoLabel.toLowerCase()} em ${localLabel}. ${g.area_construida_m2 ? `Área construída: ${g.area_construida_m2} m².` : ""} Atendimento direto com corretor especializado — Alphamix Galpões.`;
+    : `${categoriaLabel(g.categoria)} para ${tipoLabel(g.tipo).toLowerCase()} em ${localLabel}. ${g.area_construida_m2 ? `Área construída: ${g.area_construida_m2} m².` : ""} Atendimento direto com corretor especializado — Alphamix Galpões.`;
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const todasMetaImagens = (g.galpao_imagens ?? []).sort(
     (a: { ordem: number }, b: { ordem: number }) => a.ordem - b.ordem
   ).filter((img: { visivel_site?: boolean }) => img.visivel_site !== false);
   const capaMetaImg = todasMetaImagens.find((img: { is_capa?: boolean }) => img.is_capa) ?? todasMetaImagens[0];
   const ogImage = capaMetaImg
-    ? `${supabaseUrl}/storage/v1/object/public/galpoes/${capaMetaImg.storage_path}`
+    ? `${SUPABASE_URL}/storage/v1/object/public/galpoes/${capaMetaImg.storage_path}`
     : `${siteUrl}/og-image.png`;
 
   const pageUrl = `${siteUrl}/galpoes/${id}`;
@@ -98,22 +97,21 @@ export default async function GalpaoPage({
     .eq("publicado", true)
     .order("updated_at", { ascending: false });
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
   const todasImagens = ([...(g.galpao_imagens ?? [])]).sort((a: { ordem: number }, b: { ordem: number }) => a.ordem - b.ordem);
   const imagens = todasImagens.filter((img: { visivel_site?: boolean }) => img.visivel_site !== false);
   const capaIndex = Math.max(0, imagens.findIndex((img: { is_capa?: boolean }) => img.is_capa));
-  const tipoLabel = g.tipo === "venda" ? "Venda" : g.tipo === "locacao" ? "Locação" : "Venda / Locação";
-  const categoriaLabel = g.categoria === "loja" ? "Loja" : g.categoria === "terreno" ? "Terreno" : "Galpão";
-  const usoTerrenoLabel = g.uso_terreno === "galpao" ? "Para galpão" : g.uso_terreno === "loja" ? "Para loja" : g.uso_terreno === "ambos" ? "Galpão e loja" : null;
+  const tipo = tipoLabel(g.tipo);
+  const categoria = categoriaLabel(g.categoria);
+  const usoTerreno = usoTerrenoLabel(g.uso_terreno);
 
   const cfg = (configCampos ?? []) as ConfigCampo[];
   const overrides = (g.campos_visibilidade ?? {}) as OverridesVisibilidade;
   const cv = (chave: string) => campoVisivel(chave, "ficha", cfg, overrides);
 
   const fichaItems = [
-    { label: "Categoria", value: categoriaLabel },
-    cv("uso_terreno") ? { label: "Uso indicado", value: usoTerrenoLabel } : null,
-    { label: "Negócio", value: tipoLabel },
+    { label: "Categoria", value: categoria },
+    cv("uso_terreno") ? { label: "Uso indicado", value: usoTerreno } : null,
+    { label: "Negócio", value: tipo },
     { label: "Cidade", value: g.cidade },
     cv("bairro") ? { label: "Bairro", value: g.bairro } : null,
     cv("endereco") ? { label: "Endereço", value: g.endereco } : null,
@@ -133,7 +131,7 @@ export default async function GalpaoPage({
   // JSON-LD para a página do imóvel
   const capaImg = imagens.find((img: { is_capa?: boolean }) => img.is_capa) ?? imagens[0];
   const primeiraImagem = capaImg
-    ? `${supabaseUrl}/storage/v1/object/public/galpoes/${capaImg.storage_path}`
+    ? `${SUPABASE_URL}/storage/v1/object/public/galpoes/${capaImg.storage_path}`
     : null;
 
   const jsonLd = {
@@ -211,7 +209,7 @@ export default async function GalpaoPage({
           {/* Sidebar — aparece primeiro no mobile */}
           <div className="lg:col-span-1 lg:order-last">
             <div className="border border-gray-200 rounded-sm shadow-sm p-5 md:p-6 lg:sticky lg:top-24">
-              <span className="inline-block text-xs font-bold tracking-widest text-[#2e3092] uppercase mb-3">{tipoLabel}</span>
+              <span className="inline-block text-xs font-bold tracking-widest text-[#2e3092] uppercase mb-3">{tipo}</span>
               <h1 className="text-xl font-bold text-gray-900 leading-snug">{g.titulo}</h1>
               <p className="text-sm text-gray-400 mt-1">
                 {cv("bairro") && g.bairro ? `${g.bairro}, ` : ""}{g.cidade}
@@ -228,7 +226,7 @@ export default async function GalpaoPage({
 
               <div className="mt-6 space-y-3">
                 <a
-                  href={`https://wa.me/5511995571212?text=${encodeURIComponent(`Olá, tenho interesse no imóvel abaixo e gostaria de mais informações:\n\n*${g.titulo}*\n${tipoLabel} · ${g.cidade}${g.valor ? `\nR$ ${Number(g.valor).toLocaleString("pt-BR")}` : ""}`)}`}
+                  href={`https://wa.me/5511995571212?text=${encodeURIComponent(`Olá, tenho interesse no imóvel abaixo e gostaria de mais informações:\n\n*${g.titulo}*\n${tipo} · ${g.cidade}${g.valor ? `\nR$ ${Number(g.valor).toLocaleString("pt-BR")}` : ""}`)}`}
                   className="flex items-center justify-center gap-2.5 bg-[#25D366] text-white px-6 py-3 text-sm font-bold rounded-sm hover:bg-[#22c55e] transition-colors"
                 >
                   <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 24 24">
@@ -258,7 +256,7 @@ export default async function GalpaoPage({
             {/* Galeria */}
             <ImageGallery
               images={imagens}
-              supabaseUrl={supabaseUrl}
+              supabaseUrl={SUPABASE_URL}
               alt={g.titulo}
               initialIndex={capaIndex}
             />
@@ -292,7 +290,7 @@ export default async function GalpaoPage({
         <h2 className="text-xl font-bold text-gray-900 mb-2">Continue sua busca</h2>
         <GalpoesGrid
           galpoes={(todosGalpoes ?? []) as Parameters<typeof GalpoesGrid>[0]["galpoes"]}
-          supabaseUrl={supabaseUrl!}
+          supabaseUrl={SUPABASE_URL}
           initialCategoria={sp.categoria as "galpao" | "loja" | "terreno" | undefined}
           initialNegocio={sp.negocio as "todos" | "venda" | "locacao" | undefined}
           initialCidade={sp.cidade}

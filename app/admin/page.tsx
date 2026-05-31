@@ -25,7 +25,8 @@ const PDFDownloadLink = dynamic(
   { ssr: false, loading: () => <button className="bg-gray-200 text-gray-400 px-4 py-2 text-sm cursor-not-allowed">PDF...</button> }
 );
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+import { SUPABASE_URL } from "@/lib/constants";
+const supabaseUrl = SUPABASE_URL;
 
 export default function ImoveisPage() {
   const {

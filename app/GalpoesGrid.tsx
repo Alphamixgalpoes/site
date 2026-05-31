@@ -3,26 +3,10 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { campoVisivel, type ConfigCampo, type OverridesVisibilidade } from "@/lib/visibilidade";
+import { tipoLabel } from "@/lib/galpao-utils";
 
-type Galpao = {
-  id: string;
-  titulo: string;
-  tipo: string;
-  categoria: string;
-  uso_terreno: string | null;
-  valor: number | null;
-  cidade: string;
-  bairro: string | null;
-  area_construida_m2: number | null;
-  area_total_m2: number | null;
-  pe_direito_m: number | null;
-  numero_docas: number;
-  acesso_carreta: boolean;
-  vagas_estacionamento: number;
-  descricao: string | null;
-  campos_visibilidade?: OverridesVisibilidade;
-  galpao_imagens: { storage_path: string; ordem: number; is_capa?: boolean }[];
-};
+import type { GalpaoPublico as Galpao } from "@/lib/types";
+
 
 type Categoria = "galpao" | "loja" | "terreno";
 type Negocio = "todos" | "venda" | "locacao";
@@ -287,7 +271,6 @@ export default function GalpoesGrid({
           {filtrados.map((g) => {
             const imagens = [...g.galpao_imagens].sort((a, b) => a.ordem - b.ordem);
             const capa = imagens.find((i) => i.is_capa) ?? imagens[0];
-            const tipoLabel = g.tipo === "venda" ? "Venda" : g.tipo === "locacao" ? "Locação" : "Venda / Locação";
             const tipoBg = g.tipo === "venda"
               ? "bg-[#2e3092] text-white"
               : g.tipo === "locacao"
@@ -321,7 +304,7 @@ export default function GalpoesGrid({
                     </div>
                   )}
                   <span className={`absolute top-3 left-3 text-xs font-bold px-2 py-1 rounded-sm ${tipoBg}`}>
-                    {tipoLabel}
+                    {tipoLabel(g.tipo)}
                   </span>
                 </div>
 

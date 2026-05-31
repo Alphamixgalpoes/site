@@ -6,26 +6,15 @@ import ImageGallery from "@/app/components/ImageGallery";
 import { campoVisivel } from "@/lib/visibilidade";
 import type { ConfigCampo } from "@/lib/visibilidade";
 import type { Galpao } from "./useGalpoes";
-
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+import { SUPABASE_URL } from "@/lib/constants";
+import { tipoLabel, categoriaLabel, usoTerrenoLabel } from "@/lib/galpao-utils";
+import { FichaRow } from "@/app/components/FichaRow";
 
 type Props = {
   galpao: Galpao;
   configCampos: ConfigCampo[];
   onClose: () => void;
 };
-
-function FichaRow({ label, value }: { label: string; value: string | null | undefined }) {
-  if (!value) return null;
-  return (
-    <div className="flex flex-col sm:flex-row px-4 py-3 gap-0.5 sm:gap-0 border-b border-gray-100 last:border-0">
-      <span className="text-xs font-semibold uppercase tracking-wide text-gray-400 sm:w-44 shrink-0 mt-0.5">
-        {label}
-      </span>
-      <span className="text-sm text-gray-900">{value}</span>
-    </div>
-  );
-}
 
 export default function GalpaoPreviewModal({ galpao: g, configCampos, onClose }: Props) {
   const overrides = g.campos_visibilidade ?? {};
@@ -36,16 +25,9 @@ export default function GalpaoPreviewModal({ galpao: g, configCampos, onClose }:
     .sort((a, b) => a.ordem - b.ordem);
   const capaIndex = Math.max(0, imagens.findIndex((i) => i.is_capa));
 
-  const tipoLabel = g.tipo === "venda" ? "Venda" : g.tipo === "locacao" ? "Locação" : "Venda / Locação";
-  const categoriaLabel = g.categoria === "loja" ? "Loja" : g.categoria === "terreno" ? "Terreno" : "Galpão";
-  const usoTerrenoLabel =
-    g.uso_terreno === "galpao"
-      ? "Para galpão"
-      : g.uso_terreno === "loja"
-      ? "Para loja"
-      : g.uso_terreno === "ambos"
-      ? "Galpão e loja"
-      : null;
+  const tipo = tipoLabel(g.tipo);
+  const categoria = categoriaLabel(g.categoria);
+  const usoTerreno = usoTerrenoLabel(g.uso_terreno);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -54,7 +36,7 @@ export default function GalpaoPreviewModal({ galpao: g, configCampos, onClose }:
         onClose();
       }
     };
-    document.addEventListener("keydown", handler, true); // capture phase — consome antes do modal atrás
+    document.addEventListener("keydown", handler, true);
     return () => document.removeEventListener("keydown", handler, true);
   }, [onClose]);
 
@@ -99,7 +81,7 @@ export default function GalpaoPreviewModal({ galpao: g, configCampos, onClose }:
         {imagens.length > 0 && (
           <div className="px-5 pt-6">
             <p className="text-xs text-gray-400 mb-2">Galeria na página do anúncio ({imagens.length} foto{imagens.length !== 1 ? "s" : ""})</p>
-            <ImageGallery images={imagens} supabaseUrl={supabaseUrl} alt={g.titulo} initialIndex={capaIndex} />
+            <ImageGallery images={imagens} supabaseUrl={SUPABASE_URL} alt={g.titulo} initialIndex={capaIndex} />
           </div>
         )}
 
@@ -112,7 +94,7 @@ export default function GalpaoPreviewModal({ galpao: g, configCampos, onClose }:
 
           {/* Sidebar resumo */}
           <div className="border border-gray-200 rounded-sm p-4 mb-4">
-            <span className="text-xs font-bold tracking-widest text-[#2e3092] uppercase">{tipoLabel}</span>
+            <span className="text-xs font-bold tracking-widest text-[#2e3092] uppercase">{tipo}</span>
             <p className="text-base font-bold text-gray-900 mt-1 leading-snug">{g.titulo}</p>
             {cv("bairro") && g.bairro && (
               <p className="text-xs text-gray-400 mt-0.5">{g.bairro}, {g.cidade}</p>
@@ -134,9 +116,9 @@ export default function GalpaoPreviewModal({ galpao: g, configCampos, onClose }:
 
           {/* Ficha de campos */}
           <div className="border border-gray-200 rounded-sm overflow-hidden">
-            <FichaRow label="Categoria" value={categoriaLabel} />
-            {cv("uso_terreno") && <FichaRow label="Uso indicado" value={usoTerrenoLabel} />}
-            <FichaRow label="Negócio" value={tipoLabel} />
+            <FichaRow label="Categoria" value={categoria} />
+            {cv("uso_terreno") && <FichaRow label="Uso indicado" value={usoTerreno} />}
+            <FichaRow label="Negócio" value={tipo} />
             <FichaRow label="Cidade" value={g.cidade} />
             {cv("bairro") && <FichaRow label="Bairro" value={g.bairro} />}
             {cv("endereco") && <FichaRow label="Endereço" value={g.endereco} />}

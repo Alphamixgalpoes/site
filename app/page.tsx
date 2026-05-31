@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase-server";
 import PublicHeader from "./PublicHeader";
 import GalpoesGrid from "./GalpoesGrid";
 import type { ConfigCampo } from "@/lib/visibilidade";
+import { SUPABASE_URL } from "@/lib/constants";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -20,7 +21,6 @@ export default async function Home() {
     supabase.from("config_campos").select("*"),
   ]);
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
   return (
     <div className="min-h-screen bg-white text-gray-900 font-sans">
@@ -93,7 +93,7 @@ export default async function Home() {
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900">Imóveis em carteira</h2>
             <GalpoesGrid
               galpoes={galpoes as Parameters<typeof GalpoesGrid>[0]["galpoes"]}
-              supabaseUrl={supabaseUrl!}
+              supabaseUrl={SUPABASE_URL}
               configCampos={(configCampos ?? []) as ConfigCampo[]}
             />
           </div>

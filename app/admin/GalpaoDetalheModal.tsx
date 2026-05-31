@@ -5,7 +5,9 @@ import Link from "next/link";
 import ImageGallery from "@/app/components/ImageGallery";
 import type { Galpao } from "./useGalpoes";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+import { SUPABASE_URL } from "@/lib/constants";
+import { tipoLabel, categoriaLabel, usoTerrenoLabel } from "@/lib/galpao-utils";
+import { FichaRow } from "@/app/components/FichaRow";
 
 type Props = {
   galpao: Galpao;
@@ -13,26 +15,9 @@ type Props = {
   onOpenPreview: () => void;
 };
 
-const tipoLabel = (t: string) =>
-  t === "venda" ? "Venda" : t === "locacao" ? "Locação" : "Venda / Locação";
 
-const categoriaLabel = (c: string) =>
-  c === "loja" ? "Loja" : c === "terreno" ? "Terreno" : "Galpão";
 
-const usoTerrenoLabel = (u: string | null) =>
-  u === "galpao" ? "Para galpão" : u === "loja" ? "Para loja" : u === "ambos" ? "Galpão e loja" : null;
 
-function FichaRow({ label, value }: { label: string; value: string | null | undefined }) {
-  if (!value) return null;
-  return (
-    <div className="flex flex-col sm:flex-row px-4 py-3 gap-0.5 sm:gap-0 border-b border-gray-100 last:border-0">
-      <span className="text-xs font-semibold uppercase tracking-wide text-gray-400 sm:w-44 shrink-0 mt-0.5">
-        {label}
-      </span>
-      <span className="text-sm text-gray-900">{value}</span>
-    </div>
-  );
-}
 
 export default function GalpaoDetalheModal({ galpao: g, onClose, onOpenPreview }: Props) {
   const imgs = [...g.galpao_imagens].sort((a, b) => a.ordem - b.ordem);
@@ -87,7 +72,7 @@ export default function GalpaoDetalheModal({ galpao: g, onClose, onOpenPreview }
           <div className="px-6 pt-5">
             <ImageGallery
               images={imgs}
-              supabaseUrl={supabaseUrl}
+              supabaseUrl={SUPABASE_URL}
               alt={g.titulo}
               initialIndex={Math.max(0, imgs.findIndex((i) => i.is_capa))}
             />

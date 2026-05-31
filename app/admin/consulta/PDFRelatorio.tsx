@@ -1,3 +1,4 @@
+import { tipoLabel } from "@/lib/galpao-utils";
 import {
   Document,
   Page,
@@ -68,28 +69,8 @@ const styles = StyleSheet.create({
   mapaLegendaEnd: { fontSize: 7, color: "#6b7280", flex: 1 },
 });
 
-type Galpao = {
-  id: string;
-  titulo: string;
-  tipo: string;
-  valor: number | null;
-  cidade: string;
-  bairro: string | null;
-  endereco: string | null;
-  area_construida_m2: number | null;
-  area_total_m2: number | null;
-  pe_direito_m: number | null;
-  numero_docas: number;
-  acesso_carreta: boolean;
-  sprinklers: boolean;
-  guarita: boolean;
-  potencia_eletrica_kva: number | null;
-  vagas_estacionamento: number;
-  descricao: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  galpao_imagens: { storage_path: string; ordem: number; is_capa?: boolean }[];
-};
+import type { Galpao } from "@/lib/types";
+
 
 type MapResult = { url: string; pontos: Array<Galpao & { num: number }> };
 
@@ -109,9 +90,6 @@ function buildMapUrl(galpoes: Galpao[], baseUrl: string): MapResult | null {
 }
 
 type Filtros = Record<string, string>;
-
-const tipoLabel = (t: string) =>
-  t === "venda" ? "Venda" : t === "locacao" ? "Locação" : "Venda / Locação";
 
 export function PDFRelatorio({
   galpoes,

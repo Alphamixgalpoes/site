@@ -10,31 +10,11 @@ const PDFDownloadLink = dynamic(
   { ssr: false, loading: () => <button className="bg-gray-200 text-gray-400 px-5 py-2 text-sm cursor-not-allowed">Carregando PDF...</button> }
 );
 
-type Galpao = {
-  id: string;
-  titulo: string;
-  tipo: string;
-  valor: number | null;
-  cidade: string;
-  bairro: string | null;
-  endereco: string | null;
-  publicado: boolean;
-  area_construida_m2: number | null;
-  area_total_m2: number | null;
-  pe_direito_m: number | null;
-  numero_docas: number;
-  acesso_carreta: boolean;
-  sprinklers: boolean;
-  guarita: boolean;
-  potencia_eletrica_kva: number | null;
-  vagas_estacionamento: number;
-  descricao: string | null;
-  latitude: number | null;
-  longitude: number | null;
-  galpao_imagens: { storage_path: string; ordem: number; is_capa?: boolean }[];
-};
+import type { Galpao } from "@/lib/types";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+
+import { SUPABASE_URL } from "@/lib/constants";
+const supabaseUrl = SUPABASE_URL;
 
 export default function ConsultaPage() {
   const [galpoes, setGalpoes] = useState<Galpao[]>([]);
@@ -64,7 +44,7 @@ export default function ConsultaPage() {
           vagas_estacionamento, descricao, latitude, longitude,
           galpao_imagens (storage_path, ordem, is_capa)`)
         .order("created_at", { ascending: false });
-      setGalpoes(data ?? []);
+      setGalpoes((data ?? []) as unknown as Galpao[]);
       setLoading(false);
     }
     load();
