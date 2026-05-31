@@ -272,12 +272,16 @@ export default function ProcessoDetalhePage() {
       setContatosVinculados(
         pc
           .filter((row) => row.contatos)
-          .map((row) => ({
-            id: row.id,
-            contato_id: row.contato_id,
-            papel: row.papel,
-            ...(row.contatos as unknown as { id: string; nome: string; tipo_principal: string }),
-          }))
+          .map((row) => {
+            const c = row.contatos as unknown as { id: string; nome: string; tipo_principal: string };
+            return {
+              id: row.id,
+              contato_id: row.contato_id,
+              papel: row.papel,
+              nome: c.nome,
+              tipo_principal: c.tipo_principal,
+            };
+          })
       );
     }
 
