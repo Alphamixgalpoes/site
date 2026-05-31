@@ -14,6 +14,13 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { createClient } from "@/lib/supabase-browser";
 
+type GalpaoVinculado = {
+  id: string;
+  titulo: string;
+  tipo: string | null;
+  area_total: number | null;
+};
+
 type Processo = {
   id: string;
   titulo: string;
@@ -23,6 +30,8 @@ type Processo = {
   parte_b: string | null;
   valor: number | null;
   notas: string | null;
+  galpao_id: string | null;
+  galpao: GalpaoVinculado | null;
 };
 
 type Item = {
@@ -44,6 +53,27 @@ type Categoria = {
   ordem: number;
 };
 
+type ContatoVinculado = {
+  id: string;
+  contato_id: string;
+  nome: string;
+  tipo_principal: string;
+  papel: string;
+};
+
+type ContatoBusca = {
+  id: string;
+  nome: string;
+  tipo_principal: string;
+};
+
+type GalpaoBusca = {
+  id: string;
+  titulo: string;
+  tipo: string | null;
+  area_total: number | null;
+};
+
 const statusOpcoes = [
   { value: "em_andamento", label: "Em andamento" },
   { value: "pausado", label: "Pausado" },
@@ -60,7 +90,8 @@ const inp = "border border-gray-200 px-3 py-2 text-sm text-gray-900 focus:outlin
 const ACCEPTED = ".pdf,.png,.jpg,.jpeg";
 const MAX_MB = 10;
 
-// Componente de item arrastável
+// ── Componente de item arrastável ────────────────────────────────────────────
+
 function ItemRow({
   item, onToggle, onRemove, onUpload, onRemoverArquivo, signedUrl, uploading,
 }: {
@@ -88,7 +119,6 @@ function ItemRow({
       style={style}
       className="flex items-start gap-3 px-4 py-3 group bg-white"
     >
-      {/* Drag handle */}
       <button
         {...attributes}
         {...listeners}
@@ -113,7 +143,6 @@ function ItemRow({
           <p className="text-xs text-gray-400 mt-0.5 leading-relaxed">{item.descricao}</p>
         )}
 
-        {/* Arquivo */}
         <div className="mt-2">
           {item.arquivo_nome ? (
             <div className="flex items-center gap-2">
@@ -153,14 +182,42 @@ function ItemRow({
   );
 }
 
+// ── Página principal ─────────────────────────────────────────────────────────
+
 export default function ProcessoDetalhePage() {
   const { id } = useParams<{ id: string }>();
   const [processo, setProcesso] = useState<Processo | null>(null);
   const [itens, setItens] = useState<Item[]>([]);
   const [categorias, setCategorias] = useState<Categoria[]>([]);
+  const [contatosVinculados, setContatosVinculados] = useState<ContatoVinculado[]>([]);
   const [loading, setLoading] = useState(true);
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const [uploading, setUploading] = useState<Record<string, boolean>>({});
+
+  // ── edit inline ──
+  const [editandoTitulo, setEditandoTitulo] = useState(false);
+  const [editTitulo, setEditTitulo] = useState("");
+  const [editandoParteA, setEditandoParteA] = useState(false);
+  const [editParteA, setEditParteA] = useState("");
+  const [editandoParteB, setEditandoParteB] = useState(false);
+  const [editParteB, setEditParteB] = useState("");
+  const [editandoValor, setEditandoValor] = useState(false);
+  const [editValor, setEditValor] = useState("");
+  const [editandoNotas, setEditandoNotas] = useState(false);
+  const [editNotas, setEditNotas] = useState("");
+
+  // ── vincular contato ──
+  const [mostrarFormContato, setMostrarFormContato] = useState(false);
+  const [buscaContato, setBuscaContato] = useState("");
+  const [resultadosContato, setResultadosContato] = useState<ContatoBusca[]>([]);
+  const [contatoSelecionado, setContatoSelecionado] = useState<ContatoBusca | null>(null);
+  const [papelContato, setPapelContato] = useState("");
+  const [vinculandoContato, setVinculandoContato] = useState(false);
+
+  // ── vincular galpão ──
+  const [mostrarFormGalpao, setMostrarFormGalpao] = useState(false);
+  const [buscaGalpao, setBuscaGalpao] = useState("");
+  const [resultadosGalpao, setResultadosGalpao] = useState<GalpaoBusca[]>([]);
 
   // novo item
   const [novoTitulo, setNovoTitulo] = useState("");
@@ -177,16 +234,25 @@ export default function ProcessoDetalhePage() {
 
   async function load() {
     const supabase = createClient();
-    const [{ data: proc }, { data: its }, { data: cats }] = await Promise.all([
-      supabase.from("processos").select("*").eq("id", id).single(),
+    const [{ data: proc }, { data: its }, { data: cats }, { data: pc }] = await Promise.all([
+      supabase.from("processos").select("*, galpao:galpoes(id, titulo, tipo, area_total)").eq("id", id).single(),
       supabase.from("processo_itens").select("*").eq("processo_id", id).order("ordem"),
       supabase.from("processo_categorias").select("*").eq("processo_id", id).order("ordem"),
+      supabase.from("processo_contatos").select("id, papel, contato_id, contatos(id, nome, tipo_principal)").eq("processo_id", id),
     ]);
-    setProcesso(proc);
+
+    if (proc) {
+      setProcesso(proc as Processo);
+      setEditTitulo(proc.titulo);
+      setEditParteA(proc.parte_a ?? "");
+      setEditParteB(proc.parte_b ?? "");
+      setEditValor(proc.valor ? String(proc.valor) : "");
+      setEditNotas(proc.notas ?? "");
+    }
+
     const items = its ?? [];
     setItens(items);
 
-    // Categorias: usa DB se existir, senão deriva dos slugs únicos dos itens
     if (cats && cats.length > 0) {
       setCategorias(cats);
       setNovaCategoria(cats[0]?.slug ?? "");
@@ -200,6 +266,23 @@ export default function ProcessoDetalhePage() {
       }));
       setCategorias(catsDerivadas);
       setNovaCategoria(catsDerivadas[0]?.slug ?? "");
+    }
+
+    if (pc) {
+      setContatosVinculados(
+        pc
+          .filter((row) => row.contatos)
+          .map((row) => {
+            const c = row.contatos as unknown as { id: string; nome: string; tipo_principal: string };
+            return {
+              id: row.id,
+              contato_id: row.contato_id,
+              papel: row.papel,
+              nome: c.nome,
+              tipo_principal: c.tipo_principal,
+            };
+          })
+      );
     }
 
     setLoading(false);
@@ -218,16 +301,28 @@ export default function ProcessoDetalhePage() {
     setSignedUrls(urls);
   }
 
-  async function toggleFeito(item: Item) {
-    setItens((prev) => prev.map((i) => i.id === item.id ? { ...i, feito: !item.feito } : i));
+  // ── salvar campo inline ───────────────────────────────────────────────────
+
+  async function salvarCampo(campo: string, valor: string | number | null) {
     const supabase = createClient();
-    await supabase.from("processo_itens").update({ feito: !item.feito }).eq("id", item.id);
+    await supabase.from("processos").update({ [campo]: valor }).eq("id", id);
+    setProcesso((p) => p ? { ...p, [campo]: valor } : p);
   }
+
+  // ── status ────────────────────────────────────────────────────────────────
 
   async function atualizarStatus(status: string) {
     setProcesso((p) => p ? { ...p, status } : p);
     const supabase = createClient();
     await supabase.from("processos").update({ status }).eq("id", id);
+  }
+
+  // ── checklist ─────────────────────────────────────────────────────────────
+
+  async function toggleFeito(item: Item) {
+    setItens((prev) => prev.map((i) => i.id === item.id ? { ...i, feito: !item.feito } : i));
+    const supabase = createClient();
+    await supabase.from("processo_itens").update({ feito: !item.feito }).eq("id", item.id);
   }
 
   async function adicionarItem() {
@@ -284,7 +379,8 @@ export default function ProcessoDetalhePage() {
     setSignedUrls((prev) => { const n = { ...prev }; delete n[item.id]; return n; });
   }
 
-  // Reordenar itens dentro de uma categoria
+  // ── drag ──────────────────────────────────────────────────────────────────
+
   async function handleDragEndItens(event: DragEndEvent, catSlug: string) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -302,7 +398,6 @@ export default function ProcessoDetalhePage() {
     ));
   }
 
-  // Reordenar categorias
   async function handleDragEndCategorias(event: DragEndEvent) {
     const { active, over } = event;
     if (!over || active.id === over.id) return;
@@ -310,7 +405,6 @@ export default function ProcessoDetalhePage() {
     const newIdx = categorias.findIndex((c) => c.id === over.id);
     const reordenadas = arrayMove(categorias, oldIdx, newIdx).map((c, idx) => ({ ...c, ordem: idx + 1 }));
     setCategorias(reordenadas);
-    // Só persiste se existir no banco (não nas derivadas)
     const supabase = createClient();
     const { data: existentes } = await supabase.from("processo_categorias").select("id").eq("processo_id", id);
     if (existentes && existentes.length > 0) {
@@ -319,6 +413,83 @@ export default function ProcessoDetalhePage() {
       ));
     }
   }
+
+  // ── contatos ──────────────────────────────────────────────────────────────
+
+  async function buscarContatos(termo: string) {
+    if (termo.length < 2) { setResultadosContato([]); return; }
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("contatos")
+      .select("id, nome, tipo_principal")
+      .ilike("nome", `%${termo}%`)
+      .eq("ativo", true)
+      .limit(8);
+    setResultadosContato(data ?? []);
+  }
+
+  async function vincularContato() {
+    if (!contatoSelecionado || !papelContato.trim()) return;
+    setVinculandoContato(true);
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("processo_contatos")
+      .insert({ processo_id: id, contato_id: contatoSelecionado.id, papel: papelContato.trim() })
+      .select("id, papel, contato_id, contatos(id, nome, tipo_principal)")
+      .single();
+    if (data && data.contatos) {
+      const c = data.contatos as unknown as { id: string; nome: string; tipo_principal: string };
+      setContatosVinculados((prev) => [...prev, {
+        id: data.id,
+        contato_id: data.contato_id,
+        papel: data.papel,
+        nome: c.nome,
+        tipo_principal: c.tipo_principal,
+      }]);
+    }
+    setBuscaContato("");
+    setResultadosContato([]);
+    setContatoSelecionado(null);
+    setPapelContato("");
+    setMostrarFormContato(false);
+    setVinculandoContato(false);
+  }
+
+  async function desvincularContato(pcId: string) {
+    const supabase = createClient();
+    await supabase.from("processo_contatos").delete().eq("id", pcId);
+    setContatosVinculados((prev) => prev.filter((c) => c.id !== pcId));
+  }
+
+  // ── galpão ────────────────────────────────────────────────────────────────
+
+  async function buscarGalpoes(termo: string) {
+    if (termo.length < 2) { setResultadosGalpao([]); return; }
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("galpoes")
+      .select("id, titulo, tipo, area_total")
+      .ilike("titulo", `%${termo}%`)
+      .limit(8);
+    setResultadosGalpao(data ?? []);
+  }
+
+  async function vincularGalpao(galpao: GalpaoBusca) {
+    const supabase = createClient();
+    await supabase.from("processos").update({ galpao_id: galpao.id }).eq("id", id);
+    setProcesso((p) => p ? { ...p, galpao_id: galpao.id, galpao: galpao } : p);
+    setBuscaGalpao("");
+    setResultadosGalpao([]);
+    setMostrarFormGalpao(false);
+  }
+
+  async function desvincularGalpao() {
+    const supabase = createClient();
+    await supabase.from("processos").update({ galpao_id: null }).eq("id", id);
+    setProcesso((p) => p ? { ...p, galpao_id: null, galpao: null } : p);
+  }
+
+  // ── render ────────────────────────────────────────────────────────────────
 
   if (loading) return <div className="text-sm text-gray-400 py-12 text-center">Carregando...</div>;
   if (!processo) return <div className="text-sm text-gray-400 py-12 text-center">Processo não encontrado.</div>;
@@ -340,26 +511,196 @@ export default function ProcessoDetalhePage() {
       {/* Header */}
       <div className="bg-white border border-gray-200 p-5 space-y-4">
         <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div>
-            <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">{tipoLabel[processo.tipo] ?? processo.tipo}</p>
-            <h1 className="text-lg font-semibold text-gray-900">{processo.titulo}</h1>
-            {(processo.parte_a || processo.parte_b) && (
-              <p className="text-sm text-gray-500 mt-1">{[processo.parte_a, processo.parte_b].filter(Boolean).join(" → ")}</p>
+          <div className="flex-1 min-w-0 space-y-1.5">
+            <p className="text-xs text-gray-400 uppercase tracking-wide">{tipoLabel[processo.tipo] ?? processo.tipo}</p>
+
+            {/* Título */}
+            {editandoTitulo ? (
+              <input
+                autoFocus
+                className="text-lg font-semibold text-gray-900 border-b border-gray-300 focus:outline-none focus:border-gray-900 bg-transparent w-full"
+                value={editTitulo}
+                onChange={(e) => setEditTitulo(e.target.value)}
+                onBlur={() => { salvarCampo("titulo", editTitulo.trim() || processo.titulo); setEditandoTitulo(false); }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { salvarCampo("titulo", editTitulo.trim() || processo.titulo); setEditandoTitulo(false); }
+                  if (e.key === "Escape") { setEditTitulo(processo.titulo); setEditandoTitulo(false); }
+                }}
+              />
+            ) : (
+              <h1
+                className="text-lg font-semibold text-gray-900 cursor-text hover:text-gray-600 transition-colors"
+                onClick={() => { setEditTitulo(processo.titulo); setEditandoTitulo(true); }}
+                title="Clique para editar"
+              >
+                {processo.titulo}
+              </h1>
             )}
-            {processo.valor && (
-              <p className="text-sm text-gray-500 mt-0.5">R$ {Number(processo.valor).toLocaleString("pt-BR")}</p>
+
+            {/* Parte A → Parte B */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {editandoParteA ? (
+                <input
+                  autoFocus
+                  className="text-sm text-gray-500 border-b border-gray-300 focus:outline-none focus:border-gray-900 bg-transparent"
+                  placeholder="Parte A"
+                  value={editParteA}
+                  onChange={(e) => setEditParteA(e.target.value)}
+                  onBlur={() => { salvarCampo("parte_a", editParteA.trim() || null); setEditandoParteA(false); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") { salvarCampo("parte_a", editParteA.trim() || null); setEditandoParteA(false); }
+                    if (e.key === "Escape") { setEditParteA(processo.parte_a ?? ""); setEditandoParteA(false); }
+                  }}
+                />
+              ) : (
+                <span
+                  className={`text-sm cursor-text transition-colors ${processo.parte_a ? "text-gray-500 hover:text-gray-700" : "text-gray-300 hover:text-gray-400"}`}
+                  onClick={() => { setEditParteA(processo.parte_a ?? ""); setEditandoParteA(true); }}
+                  title="Clique para editar"
+                >
+                  {processo.parte_a ?? "Parte A"}
+                </span>
+              )}
+
+              {(processo.parte_a || processo.parte_b) && <span className="text-gray-300 text-sm">→</span>}
+
+              {editandoParteB ? (
+                <input
+                  autoFocus
+                  className="text-sm text-gray-500 border-b border-gray-300 focus:outline-none focus:border-gray-900 bg-transparent"
+                  placeholder="Parte B"
+                  value={editParteB}
+                  onChange={(e) => setEditParteB(e.target.value)}
+                  onBlur={() => { salvarCampo("parte_b", editParteB.trim() || null); setEditandoParteB(false); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") { salvarCampo("parte_b", editParteB.trim() || null); setEditandoParteB(false); }
+                    if (e.key === "Escape") { setEditParteB(processo.parte_b ?? ""); setEditandoParteB(false); }
+                  }}
+                />
+              ) : (
+                <span
+                  className={`text-sm cursor-text transition-colors ${processo.parte_b ? "text-gray-500 hover:text-gray-700" : "text-gray-300 hover:text-gray-400"}`}
+                  onClick={() => { setEditParteB(processo.parte_b ?? ""); setEditandoParteB(true); }}
+                  title="Clique para editar"
+                >
+                  {processo.parte_b ?? "Parte B"}
+                </span>
+              )}
+            </div>
+
+            {/* Valor */}
+            {editandoValor ? (
+              <input
+                autoFocus
+                type="number"
+                className="text-sm text-gray-500 border-b border-gray-300 focus:outline-none focus:border-gray-900 bg-transparent"
+                placeholder="Valor R$"
+                value={editValor}
+                onChange={(e) => setEditValor(e.target.value)}
+                onBlur={() => { salvarCampo("valor", editValor ? Number(editValor) : null); setEditandoValor(false); }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") { salvarCampo("valor", editValor ? Number(editValor) : null); setEditandoValor(false); }
+                  if (e.key === "Escape") { setEditValor(processo.valor ? String(processo.valor) : ""); setEditandoValor(false); }
+                }}
+              />
+            ) : (
+              <p
+                className={`text-sm cursor-text transition-colors ${processo.valor ? "text-gray-500 hover:text-gray-700" : "text-gray-300 hover:text-gray-400"}`}
+                onClick={() => { setEditValor(processo.valor ? String(processo.valor) : ""); setEditandoValor(true); }}
+                title="Clique para editar"
+              >
+                {processo.valor ? `R$ ${Number(processo.valor).toLocaleString("pt-BR")}` : "+ Valor"}
+              </p>
             )}
+
+            {/* Imóvel vinculado */}
+            <div className="flex items-center gap-2">
+              {processo.galpao ? (
+                <div className="flex items-center gap-1.5">
+                  <Link
+                    href={`/admin/galpoes/${processo.galpao.id}`}
+                    target="_blank"
+                    className="text-xs text-gray-500 bg-gray-50 border border-gray-200 px-2 py-0.5 hover:border-gray-400 transition-colors"
+                  >
+                    {processo.galpao.titulo} ↗
+                  </Link>
+                  <button
+                    onClick={desvincularGalpao}
+                    className="text-xs text-gray-400 hover:text-red-500 transition-colors"
+                    title="Desvincular imóvel"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : mostrarFormGalpao ? (
+                <div className="relative">
+                  <input
+                    autoFocus
+                    className="text-sm border-b border-gray-300 focus:outline-none focus:border-gray-900 bg-transparent text-gray-700 w-64"
+                    placeholder="Buscar imóvel pelo título..."
+                    value={buscaGalpao}
+                    onChange={(e) => { setBuscaGalpao(e.target.value); buscarGalpoes(e.target.value); }}
+                    onKeyDown={(e) => { if (e.key === "Escape") { setMostrarFormGalpao(false); setBuscaGalpao(""); setResultadosGalpao([]); } }}
+                  />
+                  {resultadosGalpao.length > 0 && (
+                    <div className="absolute top-full left-0 mt-1 w-80 bg-white border border-gray-200 shadow-sm z-20">
+                      {resultadosGalpao.map((g) => (
+                        <button
+                          key={g.id}
+                          onClick={() => vincularGalpao(g)}
+                          className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0"
+                        >
+                          <span className="font-medium">{g.titulo}</span>
+                          {g.area_total && <span className="text-gray-400 ml-2 text-xs">{g.area_total.toLocaleString("pt-BR")} m²</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <button
+                  onClick={() => setMostrarFormGalpao(true)}
+                  className="text-xs text-gray-400 hover:text-gray-700 transition-colors"
+                >
+                  + Vincular imóvel
+                </button>
+              )}
+            </div>
           </div>
+
           <select value={processo.status} onChange={(e) => atualizarStatus(e.target.value)}
             className="border border-gray-200 px-3 py-1.5 text-sm text-gray-700 focus:outline-none focus:border-gray-900 bg-white shrink-0">
             {statusOpcoes.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
           </select>
         </div>
 
-        {processo.notas && (
-          <p className="text-sm text-gray-500 leading-relaxed border-t border-gray-100 pt-4">{processo.notas}</p>
-        )}
+        {/* Notas */}
+        <div className="border-t border-gray-100 pt-4">
+          {editandoNotas ? (
+            <textarea
+              autoFocus
+              rows={3}
+              className="w-full text-sm text-gray-500 border border-gray-200 px-3 py-2 focus:outline-none focus:border-gray-900 bg-transparent resize-none"
+              placeholder="Notas sobre o processo..."
+              value={editNotas}
+              onChange={(e) => setEditNotas(e.target.value)}
+              onBlur={() => { salvarCampo("notas", editNotas.trim() || null); setEditandoNotas(false); }}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") { setEditNotas(processo.notas ?? ""); setEditandoNotas(false); }
+              }}
+            />
+          ) : (
+            <p
+              className={`text-sm leading-relaxed cursor-text transition-colors ${processo.notas ? "text-gray-500 hover:text-gray-700" : "text-gray-300 hover:text-gray-400"}`}
+              onClick={() => { setEditNotas(processo.notas ?? ""); setEditandoNotas(true); }}
+              title="Clique para editar"
+            >
+              {processo.notas ?? "+ Adicionar notas"}
+            </p>
+          )}
+        </div>
 
+        {/* Progresso */}
         <div className="border-t border-gray-100 pt-4">
           <div className="flex items-center justify-between mb-2">
             <p className="text-xs text-gray-400">Progresso</p>
@@ -369,6 +710,106 @@ export default function ProcessoDetalhePage() {
             <div className="bg-gray-900 h-1.5 transition-all duration-300" style={{ width: `${progresso}%` }} />
           </div>
         </div>
+      </div>
+
+      {/* Contatos vinculados */}
+      <div className="bg-white border border-gray-200 p-5 space-y-3">
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
+          Contatos vinculados{contatosVinculados.length > 0 && ` (${contatosVinculados.length})`}
+        </p>
+
+        {contatosVinculados.length > 0 && (
+          <div className="divide-y divide-gray-100 -mx-5">
+            {contatosVinculados.map((c) => (
+              <div key={c.id} className="flex items-center gap-3 px-5 py-2.5 group hover:bg-gray-50 transition-colors">
+                <Link
+                  href={`/admin/contatos/${c.contato_id}`}
+                  className="flex-1 min-w-0 hover:text-gray-600 transition-colors"
+                >
+                  <p className="text-sm text-gray-900 truncate">{c.nome}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{c.tipo_principal} · {c.papel}</p>
+                </Link>
+                <button
+                  onClick={() => desvincularContato(c.id)}
+                  className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all text-xs shrink-0"
+                  title="Desvincular"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {mostrarFormContato ? (
+          <div className="space-y-3 pt-1">
+            {!contatoSelecionado ? (
+              <div className="relative">
+                <input
+                  autoFocus
+                  className={inp}
+                  placeholder="Buscar contato pelo nome..."
+                  value={buscaContato}
+                  onChange={(e) => { setBuscaContato(e.target.value); buscarContatos(e.target.value); }}
+                  onKeyDown={(e) => { if (e.key === "Escape") { setMostrarFormContato(false); setBuscaContato(""); setResultadosContato([]); } }}
+                />
+                {resultadosContato.length > 0 && (
+                  <div className="absolute top-full left-0 mt-1 w-full bg-white border border-gray-200 shadow-sm z-20">
+                    {resultadosContato.map((c) => (
+                      <button
+                        key={c.id}
+                        onClick={() => { setContatoSelecionado(c); setBuscaContato(""); setResultadosContato([]); }}
+                        className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0"
+                      >
+                        <span className="font-medium">{c.nome}</span>
+                        <span className="text-gray-400 ml-2 text-xs">{c.tipo_principal}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-900 bg-gray-100 px-2 py-1">{contatoSelecionado.nome}</span>
+                <button onClick={() => setContatoSelecionado(null)} className="text-xs text-gray-400 hover:text-gray-700">✕</button>
+              </div>
+            )}
+
+            {contatoSelecionado && (
+              <div className="flex items-center gap-2">
+                <input
+                  autoFocus
+                  className={`${inp} flex-1`}
+                  placeholder="Papel (ex: Comprador, Advogado...)"
+                  value={papelContato}
+                  onChange={(e) => setPapelContato(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") vincularContato(); if (e.key === "Escape") { setMostrarFormContato(false); setContatoSelecionado(null); setPapelContato(""); } }}
+                />
+                <button
+                  onClick={vincularContato}
+                  disabled={vinculandoContato || !papelContato.trim()}
+                  className="bg-gray-900 text-white px-4 py-2 text-xs font-medium hover:bg-gray-700 transition-colors disabled:opacity-40 shrink-0"
+                >
+                  {vinculandoContato ? "..." : "Vincular"}
+                </button>
+              </div>
+            )}
+
+            <button
+              onClick={() => { setMostrarFormContato(false); setBuscaContato(""); setResultadosContato([]); setContatoSelecionado(null); setPapelContato(""); }}
+              className="text-xs text-gray-400 hover:text-gray-700 transition-colors"
+            >
+              Cancelar
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setMostrarFormContato(true)}
+            className="text-xs text-gray-500 hover:text-gray-900 transition-colors"
+          >
+            + Vincular contato
+          </button>
+        )}
       </div>
 
       {/* Categorias com DnD */}
@@ -457,7 +898,8 @@ export default function ProcessoDetalhePage() {
   );
 }
 
-// Header da categoria com drag handle
+// ── Header da categoria com drag handle ──────────────────────────────────────
+
 function CategoriaDragRow({ id, label, children }: { id: string; label: string; children: React.ReactNode }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id });
