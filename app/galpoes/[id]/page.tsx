@@ -164,9 +164,7 @@ export default async function GalpaoPage({
       value: formatDate(g.avcb_validade),
       extra: avcbOk === true ? "válido" : "vencido",
     } : null,
-  ].filter((i): i is { label: string; value: string | null; extra?: string } =>
-    i !== null && i.value !== null && i.value !== undefined
-  );
+  ].filter(Boolean).filter((i) => i!.value !== null && i!.value !== undefined) as { label: string; value: string; extra?: string }[];
 
   const capaImg = imagens.find((img: { is_capa?: boolean }) => img.is_capa) ?? imagens[0];
   const primeiraImagem = capaImg
