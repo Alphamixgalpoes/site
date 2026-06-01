@@ -22,6 +22,11 @@ type Props = {
   excludeId?: string;
 };
 
+function isAvcbValido(validade: string | null): boolean {
+  if (!validade) return false;
+  return new Date(validade) >= new Date(new Date().toISOString().slice(0, 10));
+}
+
 const btnToggle = (active: boolean) =>
   `px-3 py-1.5 text-xs font-semibold rounded-sm border transition-colors ${
     active
@@ -53,12 +58,16 @@ export default function GalpoesGrid({
   const [acessoCarreta, setAcessoCarreta] = useState(false);
   const [vagasMin, setVagasMin] = useState("");
   const [usoTerreno, setUsoTerreno] = useState<UsoTerreno>("todos");
+  const [potenciaMin, setPotenciaMin] = useState("");
+  const [capacidadeMin, setCapacidadeMin] = useState("");
+  const [apenasAvcbValido, setApenasAvcbValido] = useState(false);
 
   function resetFiltros() {
     setNegocio("todos"); setCidade("todas");
     setAreaMin(""); setAreaMax(""); setValorMin(""); setValorMax("");
     setPeMin(""); setDocasMin(""); setAcessoCarreta(false);
     setVagasMin(""); setUsoTerreno("todos");
+    setPotenciaMin(""); setCapacidadeMin(""); setApenasAvcbValido(false);
   }
 
   function mudarCategoria(cat: Categoria) {
@@ -88,8 +97,11 @@ export default function GalpoesGrid({
     if (acessoCarreta) n++;
     if (vagasMin) n++;
     if (usoTerreno !== "todos") n++;
+    if (potenciaMin) n++;
+    if (capacidadeMin) n++;
+    if (apenasAvcbValido) n++;
     return n;
-  }, [negocio, cidade, areaMin, areaMax, valorMin, valorMax, peMin, docasMin, acessoCarreta, vagasMin, usoTerreno]);
+  }, [negocio, cidade, areaMin, areaMax, valorMin, valorMax, peMin, docasMin, acessoCarreta, vagasMin, usoTerreno, potenciaMin, capacidadeMin, apenasAvcbValido]);
 
   const filtrados = useMemo(() => {
     return porCategoria[categoria].filter((g) => {
@@ -103,14 +115,17 @@ export default function GalpoesGrid({
       if (valorMax && (g.valor ?? 0) > Number(valorMax)) return false;
       if (categoria === "terreno" && usoTerreno !== "todos" && g.uso_terreno !== usoTerreno) return false;
       if (categoria === "galpao") {
-        if (peMin    && (g.pe_direito_m  ?? 0) < Number(peMin))   return false;
-        if (docasMin && (g.numero_docas  ?? 0) < Number(docasMin)) return false;
+        if (peMin         && (g.pe_direito_m          ?? 0) < Number(peMin))         return false;
+        if (docasMin      && (g.numero_docas           ?? 0) < Number(docasMin))      return false;
+        if (potenciaMin   && (g.potencia_eletrica_kva  ?? 0) < Number(potenciaMin))   return false;
+        if (capacidadeMin && (g.capacidade_piso_ton_m2 ?? 0) < Number(capacidadeMin)) return false;
         if (acessoCarreta && !g.acesso_carreta) return false;
+        if (apenasAvcbValido && !isAvcbValido(g.avcb_validade)) return false;
       }
       if (categoria === "loja" && vagasMin && (g.vagas_estacionamento ?? 0) < Number(vagasMin)) return false;
       return true;
     });
-  }, [porCategoria, categoria, negocio, cidade, areaMin, areaMax, valorMin, valorMax, peMin, docasMin, acessoCarreta, vagasMin, usoTerreno]);
+  }, [porCategoria, categoria, negocio, cidade, areaMin, areaMax, valorMin, valorMax, peMin, docasMin, acessoCarreta, vagasMin, usoTerreno, potenciaMin, capacidadeMin, apenasAvcbValido]);
 
   return (
     <div>
@@ -230,6 +245,14 @@ export default function GalpoesGrid({
                   <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Docas mín.</label>
                   <input type="number" min="0" placeholder="Ex: 2" className={inputCls} value={docasMin} onChange={(e) => setDocasMin(e.target.value)} />
                 </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Potência mín. (kVA)</label>
+                  <input type="number" min="0" placeholder="Ex: 300" className={inputCls} value={potenciaMin} onChange={(e) => setPotenciaMin(e.target.value)} />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Cap. piso mín. (t/m²)</label>
+                  <input type="number" min="0" step="0.5" placeholder="Ex: 3" className={inputCls} value={capacidadeMin} onChange={(e) => setCapacidadeMin(e.target.value)} />
+                </div>
               </>
             )}
 
@@ -242,15 +265,26 @@ export default function GalpoesGrid({
           </div>
 
           {categoria === "galpao" && (
-            <label className="flex items-center gap-2.5 text-sm text-gray-600 cursor-pointer w-fit">
-              <input
-                type="checkbox"
-                checked={acessoCarreta}
-                onChange={(e) => setAcessoCarreta(e.target.checked)}
-                className="w-4 h-4 accent-[#2e3092]"
-              />
-              Acesso para carreta
-            </label>
+            <div className="flex flex-wrap gap-5">
+              <label className="flex items-center gap-2.5 text-sm text-gray-600 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={acessoCarreta}
+                  onChange={(e) => setAcessoCarreta(e.target.checked)}
+                  className="w-4 h-4 accent-[#2e3092]"
+                />
+                Acesso para carreta
+              </label>
+              <label className="flex items-center gap-2.5 text-sm text-gray-600 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={apenasAvcbValido}
+                  onChange={(e) => setApenasAvcbValido(e.target.checked)}
+                  className="w-4 h-4 accent-[#2e3092]"
+                />
+                AVCB válido
+              </label>
+            </div>
           )}
         </div>
       </div>
@@ -306,6 +340,11 @@ export default function GalpoesGrid({
                   <span className={`absolute top-3 left-3 text-xs font-bold px-2 py-1 rounded-sm ${tipoBg}`}>
                     {tipoLabel(g.tipo)}
                   </span>
+                  {g.categoria === "galpao" && isAvcbValido(g.avcb_validade) && (
+                    <span className="absolute top-3 right-3 text-xs font-bold px-2 py-1 rounded-sm bg-green-600 text-white">
+                      AVCB
+                    </span>
+                  )}
                 </div>
 
                 {/* Conteúdo */}

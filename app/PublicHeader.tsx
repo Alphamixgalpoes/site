@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { WA_GENERICO } from "@/lib/corretor";
 
 const navLinks = [
   { label: "Imóveis", href: "#imoveis" },
@@ -57,7 +58,7 @@ export default function PublicHeader() {
             Área do corretor
           </Link>
           <a
-            href="https://wa.me/5511995571212?text=Olá%2C%20vim%20pelo%20site%20da%20Alphamix%20Galpões%20e%20gostaria%20de%20informações."
+            href={WA_GENERICO}
             className="text-sm bg-[#25D366] text-white px-4 py-2 font-semibold rounded-sm hover:bg-[#22c55e] transition-colors"
           >
             Fale Conosco

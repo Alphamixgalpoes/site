@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { CORRETOR } from "@/lib/corretor";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -88,8 +89,8 @@ export default function RootLayout({
     description:
       "Especialistas em venda e locação de galpões industriais na região de Alphaville, Barueri e Tamboré.",
     url: siteUrl,
-    telephone: "+55-11-99557-1212",
-    email: "contato@alphamixgalpoes.com.br",
+    telephone: `+55${CORRETOR.whatsapp}`,
+    email: CORRETOR.email,
     address: {
       "@type": "PostalAddress",
       addressLocality: "Barueri",

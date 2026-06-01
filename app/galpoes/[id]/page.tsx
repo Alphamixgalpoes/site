@@ -8,10 +8,29 @@ import GalpoesGrid from "@/app/GalpoesGrid";
 import ImageGallery from "@/app/components/ImageGallery";
 import { campoVisivel } from "@/lib/visibilidade";
 import type { ConfigCampo, OverridesVisibilidade } from "@/lib/visibilidade";
+import { CORRETOR, waLink } from "@/lib/corretor";
 import { SUPABASE_URL } from "@/lib/constants";
-import { tipoLabel, categoriaLabel, usoTerrenoLabel } from "@/lib/galpao-utils";
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.alphamixgalpoes.com.br";
+
+/** Extrai ID do vídeo YouTube e retorna URL de embed */
+function youtubeEmbedUrl(url: string): string | null {
+  const match = url.match(
+    /(?:youtube\.com\/(?:watch\?v=|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{11})/
+  );
+  return match ? `https://www.youtube.com/embed/${match[1]}` : null;
+}
+
+/** Formata data ISO (YYYY-MM-DD) para DD/MM/AAAA */
+function formatDate(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+}
+
+/** Verifica se AVCB ainda é válido */
+function avcbValido(validade: string): boolean {
+  return new Date(validade) >= new Date();
+}
 
 export async function generateMetadata(
   { params }: { params: Promise<{ id: string }> }
@@ -28,13 +47,15 @@ export async function generateMetadata(
 
   if (!g) return {};
 
+  const tipoLabel = g.tipo === "venda" ? "Venda" : g.tipo === "locacao" ? "Locação" : "Venda/Locação";
+  const categoriaLabel = g.categoria === "loja" ? "Loja" : g.categoria === "terreno" ? "Terreno" : "Galpão";
   const localLabel = g.bairro ? `${g.bairro}, ${g.cidade}` : g.cidade;
   const areaLabel = g.area_construida_m2 ? ` · ${g.area_construida_m2} m²` : "";
 
-  const title = `${categoriaLabel(g.categoria)} para ${tipoLabel(g.tipo)} — ${localLabel}${areaLabel}`;
+  const title = `${categoriaLabel} para ${tipoLabel} — ${localLabel}${areaLabel}`;
   const description = g.descricao
     ? g.descricao.slice(0, 155)
-    : `${categoriaLabel(g.categoria)} para ${tipoLabel(g.tipo).toLowerCase()} em ${localLabel}. ${g.area_construida_m2 ? `Área construída: ${g.area_construida_m2} m².` : ""} Atendimento direto com corretor especializado — Alphamix Galpões.`;
+    : `${categoriaLabel} para ${tipoLabel.toLowerCase()} em ${localLabel}. ${g.area_construida_m2 ? `Área construída: ${g.area_construida_m2} m².` : ""} Atendimento direto com corretor especializado — Alphamix Galpões.`;
 
   const todasMetaImagens = (g.galpao_imagens ?? []).sort(
     (a: { ordem: number }, b: { ordem: number }) => a.ordem - b.ordem
@@ -93,42 +114,60 @@ export default async function GalpaoPage({
 
   const { data: todosGalpoes } = await supabase
     .from("galpoes")
-    .select("id, titulo, tipo, categoria, uso_terreno, valor, cidade, bairro, area_construida_m2, area_total_m2, pe_direito_m, numero_docas, acesso_carreta, vagas_estacionamento, descricao, campos_visibilidade, galpao_imagens(storage_path, ordem)")
+    .select(`
+      id, titulo, tipo, categoria, uso_terreno, valor, cidade, bairro,
+      area_construida_m2, area_total_m2, pe_direito_m, numero_docas,
+      acesso_carreta, vagas_estacionamento, potencia_eletrica_kva,
+      capacidade_piso_ton_m2, avcb_validade, descricao, campos_visibilidade,
+      galpao_imagens(storage_path, ordem)
+    `)
     .eq("publicado", true)
     .order("updated_at", { ascending: false });
 
   const todasImagens = ([...(g.galpao_imagens ?? [])]).sort((a: { ordem: number }, b: { ordem: number }) => a.ordem - b.ordem);
   const imagens = todasImagens.filter((img: { visivel_site?: boolean }) => img.visivel_site !== false);
   const capaIndex = Math.max(0, imagens.findIndex((img: { is_capa?: boolean }) => img.is_capa));
-  const tipo = tipoLabel(g.tipo);
-  const categoria = categoriaLabel(g.categoria);
-  const usoTerreno = usoTerrenoLabel(g.uso_terreno);
+  const tipoLabel = g.tipo === "venda" ? "Venda" : g.tipo === "locacao" ? "Locação" : "Venda / Locação";
+  const categoriaLabel = g.categoria === "loja" ? "Loja" : g.categoria === "terreno" ? "Terreno" : "Galpão";
+  const usoTerrenoLabel = g.uso_terreno === "galpao" ? "Para galpão" : g.uso_terreno === "loja" ? "Para loja" : g.uso_terreno === "ambos" ? "Galpão e loja" : null;
 
   const cfg = (configCampos ?? []) as ConfigCampo[];
   const overrides = (g.campos_visibilidade ?? {}) as OverridesVisibilidade;
   const cv = (chave: string) => campoVisivel(chave, "ficha", cfg, overrides);
 
+  const avcbOk = g.avcb_validade ? avcbValido(g.avcb_validade) : null;
+
   const fichaItems = [
-    { label: "Categoria", value: categoria },
-    cv("uso_terreno") ? { label: "Uso indicado", value: usoTerreno } : null,
-    { label: "Negócio", value: tipo },
+    { label: "Categoria", value: categoriaLabel },
+    cv("uso_terreno") ? { label: "Uso indicado", value: usoTerrenoLabel } : null,
+    { label: "Negócio", value: tipoLabel },
     { label: "Cidade", value: g.cidade },
     cv("bairro") ? { label: "Bairro", value: g.bairro } : null,
     cv("endereco") ? { label: "Endereço", value: g.endereco } : null,
     cv("area_total_m2") ? { label: "Área total do terreno", value: g.area_total_m2 ? `${g.area_total_m2} m²` : null } : null,
     cv("area_construida_m2") ? { label: "Área construída", value: g.area_construida_m2 ? `${g.area_construida_m2} m²` : null } : null,
-    cv("area_piso_m2") ? { label: "Área de piso", value: g.area_piso_m2 ? `${g.area_piso_m2} m²` : null } : null,
+    cv("area_piso_m2") ? { label: "Área de piso operacional", value: g.area_piso_m2 ? `${g.area_piso_m2} m²` : null } : null,
+    cv("area_escritorio_m2") ? { label: "Área de escritório", value: g.area_escritorio_m2 ? `${g.area_escritorio_m2} m²` : null } : null,
     cv("pe_direito_m") ? { label: "Pé direito livre", value: g.pe_direito_m ? `${g.pe_direito_m} m` : null } : null,
+    cv("capacidade_piso_ton_m2") ? { label: "Capacidade de piso", value: g.capacidade_piso_ton_m2 ? `${g.capacidade_piso_ton_m2} t/m²` : null } : null,
+    cv("truck_court_m") ? { label: "Pátio de manobra", value: g.truck_court_m ? `${g.truck_court_m} m` : null } : null,
     cv("numero_docas") ? { label: "Docas", value: g.numero_docas > 0 ? `${g.numero_docas}` : null } : null,
     cv("potencia_eletrica_kva") ? { label: "Potência elétrica", value: g.potencia_eletrica_kva ? `${g.potencia_eletrica_kva} kVA` : null } : null,
     cv("vagas_estacionamento") ? { label: "Vagas", value: g.vagas_estacionamento > 0 ? `${g.vagas_estacionamento}` : null } : null,
     cv("acesso_carreta") ? { label: "Acesso para carreta", value: g.acesso_carreta ? "Sim" : null } : null,
-    cv("sprinklers") ? { label: "Sprinklers", value: g.sprinklers ? "Sim" : null } : null,
+    cv("sprinklers") ? { label: "Sprinklers", value: g.sprinklers ? (g.sprinkler_tipo ? `Sim — ${g.sprinkler_tipo}` : "Sim") : null } : null,
     cv("guarita") ? { label: "Guarita", value: g.guarita ? "Sim" : null } : null,
     cv("condominio") ? { label: "Condomínio", value: g.condominio ? `Sim${g.valor_condominio ? ` — R$ ${Number(g.valor_condominio).toLocaleString("pt-BR")}/mês` : ""}` : null } : null,
-  ].filter((i): i is { label: string; value: string | null } => i !== null && i.value !== null && i.value !== undefined);
+    cv("avcb_numero") && g.avcb_numero ? { label: "AVCB", value: g.avcb_numero, extra: undefined } : null,
+    cv("avcb_validade") && g.avcb_validade ? {
+      label: "AVCB válido até",
+      value: formatDate(g.avcb_validade),
+      extra: avcbOk === true ? "válido" : "vencido",
+    } : null,
+  ].filter((i): i is { label: string; value: string | null; extra?: string } =>
+    i !== null && i.value !== null && i.value !== undefined
+  );
 
-  // JSON-LD para a página do imóvel
   const capaImg = imagens.find((img: { is_capa?: boolean }) => img.is_capa) ?? imagens[0];
   const primeiraImagem = capaImg
     ? `${SUPABASE_URL}/storage/v1/object/public/galpoes/${capaImg.storage_path}`
@@ -159,13 +198,11 @@ export default async function GalpaoPage({
       addressCountry: "BR",
     },
     ...(g.area_construida_m2 && {
-      floorSize: {
-        "@type": "QuantitativeValue",
-        value: g.area_construida_m2,
-        unitCode: "MTK",
-      },
+      floorSize: { "@type": "QuantitativeValue", value: g.area_construida_m2, unitCode: "MTK" },
     }),
   };
+
+  const embedUrl = g.video_url ? youtubeEmbedUrl(g.video_url) : null;
 
   return (
     <div className="min-h-screen bg-white text-gray-900">
@@ -179,14 +216,14 @@ export default async function GalpaoPage({
         <div className="max-w-6xl mx-auto px-4 md:px-6 py-3 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5">
             <Image src="/alphamix-logo.png" alt="Alphamix Galpões" width={44} height={44} className="object-contain" />
-            <span className="hidden sm:block text-sm font-bold text-[#2e3092]">Alphamix Galpões</span>
+            <span className="hidden sm:block text-sm font-bold text-[#2e3092]">{CORRETOR.nome}</span>
           </Link>
           <div className="flex items-center gap-3">
             <Link href="/#imoveis" className="hidden sm:block text-xs text-gray-500 hover:text-gray-900 transition-colors font-medium">
               ← Ver todos os imóveis
             </Link>
             <a
-              href="https://wa.me/5511995571212"
+              href={waLink()}
               className="text-sm bg-[#25D366] text-white px-4 py-2 rounded-sm font-semibold hover:bg-[#22c55e] transition-colors"
             >
               Fale Conosco
@@ -206,10 +243,10 @@ export default async function GalpaoPage({
 
         <div className="grid lg:grid-cols-3 gap-8 lg:gap-12">
 
-          {/* Sidebar — aparece primeiro no mobile */}
+          {/* Sidebar */}
           <div className="lg:col-span-1 lg:order-last">
             <div className="border border-gray-200 rounded-sm shadow-sm p-5 md:p-6 lg:sticky lg:top-24">
-              <span className="inline-block text-xs font-bold tracking-widest text-[#2e3092] uppercase mb-3">{tipo}</span>
+              <span className="inline-block text-xs font-bold tracking-widest text-[#2e3092] uppercase mb-3">{tipoLabel}</span>
               <h1 className="text-xl font-bold text-gray-900 leading-snug">{g.titulo}</h1>
               <p className="text-sm text-gray-400 mt-1">
                 {cv("bairro") && g.bairro ? `${g.bairro}, ` : ""}{g.cidade}
@@ -226,7 +263,7 @@ export default async function GalpaoPage({
 
               <div className="mt-6 space-y-3">
                 <a
-                  href={`https://wa.me/5511995571212?text=${encodeURIComponent(`Olá, tenho interesse no imóvel abaixo e gostaria de mais informações:\n\n*${g.titulo}*\n${tipo} · ${g.cidade}${g.valor ? `\nR$ ${Number(g.valor).toLocaleString("pt-BR")}` : ""}`)}`}
+                  href={waLink(`Olá, tenho interesse no imóvel abaixo e gostaria de mais informações:\n\n*${g.titulo}*\n${tipoLabel} · ${g.cidade}${g.valor ? `\nR$ ${Number(g.valor).toLocaleString("pt-BR")}` : ""}`)}
                   className="flex items-center justify-center gap-2.5 bg-[#25D366] text-white px-6 py-3 text-sm font-bold rounded-sm hover:bg-[#22c55e] transition-colors"
                 >
                   <svg className="w-4 h-4 shrink-0" fill="currentColor" viewBox="0 0 24 24">
@@ -235,7 +272,7 @@ export default async function GalpaoPage({
                   Consultar pelo WhatsApp
                 </a>
                 <a
-                  href="mailto:contato@alphamixgalpoes.com.br"
+                  href={`mailto:${CORRETOR.email}`}
                   className="flex items-center justify-center border border-gray-300 text-gray-700 px-6 py-3 text-sm font-medium rounded-sm hover:border-gray-500 hover:text-gray-900 transition-colors"
                 >
                   Enviar e-mail
@@ -253,7 +290,6 @@ export default async function GalpaoPage({
           {/* Coluna principal */}
           <div className="lg:col-span-2">
 
-            {/* Galeria */}
             <ImageGallery
               images={imagens}
               supabaseUrl={SUPABASE_URL}
@@ -261,11 +297,17 @@ export default async function GalpaoPage({
               initialIndex={capaIndex}
             />
 
-            {/* Descrição */}
             {g.descricao && (
               <div className="mt-8">
                 <h2 className="text-base font-bold text-gray-900 mb-3">Descrição</h2>
                 <p className="text-gray-500 leading-relaxed whitespace-pre-line">{g.descricao}</p>
+              </div>
+            )}
+
+            {cv("acessos_viarios") && g.acessos_viarios && (
+              <div className="mt-8">
+                <h2 className="text-base font-bold text-gray-900 mb-3">Acessos viários</h2>
+                <p className="text-gray-500 leading-relaxed">{g.acessos_viarios}</p>
               </div>
             )}
 
@@ -276,35 +318,75 @@ export default async function GalpaoPage({
                 {fichaItems.map((item) => (
                   <div key={item.label} className="flex flex-col sm:flex-row px-4 py-3.5 gap-0.5 sm:gap-0 hover:bg-gray-50 transition-colors">
                     <span className="text-xs font-semibold uppercase tracking-wide text-gray-400 sm:w-48 shrink-0 mt-0.5">{item.label}</span>
-                    <span className="text-sm text-gray-900 font-semibold">{item.value}</span>
+                    <span className="text-sm text-gray-900 font-semibold flex items-center gap-2">
+                      {item.value}
+                      {item.extra === "válido" && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 bg-green-100 text-green-700 rounded-sm">VÁLIDO</span>
+                      )}
+                      {item.extra === "vencido" && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 bg-red-100 text-red-700 rounded-sm">VENCIDO</span>
+                      )}
+                    </span>
                   </div>
                 ))}
               </div>
             </div>
+
+            {cv("planta_baixa_url") && g.planta_baixa_url && (
+              <div className="mt-8">
+                <h2 className="text-base font-bold text-gray-900 mb-3">Planta baixa</h2>
+                <a
+                  href={g.planta_baixa_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 border border-gray-300 text-gray-700 px-5 py-2.5 text-sm font-medium rounded-sm hover:border-gray-500 hover:text-gray-900 transition-colors"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Baixar planta baixa
+                </a>
+              </div>
+            )}
+
+            {embedUrl && (
+              <div className="mt-8">
+                <h2 className="text-base font-bold text-gray-900 mb-3">Vídeo do imóvel</h2>
+                <div className="aspect-video w-full rounded-sm overflow-hidden border border-gray-200">
+                  <iframe
+                    src={embedUrl}
+                    title="Vídeo do imóvel"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                    className="w-full h-full"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
         </div>
 
-      {/* Continue sua busca */}
-      <div className="mt-16 pt-10 border-t border-gray-200 max-w-6xl mx-auto px-4 md:px-6">
-        <h2 className="text-xl font-bold text-gray-900 mb-2">Continue sua busca</h2>
-        <GalpoesGrid
-          galpoes={(todosGalpoes ?? []) as Parameters<typeof GalpoesGrid>[0]["galpoes"]}
-          supabaseUrl={SUPABASE_URL}
-          initialCategoria={sp.categoria as "galpao" | "loja" | "terreno" | undefined}
-          initialNegocio={sp.negocio as "todos" | "venda" | "locacao" | undefined}
-          initialCidade={sp.cidade}
-          excludeId={id}
-          configCampos={cfg}
-        />
-      </div>
+        {/* Continue sua busca */}
+        <div className="mt-16 pt-10 border-t border-gray-200">
+          <h2 className="text-xl font-bold text-gray-900 mb-2">Continue sua busca</h2>
+          <GalpoesGrid
+            galpoes={(todosGalpoes ?? []) as Parameters<typeof GalpoesGrid>[0]["galpoes"]}
+            supabaseUrl={SUPABASE_URL}
+            initialCategoria={sp.categoria as "galpao" | "loja" | "terreno" | undefined}
+            initialNegocio={sp.negocio as "todos" | "venda" | "locacao" | undefined}
+            initialCidade={sp.cidade}
+            excludeId={id}
+            configCampos={cfg}
+          />
+        </div>
       </div>
 
       {/* Footer */}
       <footer className="bg-[#0f1247] text-white mt-20">
         <div className="max-w-6xl mx-auto px-6 py-10 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-white/40">
-          <p>© {new Date().getFullYear()} Alphamix Galpões — Galpões Industriais · Alphaville e Barueri</p>
-          <p>CRECI-SP 000000-F</p>
+          <p>© {new Date().getFullYear()} {CORRETOR.nome} — Galpões Industriais · Alphaville e Barueri</p>
+          <p>CRECI-SP {CORRETOR.creci}</p>
         </div>
       </footer>
     </div>

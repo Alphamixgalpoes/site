@@ -23,8 +23,17 @@ type Galpao = {
   numero_docas: string;
   acesso_carreta: boolean;
   potencia_eletrica_kva: string;
+  capacidade_piso_ton_m2: string;
+  area_escritorio_m2: string;
+  truck_court_m: string;
+  avcb_numero: string;
+  avcb_validade: string;
   sprinklers: boolean;
+  sprinkler_tipo: string;
   guarita: boolean;
+  acessos_viarios: string;
+  video_url: string;
+  planta_baixa_url: string;
   vagas_estacionamento: string;
   condominio: boolean;
   valor_condominio: string;
@@ -37,7 +46,10 @@ const empty: Galpao = {
   titulo: "", categoria: "galpao", uso_terreno: "", tipo: "locacao", valor: "", endereco: "", bairro: "",
   cidade: "Barueri", cep: "", area_total_m2: "", area_construida_m2: "",
   area_piso_m2: "", pe_direito_m: "", numero_docas: "0", acesso_carreta: false,
-  potencia_eletrica_kva: "", sprinklers: false, guarita: false,
+  potencia_eletrica_kva: "", capacidade_piso_ton_m2: "", area_escritorio_m2: "",
+  truck_court_m: "", avcb_numero: "", avcb_validade: "",
+  sprinklers: false, sprinkler_tipo: "", guarita: false,
+  acessos_viarios: "", video_url: "", planta_baixa_url: "",
   vagas_estacionamento: "0", condominio: false, valor_condominio: "",
   descricao: "", observacoes: "", campos_visibilidade: {},
 };
@@ -173,8 +185,17 @@ export default function GalpaoForm({
       numero_docas: Number(form.numero_docas),
       acesso_carreta: form.acesso_carreta,
       potencia_eletrica_kva: form.potencia_eletrica_kva ? Number(form.potencia_eletrica_kva) : null,
+      capacidade_piso_ton_m2: form.capacidade_piso_ton_m2 ? Number(form.capacidade_piso_ton_m2) : null,
+      area_escritorio_m2: form.area_escritorio_m2 ? Number(form.area_escritorio_m2) : null,
+      truck_court_m: form.truck_court_m ? Number(form.truck_court_m) : null,
+      avcb_numero: form.avcb_numero || null,
+      avcb_validade: form.avcb_validade || null,
       sprinklers: form.sprinklers,
+      sprinkler_tipo: form.sprinklers && form.sprinkler_tipo ? form.sprinkler_tipo : null,
       guarita: form.guarita,
+      acessos_viarios: form.acessos_viarios || null,
+      video_url: form.video_url || null,
+      planta_baixa_url: form.planta_baixa_url || null,
       vagas_estacionamento: Number(form.vagas_estacionamento),
       condominio: form.condominio,
       valor_condominio: form.valor_condominio ? Number(form.valor_condominio) : null,
@@ -427,6 +448,12 @@ export default function GalpaoForm({
             <FieldVis label="Pé direito livre (m)" campoChave="pe_direito_m">
               <input type="number" step="0.1" className={inputClass} value={form.pe_direito_m} onChange={(e) => set("pe_direito_m", e.target.value)} />
             </FieldVis>
+            <FieldVis label="Área de escritório (m²)" campoChave="area_escritorio_m2">
+              <input type="number" className={inputClass} value={form.area_escritorio_m2} onChange={(e) => set("area_escritorio_m2", e.target.value)} />
+            </FieldVis>
+            <FieldVis label="Truck court (m)" campoChave="truck_court_m">
+              <input type="number" step="0.5" className={inputClass} value={form.truck_court_m} onChange={(e) => set("truck_court_m", e.target.value)} />
+            </FieldVis>
           </div>
         </section>
 
@@ -440,6 +467,15 @@ export default function GalpaoForm({
             <FieldVis label="Potência elétrica (kVA)" campoChave="potencia_eletrica_kva">
               <input type="number" className={inputClass} value={form.potencia_eletrica_kva} onChange={(e) => set("potencia_eletrica_kva", e.target.value)} />
             </FieldVis>
+            <FieldVis label="Capacidade de piso (t/m²)" campoChave="capacidade_piso_ton_m2">
+              <input type="number" step="0.5" className={inputClass} value={form.capacidade_piso_ton_m2} onChange={(e) => set("capacidade_piso_ton_m2", e.target.value)} />
+            </FieldVis>
+            <FieldVis label="AVCB nº" campoChave="avcb_numero">
+              <input className={inputClass} value={form.avcb_numero} onChange={(e) => set("avcb_numero", e.target.value)} placeholder="Ex: 12345/2024" />
+            </FieldVis>
+            <FieldVis label="AVCB validade" campoChave="avcb_validade">
+              <input type="date" className={inputClass} value={form.avcb_validade} onChange={(e) => set("avcb_validade", e.target.value)} />
+            </FieldVis>
             <FieldVis label="Vagas de estacionamento" campoChave="vagas_estacionamento">
               <input type="number" className={inputClass} value={form.vagas_estacionamento} onChange={(e) => set("vagas_estacionamento", e.target.value)} />
             </FieldVis>
@@ -447,6 +483,18 @@ export default function GalpaoForm({
           <div className="mt-4 space-y-3">
             <BoolVis label="Acesso para carreta" campoChave="acesso_carreta" field="acesso_carreta" />
             <BoolVis label="Sprinklers" campoChave="sprinklers" field="sprinklers" />
+            {form.sprinklers && (
+              <div className="pl-6">
+                <FieldVis label="Tipo de sprinkler" campoChave="sprinkler_tipo">
+                  <select className={inputClass} value={form.sprinkler_tipo} onChange={(e) => set("sprinkler_tipo", e.target.value)}>
+                    <option value="">Não especificado</option>
+                    <option value="J4">J4 (padrão)</option>
+                    <option value="K25">K25 (especial)</option>
+                    <option value="ESFR">ESFR (alta demanda)</option>
+                  </select>
+                </FieldVis>
+              </div>
+            )}
             <BoolVis label="Guarita" campoChave="guarita" field="guarita" />
             <BoolVis label="Condomínio" campoChave="condominio" field="condominio" />
           </div>
@@ -468,6 +516,15 @@ export default function GalpaoForm({
             </FieldVis>
             <FieldVis label="Observações internas" campoChave="observacoes">
               <textarea rows={3} className={inputClass} value={form.observacoes} onChange={(e) => set("observacoes", e.target.value)} />
+            </FieldVis>
+            <FieldVis label="Acessos viários" campoChave="acessos_viarios">
+              <textarea rows={2} className={inputClass} value={form.acessos_viarios} onChange={(e) => set("acessos_viarios", e.target.value)} placeholder="Ex: Rodoanel SP-021 — 3 km, Via Anhanguera — 8 km" />
+            </FieldVis>
+            <FieldVis label="Vídeo (URL YouTube)" campoChave="video_url">
+              <input className={inputClass} value={form.video_url} onChange={(e) => set("video_url", e.target.value)} placeholder="https://www.youtube.com/watch?v=..." />
+            </FieldVis>
+            <FieldVis label="Planta baixa (URL)" campoChave="planta_baixa_url">
+              <input className={inputClass} value={form.planta_baixa_url} onChange={(e) => set("planta_baixa_url", e.target.value)} placeholder="https://..." />
             </FieldVis>
           </div>
         </section>

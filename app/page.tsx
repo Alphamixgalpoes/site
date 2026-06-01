@@ -3,6 +3,7 @@ import PublicHeader from "./PublicHeader";
 import GalpoesGrid from "./GalpoesGrid";
 import type { ConfigCampo } from "@/lib/visibilidade";
 import { SUPABASE_URL } from "@/lib/constants";
+import { CORRETOR, waLink, WA_GENERICO } from "@/lib/corretor";
 
 export default async function Home() {
   const supabase = await createClient();
@@ -13,14 +14,14 @@ export default async function Home() {
       .select(`
         id, titulo, tipo, categoria, uso_terreno, valor, cidade, bairro,
         area_construida_m2, area_total_m2, pe_direito_m, numero_docas,
-        acesso_carreta, vagas_estacionamento, descricao, campos_visibilidade,
+        acesso_carreta, vagas_estacionamento, potencia_eletrica_kva,
+        capacidade_piso_ton_m2, avcb_validade, descricao, campos_visibilidade,
         galpao_imagens (storage_path, ordem, is_capa)
       `)
       .eq("publicado", true)
       .order("created_at", { ascending: false }),
     supabase.from("config_campos").select("*"),
   ]);
-
 
   return (
     <div className="min-h-screen bg-white text-gray-900 font-sans">
@@ -29,7 +30,6 @@ export default async function Home() {
 
       {/* Hero */}
       <section className="relative bg-[#0f1247] text-white overflow-hidden">
-        {/* Textura de fundo — substituir por foto quando disponível */}
         {/* TODO: <Image src="/hero-galpao.jpg" alt="" fill className="object-cover opacity-20" priority /> */}
         <div
           className="absolute inset-0 opacity-[0.08]"
@@ -187,8 +187,7 @@ export default async function Home() {
             </div>
           </div>
 
-          {/* Espaço para foto — substituir quando disponível */}
-          {/* TODO: <Image src="/foto-corretor.jpg" alt="Corretor Alphamix" fill className="object-cover rounded-sm" /> */}
+          {/* TODO: substituir por <Image src="/foto-corretor.jpg"> quando disponível */}
           <div className="relative bg-gray-900 rounded-sm overflow-hidden h-[340px] md:h-full min-h-[340px]">
             <div
               className="absolute inset-0 opacity-[0.06]"
@@ -207,8 +206,8 @@ export default async function Home() {
               <p className="text-xs tracking-widest uppercase">Foto em breve</p>
             </div>
             <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-8 py-6">
-              <p className="text-white font-bold text-xl">Alphamix Galpões</p>
-              <p className="text-gray-400 text-sm mt-1">Alphaville · Barueri · SP</p>
+              <p className="text-white font-bold text-xl">{CORRETOR.nome}</p>
+              <p className="text-gray-400 text-sm mt-1">{CORRETOR.regiao}</p>
             </div>
           </div>
         </div>
@@ -250,21 +249,21 @@ export default async function Home() {
               {[
                 {
                   label: "WhatsApp",
-                  value: "(11) 99557-1212",
+                  value: CORRETOR.telefone,
                   icon: (
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                   ),
                 },
                 {
                   label: "E-mail",
-                  value: "contato@alphamixgalpoes.com.br",
+                  value: CORRETOR.email,
                   icon: (
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   ),
                 },
                 {
                   label: "CRECI-SP",
-                  value: "000000-F",
+                  value: CORRETOR.creci,
                   icon: (
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   ),
@@ -286,7 +285,7 @@ export default async function Home() {
           </div>
           <div className="flex flex-col justify-center gap-4">
             <a
-              href="https://wa.me/5511995571212?text=Olá%2C%20gostaria%20de%20informações%20sobre%20galpões%20disponíveis%20na%20Alphamix%20Galpões."
+              href={waLink("Olá, gostaria de informações sobre galpões disponíveis na Alphamix Galpões.")}
               className="flex items-center justify-center gap-3 bg-[#25D366] text-white px-8 py-4 text-sm font-bold rounded-sm hover:bg-[#22c55e] transition-colors"
             >
               <svg className="w-5 h-5 shrink-0" fill="currentColor" viewBox="0 0 24 24">
@@ -295,7 +294,7 @@ export default async function Home() {
               Conversar pelo WhatsApp
             </a>
             <a
-              href="mailto:contato@alphamixgalpoes.com.br"
+              href={`mailto:${CORRETOR.email}`}
               className="flex items-center justify-center gap-2 border border-gray-300 text-gray-700 px-8 py-4 text-sm font-medium rounded-sm hover:border-gray-500 hover:text-gray-900 transition-colors"
             >
               Enviar e-mail
@@ -309,7 +308,7 @@ export default async function Home() {
         <div className="max-w-6xl mx-auto px-6 pt-16 pb-8">
           <div className="grid md:grid-cols-3 gap-12 pb-12 border-b border-white/10">
             <div>
-              <p className="text-lg font-bold">Alphamix Galpões</p>
+              <p className="text-lg font-bold">{CORRETOR.nome}</p>
               <p className="text-white/45 text-sm mt-3 leading-relaxed max-w-xs">
                 Especialistas em galpões industriais para venda e locação em Alphaville e Barueri.
               </p>
@@ -335,14 +334,14 @@ export default async function Home() {
             <div>
               <p className="text-xs font-semibold tracking-widest text-white/30 uppercase mb-5">Contato</p>
               <div className="space-y-2 text-sm text-white/50">
-                <p>(11) 99557-1212</p>
-                <p>contato@alphamixgalpoes.com.br</p>
-                <p className="pt-3 text-white/30 text-xs">CRECI-SP 000000-F</p>
+                <p>{CORRETOR.telefone}</p>
+                <p>{CORRETOR.email}</p>
+                <p className="pt-3 text-white/30 text-xs">CRECI-SP {CORRETOR.creci}</p>
               </div>
             </div>
           </div>
           <div className="pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-white/25">
-            <p>© {new Date().getFullYear()} Alphamix Galpões — Todos os direitos reservados</p>
+            <p>© {new Date().getFullYear()} {CORRETOR.nome} — Todos os direitos reservados</p>
             <p>Alphaville · Barueri · SP</p>
           </div>
         </div>

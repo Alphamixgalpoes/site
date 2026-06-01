@@ -25,8 +25,17 @@ export type Galpao = {
   numero_docas: number;
   acesso_carreta: boolean;
   sprinklers: boolean;
+  sprinkler_tipo: string | null;
   guarita: boolean;
   potencia_eletrica_kva: number | null;
+  capacidade_piso_ton_m2: number | null;
+  area_escritorio_m2: number | null;
+  truck_court_m: number | null;
+  avcb_numero: string | null;
+  avcb_validade: string | null;
+  acessos_viarios: string | null;
+  video_url: string | null;
+  planta_baixa_url: string | null;
   vagas_estacionamento: number;
   condominio: boolean;
   valor_condominio: number | null;
@@ -53,6 +62,9 @@ export type GalpaoPublico = {
   pe_direito_m: number | null;
   numero_docas: number;
   acesso_carreta: boolean;
+  potencia_eletrica_kva: number | null;
+  capacidade_piso_ton_m2: number | null;
+  avcb_validade: string | null;
   vagas_estacionamento: number;
   descricao: string | null;
   campos_visibilidade?: Record<string, { card: boolean; ficha: boolean }>;
