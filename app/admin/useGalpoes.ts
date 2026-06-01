@@ -37,7 +37,9 @@ export function useGalpoes() {
         .from("galpoes")
         .select(`id, titulo, tipo, categoria, uso_terreno, valor, cidade, bairro, endereco, cep, publicado,
           area_construida_m2, area_total_m2, area_piso_m2, pe_direito_m, numero_docas,
-          acesso_carreta, sprinklers, guarita, potencia_eletrica_kva,
+          acesso_carreta, sprinklers, sprinkler_tipo, guarita, potencia_eletrica_kva,
+          capacidade_piso_ton_m2, area_escritorio_m2, truck_court_m,
+          avcb_numero, avcb_validade, acessos_viarios, video_url, planta_baixa_url,
           vagas_estacionamento, condominio, valor_condominio, descricao, observacoes,
           campos_visibilidade, latitude, longitude,
           galpao_imagens (id, storage_path, ordem, visivel_site, is_capa)`)
