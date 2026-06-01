@@ -29,6 +29,13 @@ export default async function EditarGalpaoPage({ params }: { params: Promise<{ i
     pe_direito_m: galpao.pe_direito_m?.toString() ?? "",
     numero_docas: galpao.numero_docas?.toString() ?? "0",
     potencia_eletrica_kva: galpao.potencia_eletrica_kva?.toString() ?? "",
+    capacidade_piso_ton_m2: galpao.capacidade_piso_ton_m2?.toString() ?? "",
+    area_escritorio_m2: galpao.area_escritorio_m2?.toString() ?? "",
+    truck_court_m: galpao.truck_court_m?.toString() ?? "",
+    logradouro: galpao.logradouro ?? "",
+    numero: galpao.numero ?? "",
+    complemento: galpao.complemento ?? "",
+    uf: galpao.uf ?? "",
     vagas_estacionamento: galpao.vagas_estacionamento?.toString() ?? "0",
     valor_condominio: galpao.valor_condominio?.toString() ?? "",
   };

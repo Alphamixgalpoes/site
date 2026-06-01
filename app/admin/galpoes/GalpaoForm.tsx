@@ -13,8 +13,12 @@ type Galpao = {
   tipo: string;
   valor: string;
   endereco: string;
+  logradouro: string;
+  numero: string;
+  complemento: string;
   bairro: string;
   cidade: string;
+  uf: string;
   cep: string;
   area_total_m2: string;
   area_construida_m2: string;
@@ -43,8 +47,9 @@ type Galpao = {
 };
 
 const empty: Galpao = {
-  titulo: "", categoria: "galpao", uso_terreno: "", tipo: "locacao", valor: "", endereco: "", bairro: "",
-  cidade: "Barueri", cep: "", area_total_m2: "", area_construida_m2: "",
+  titulo: "", categoria: "galpao", uso_terreno: "", tipo: "locacao", valor: "",
+  endereco: "", logradouro: "", numero: "", complemento: "", bairro: "",
+  cidade: "Barueri", uf: "SP", cep: "", area_total_m2: "", area_construida_m2: "",
   area_piso_m2: "", pe_direito_m: "", numero_docas: "0", acesso_carreta: false,
   potencia_eletrica_kva: "", capacidade_piso_ton_m2: "", area_escritorio_m2: "",
   truck_court_m: "", avcb_numero: "", avcb_validade: "",
@@ -92,11 +97,40 @@ export default function GalpaoForm({
   const [uploadingImagens, setUploadingImagens] = useState(false);
   const [error, setError] = useState("");
   const [warningModal, setWarningModal] = useState<WarningInfo | null>(null);
+  const [cepStatus, setCepStatus] = useState<"idle" | "loading" | "found" | "not_found">("idle");
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 
   function set(field: keyof Galpao, value: string | boolean) {
     setForm((f) => ({ ...f, [field]: value }));
+  }
+
+  async function buscarCep(digits: string) {
+    setCepStatus("loading");
+    try {
+      const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`);
+      if (!res.ok) { setCepStatus("not_found"); return; }
+      const data = await res.json();
+      if (data.erro) { setCepStatus("not_found"); return; }
+      setForm((f) => ({
+        ...f,
+        logradouro: data.logradouro || f.logradouro,
+        bairro:     data.bairro     || f.bairro,
+        cidade:     data.localidade || f.cidade,
+        uf:         data.uf         || f.uf,
+      }));
+      setCepStatus("found");
+    } catch {
+      setCepStatus("not_found");
+    }
+  }
+
+  function handleCepChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const val = e.target.value;
+    set("cep", val);
+    setCepStatus("idle");
+    const digits = val.replace(/\D/g, "");
+    if (digits.length === 8) buscarCep(digits);
   }
 
   function setVis(campo: string, contexto: "card" | "ficha", valor: boolean) {
@@ -174,10 +208,14 @@ export default function GalpaoForm({
       uso_terreno: form.categoria === "terreno" && form.uso_terreno ? form.uso_terreno : null,
       tipo: form.tipo,
       valor: form.valor ? Number(form.valor) : null,
-      endereco: form.endereco,
-      bairro: form.bairro,
+      logradouro: form.logradouro || null,
+      numero: form.numero || null,
+      complemento: form.complemento || null,
+      endereco: [form.logradouro, form.numero].filter(Boolean).join(", ") || form.endereco || null,
+      bairro: form.bairro || null,
       cidade: form.cidade,
-      cep: form.cep,
+      uf: form.uf || null,
+      cep: form.cep || null,
       area_total_m2: form.area_total_m2 ? Number(form.area_total_m2) : null,
       area_construida_m2: form.area_construida_m2 ? Number(form.area_construida_m2) : null,
       area_piso_m2: form.area_piso_m2 ? Number(form.area_piso_m2) : null,
@@ -216,9 +254,10 @@ export default function GalpaoForm({
       galpaoId = data.id;
     }
 
-    if (form.endereco || form.cidade) {
+    if (form.logradouro || form.cidade) {
       try {
-        const params = new URLSearchParams({ endereco: form.endereco, bairro: form.bairro, cidade: form.cidade, cep: form.cep });
+        const enderecoGeo = [form.logradouro, form.numero].filter(Boolean).join(", ");
+        const params = new URLSearchParams({ endereco: enderecoGeo, bairro: form.bairro, cidade: form.cidade, cep: form.cep });
         const geoRes = await fetch(`/api/geocode?${params}`);
         if (geoRes.ok) {
           const { lat, lng } = await geoRes.json();
@@ -415,20 +454,70 @@ export default function GalpaoForm({
         <section>
           <h2 className="text-sm font-semibold text-gray-900 mb-4 pb-2 border-b border-gray-200">Localização</h2>
           <div className="grid md:grid-cols-2 gap-4">
+
+            {/* CEP com auto-fill ViaCEP */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-medium text-gray-600">CEP</label>
+                {cepStatus === "loading"   && <span className="text-xs text-gray-400">Buscando...</span>}
+                {cepStatus === "found"     && <span className="text-xs text-green-600 font-medium">Endereço encontrado</span>}
+                {cepStatus === "not_found" && <span className="text-xs text-red-500">CEP não encontrado</span>}
+              </div>
+              <input
+                className={inputClass}
+                value={form.cep}
+                onChange={handleCepChange}
+                maxLength={9}
+                placeholder="00000-000"
+              />
+            </div>
+
+            {/* UF — preenchido pelo ViaCEP */}
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-medium text-gray-600">UF</label>
+                <span className="text-xs text-gray-300">preenchido pelo CEP</span>
+              </div>
+              <input
+                className={`${inputClass} bg-gray-50 text-gray-500`}
+                value={form.uf}
+                readOnly
+                tabIndex={-1}
+                placeholder="SP"
+              />
+            </div>
+
+            {/* Logradouro + Número */}
+            <div className="md:col-span-2 grid grid-cols-4 gap-4">
+              <div className="col-span-3">
+                <FieldVis label="Logradouro" campoChave="logradouro">
+                  <input className={inputClass} value={form.logradouro} onChange={(e) => set("logradouro", e.target.value)} placeholder="Alameda Grajaú" />
+                </FieldVis>
+              </div>
+              <div>
+                <FieldVis label="Número" campoChave="numero">
+                  <input className={inputClass} value={form.numero} onChange={(e) => set("numero", e.target.value)} placeholder="500" />
+                </FieldVis>
+              </div>
+            </div>
+
+            {/* Complemento */}
             <div className="md:col-span-2">
-              <FieldVis label="Endereço" campoChave="endereco">
-                <input className={inputClass} value={form.endereco} onChange={(e) => set("endereco", e.target.value)} />
+              <FieldVis label="Complemento" campoChave="complemento">
+                <input className={inputClass} value={form.complemento} onChange={(e) => set("complemento", e.target.value)} placeholder="Galpão 3, Módulo B, Bloco C..." />
               </FieldVis>
             </div>
+
+            {/* Bairro */}
             <FieldVis label="Bairro" campoChave="bairro">
               <input className={inputClass} value={form.bairro} onChange={(e) => set("bairro", e.target.value)} />
             </FieldVis>
+
+            {/* Cidade */}
             <FieldFixo label="Cidade">
               <input className={inputClass} value={form.cidade} onChange={(e) => set("cidade", e.target.value)} />
             </FieldFixo>
-            <FieldVis label="CEP" campoChave="cep">
-              <input className={inputClass} value={form.cep} onChange={(e) => set("cep", e.target.value)} />
-            </FieldVis>
+
           </div>
         </section>
 

@@ -16,7 +16,12 @@ export type Galpao = {
   cidade: string;
   bairro: string | null;
   endereco: string | null;
+  logradouro: string | null;
+  numero: string | null;
+  complemento: string | null;
+  uf: string | null;
   cep: string | null;
+  geojson: object | null;
   publicado: boolean;
   area_construida_m2: number | null;
   area_total_m2: number | null;
