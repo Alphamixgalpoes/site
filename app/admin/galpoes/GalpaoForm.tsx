@@ -93,13 +93,17 @@ export default function GalpaoForm({
       is_capa: img.is_capa ?? false,
     }))
   );
+  const [draftId] = useState<string>(() => initial?.id ?? crypto.randomUUID());
+  const [draftSaved, setDraftSaved] = useState(!!initial?.id);
   const [saving, setSaving] = useState(false);
   const [uploadingImagens, setUploadingImagens] = useState(false);
   const [error, setError] = useState("");
   const [warningModal, setWarningModal] = useState<WarningInfo | null>(null);
   const [cepStatus, setCepStatus] = useState<"idle" | "loading" | "found" | "not_found">("idle");
+  const [enderecoManual, setEnderecoManual] = useState(false);
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const cepLocked = cepStatus === "found" && !enderecoManual;
 
   function set(field: keyof Galpao, value: string | boolean) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -129,8 +133,32 @@ export default function GalpaoForm({
     const val = e.target.value;
     set("cep", val);
     setCepStatus("idle");
+    setEnderecoManual(false);
     const digits = val.replace(/\D/g, "");
     if (digits.length === 8) buscarCep(digits);
+  }
+
+  async function ensureDraftSaved(): Promise<boolean> {
+    if (draftSaved) return true;
+    const supabase = createClient();
+    const { error: err } = await supabase.from("galpoes").insert({
+      id: draftId,
+      titulo: form.titulo || "Rascunho",
+      categoria: form.categoria,
+      tipo: form.tipo,
+      cidade: form.cidade,
+      publicado: false,
+      numero_docas: 0,
+      acesso_carreta: false,
+      sprinklers: false,
+      guarita: false,
+      vagas_estacionamento: 0,
+      condominio: false,
+      campos_visibilidade: {},
+    });
+    if (err) { setError(`Erro ao inicializar rascunho: ${err.message}`); return false; }
+    setDraftSaved(true);
+    return true;
   }
 
   function setVis(campo: string, contexto: "card" | "ficha", valor: boolean) {
@@ -243,15 +271,14 @@ export default function GalpaoForm({
       updated_at: new Date().toISOString(),
     };
 
-    let galpaoId = form.id;
+    const isNew = !form.id;
 
-    if (galpaoId) {
-      const { error } = await supabase.from("galpoes").update(payload).eq("id", galpaoId);
+    if (draftSaved || form.id) {
+      const { error } = await supabase.from("galpoes").update(payload).eq("id", draftId);
       if (error) { setError(error.message); setSaving(false); return; }
     } else {
-      const { data, error } = await supabase.from("galpoes").insert(payload).select("id").single();
+      const { error } = await supabase.from("galpoes").insert({ id: draftId, publicado: false, ...payload });
       if (error) { setError(error.message); setSaving(false); return; }
-      galpaoId = data.id;
     }
 
     if (form.logradouro || form.cidade) {
@@ -261,12 +288,16 @@ export default function GalpaoForm({
         const geoRes = await fetch(`/api/geocode?${params}`);
         if (geoRes.ok) {
           const { lat, lng } = await geoRes.json();
-          if (lat && lng) await supabase.from("galpoes").update({ latitude: lat, longitude: lng }).eq("id", galpaoId);
+          if (lat && lng) await supabase.from("galpoes").update({ latitude: lat, longitude: lng }).eq("id", draftId);
         }
       } catch { /* geocoding optional */ }
     }
 
-    router.push("/admin");
+    if (isNew) {
+      router.push(`/admin/galpoes/${draftId}`);
+    } else {
+      router.push("/admin");
+    }
     router.refresh();
   }
 
@@ -279,9 +310,8 @@ export default function GalpaoForm({
   }
 
   async function definirCapa(imagemId: string) {
-    if (!form.id) return;
     const supabase = createClient();
-    const { error: e1 } = await supabase.from("galpao_imagens").update({ is_capa: false }).eq("galpao_id", form.id);
+    const { error: e1 } = await supabase.from("galpao_imagens").update({ is_capa: false }).eq("galpao_id", draftId);
     if (e1) { setError(`Erro ao redefinir capa: ${e1.message}`); return; }
     // Capa deve ser sempre visível no site
     const { error: e2 } = await supabase.from("galpao_imagens").update({ is_capa: true, visivel_site: true }).eq("id", imagemId);
@@ -301,7 +331,9 @@ export default function GalpaoForm({
   }
 
   async function handleUploadImagens(fileList: FileList) {
-    if (!form.id || fileList.length === 0) return;
+    if (fileList.length === 0) return;
+    const ok = await ensureDraftSaved();
+    if (!ok) return;
     setUploadingImagens(true);
     setError("");
     const supabase = createClient();
@@ -310,12 +342,12 @@ export default function GalpaoForm({
     for (let i = 0; i < fileList.length; i++) {
       const file = fileList[i];
       const ext = file.name.split(".").pop();
-      const path = `${form.id}/${Date.now()}-${i}.${ext}`;
+      const path = `${draftId}/${Date.now()}-${i}.${ext}`;
       const { error: uploadErr } = await supabase.storage.from("galpoes").upload(path, file);
       if (uploadErr) { setError(`Erro ao enviar ${file.name}: ${uploadErr.message}`); continue; }
       const { data, error: insertErr } = await supabase
         .from("galpao_imagens")
-        .insert({ galpao_id: form.id, storage_path: path, ordem: proximaOrdem + i, visivel_site: true, is_capa: false })
+        .insert({ galpao_id: draftId, storage_path: path, ordem: proximaOrdem + i, visivel_site: true, is_capa: false })
         .select("id, storage_path, ordem, visivel_site, is_capa")
         .single();
       if (insertErr) { setError(`Erro ao salvar imagem: ${insertErr.message}`); continue; }
@@ -328,6 +360,7 @@ export default function GalpaoForm({
   // ── Componentes auxiliares de campos ────────────────────────────────────────
 
   const inputClass = "w-full border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:outline-none focus:border-gray-900";
+  const lockedInputClass = `${inputClass} bg-gray-50 text-gray-500 cursor-not-allowed`;
 
   /** Campo fixo — título, categoria, tipo, cidade */
   function FieldFixo({ label, children }: { label: string; children: React.ReactNode }) {
@@ -472,14 +505,14 @@ export default function GalpaoForm({
               />
             </div>
 
-            {/* UF — preenchido pelo ViaCEP */}
+            {/* UF — sempre readonly */}
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="text-xs font-medium text-gray-600">UF</label>
                 <span className="text-xs text-gray-300">preenchido pelo CEP</span>
               </div>
               <input
-                className={`${inputClass} bg-gray-50 text-gray-500`}
+                className={lockedInputClass}
                 value={form.uf}
                 readOnly
                 tabIndex={-1}
@@ -487,11 +520,33 @@ export default function GalpaoForm({
               />
             </div>
 
+            {/* Botão editar manualmente — aparece quando CEP preencheu */}
+            {cepStatus === "found" && (
+              <div className="md:col-span-2 flex items-center gap-3 py-1">
+                <span className="text-xs text-gray-400">
+                  {enderecoManual ? "Editando manualmente — os campos abaixo estão desbloqueados." : "Campos preenchidos automaticamente pelo CEP."}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setEnderecoManual((v) => !v)}
+                  className="text-xs text-[#2e3092] underline hover:no-underline shrink-0"
+                >
+                  {enderecoManual ? "Bloquear novamente" : "Editar manualmente"}
+                </button>
+              </div>
+            )}
+
             {/* Logradouro + Número */}
             <div className="md:col-span-2 grid grid-cols-4 gap-4">
               <div className="col-span-3">
                 <FieldVis label="Logradouro" campoChave="logradouro">
-                  <input className={inputClass} value={form.logradouro} onChange={(e) => set("logradouro", e.target.value)} placeholder="Alameda Grajaú" />
+                  <input
+                    className={cepLocked ? lockedInputClass : inputClass}
+                    readOnly={cepLocked}
+                    value={form.logradouro}
+                    onChange={(e) => set("logradouro", e.target.value)}
+                    placeholder="Alameda Grajaú"
+                  />
                 </FieldVis>
               </div>
               <div>
@@ -510,12 +565,22 @@ export default function GalpaoForm({
 
             {/* Bairro */}
             <FieldVis label="Bairro" campoChave="bairro">
-              <input className={inputClass} value={form.bairro} onChange={(e) => set("bairro", e.target.value)} />
+              <input
+                className={cepLocked ? lockedInputClass : inputClass}
+                readOnly={cepLocked}
+                value={form.bairro}
+                onChange={(e) => set("bairro", e.target.value)}
+              />
             </FieldVis>
 
             {/* Cidade */}
             <FieldFixo label="Cidade">
-              <input className={inputClass} value={form.cidade} onChange={(e) => set("cidade", e.target.value)} />
+              <input
+                className={cepLocked ? lockedInputClass : inputClass}
+                readOnly={cepLocked}
+                value={form.cidade}
+                onChange={(e) => set("cidade", e.target.value)}
+              />
             </FieldFixo>
 
           </div>
@@ -658,7 +723,7 @@ export default function GalpaoForm({
                     >
                       {img.visivel_site ? "No site" : "Oculta"}
                     </button>
-                    {form.id && (
+                    {(draftSaved || !!form.id) && (
                       <button
                         type="button"
                         onClick={() => definirCapa(img.id)}
@@ -685,27 +750,21 @@ export default function GalpaoForm({
             </div>
           )}
 
-          {/* Botão de upload */}
-          {form.id ? (
-            <label className={`flex items-center gap-3 w-full border-2 border-dashed border-gray-300 px-5 py-4 cursor-pointer hover:border-gray-400 transition-colors ${uploadingImagens ? "opacity-50 pointer-events-none" : ""}`}>
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                className="sr-only"
-                onChange={(e) => e.target.files && handleUploadImagens(e.target.files)}
-              />
-              <span className="text-2xl text-gray-400">+</span>
-              <span className="text-sm text-gray-500">
-                {uploadingImagens ? "Enviando..." : existingImagens.length === 0 ? "Adicionar fotos" : "Adicionar mais fotos"}
-              </span>
-              <span className="ml-auto text-xs text-gray-400">JPG, PNG, WEBP</span>
-            </label>
-          ) : (
-            <div className="text-xs text-gray-400 bg-gray-50 border border-gray-200 px-4 py-3">
-              Salve o galpão primeiro para poder adicionar e gerenciar as imagens.
-            </div>
-          )}
+          {/* Botão de upload — disponível sempre */}
+          <label className={`flex items-center gap-3 w-full border-2 border-dashed border-gray-300 px-5 py-4 cursor-pointer hover:border-gray-400 transition-colors ${uploadingImagens ? "opacity-50 pointer-events-none" : ""}`}>
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              className="sr-only"
+              onChange={(e) => e.target.files && handleUploadImagens(e.target.files)}
+            />
+            <span className="text-2xl text-gray-400">+</span>
+            <span className="text-sm text-gray-500">
+              {uploadingImagens ? "Enviando..." : existingImagens.length === 0 ? "Adicionar fotos" : "Adicionar mais fotos"}
+            </span>
+            <span className="ml-auto text-xs text-gray-400">JPG, PNG, WEBP</span>
+          </label>
         </section>
 
         {error && <p className="text-sm text-red-600">{error}</p>}
