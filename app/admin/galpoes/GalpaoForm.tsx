@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, createContext, useContext } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
@@ -94,6 +94,92 @@ const empty: Galpao = {
 };
 
 const TABS = ["Identificação", "Localização", "Características", "Mídia", "Revisão"];
+
+// ── Form context (evita re-montagem de campos a cada keystroke) ───────────────
+
+type GalpaoFormCtxType = {
+  configCampos: ConfigCampo[];
+  visibilidade: OverridesVisibilidade;
+  setVis: (campo: string, contexto: "card" | "ficha", valor: boolean) => void;
+  form: Galpao;
+  set: (field: keyof Galpao, value: string | boolean) => void;
+};
+
+const GalpaoFormCtx = createContext<GalpaoFormCtxType>(null as unknown as GalpaoFormCtxType);
+
+const inputClass = "w-full border border-gray-300 px-3 py-3 text-sm text-gray-900 focus:outline-none focus:border-gray-900 rounded-none";
+const lockedInputClass = `${inputClass} bg-gray-50 text-gray-500 cursor-not-allowed`;
+const labelClass = "block text-xs font-medium text-gray-600 mb-1.5";
+
+function FieldFixo({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <label className={labelClass.replace("mb-1.5", "")}>{label}</label>
+        <span className="text-xs text-gray-300">📌 sempre visível</span>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function FieldVis({ label, campoChave, children }: { label: string; campoChave: string; children: React.ReactNode }) {
+  const { configCampos, visibilidade, setVis } = useContext(GalpaoFormCtx);
+  const config = configCampos.find((c) => c.campo_chave === campoChave);
+  const cardVal = visibilidade[campoChave]?.card ?? config?.visivel_card ?? true;
+  const fichaVal = visibilidade[campoChave]?.ficha ?? config?.visivel_ficha ?? true;
+  const isConfidencial = config?.confidencial ?? false;
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1.5">
+        <label className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
+          {label}{isConfidencial && <span className="text-amber-600 text-xs font-semibold">🔒</span>}
+        </label>
+        <div className="flex items-center gap-3 text-xs text-gray-400 shrink-0 ml-2">
+          <label className="flex items-center gap-1 cursor-pointer">
+            <input type="checkbox" checked={cardVal} onChange={(e) => setVis(campoChave, "card", e.target.checked)} className="w-3 h-3 accent-[#2e3092]" />Card
+          </label>
+          <label className="flex items-center gap-1 cursor-pointer">
+            <input type="checkbox" checked={fichaVal} onChange={(e) => setVis(campoChave, "ficha", e.target.checked)} className="w-3 h-3 accent-[#2e3092]" />Ficha
+          </label>
+        </div>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function BoolVis({ label, campoChave, field }: { label: string; campoChave: string; field: keyof Galpao }) {
+  const { configCampos, visibilidade, setVis, form, set } = useContext(GalpaoFormCtx);
+  const config = configCampos.find((c) => c.campo_chave === campoChave);
+  const cardVal = visibilidade[campoChave]?.card ?? config?.visivel_card ?? true;
+  const fichaVal = visibilidade[campoChave]?.ficha ?? config?.visivel_ficha ?? true;
+  const isConfidencial = config?.confidencial ?? false;
+  return (
+    <div className="flex items-center justify-between gap-2 py-1">
+      <label className="flex items-center gap-2.5 text-sm text-gray-700 cursor-pointer">
+        <input type="checkbox" checked={!!form[field]} onChange={(e) => set(field, e.target.checked)} className="w-4 h-4 accent-[#2e3092]" />
+        {label}{isConfidencial && <span className="text-amber-600 text-xs">🔒</span>}
+      </label>
+      <div className="flex items-center gap-3 text-xs text-gray-400 shrink-0">
+        <label className="flex items-center gap-1 cursor-pointer">
+          <input type="checkbox" checked={cardVal} onChange={(e) => setVis(campoChave, "card", e.target.checked)} className="w-3 h-3 accent-[#2e3092]" />Card
+        </label>
+        <label className="flex items-center gap-1 cursor-pointer">
+          <input type="checkbox" checked={fichaVal} onChange={(e) => setVis(campoChave, "ficha", e.target.checked)} className="w-3 h-3 accent-[#2e3092]" />Ficha
+        </label>
+      </div>
+    </div>
+  );
+}
+
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6 first:mt-0">
+      {children}
+    </h3>
+  );
+}
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -512,82 +598,6 @@ export default function GalpaoForm({
     setExistingImagens((imgs) => imgs.map((i) => i.id === imagemId ? { ...i, visivel_site: !atual } : i));
   }
 
-  // ── Field components ──────────────────────────────────────────────────────
-
-  const inputClass = "w-full border border-gray-300 px-3 py-3 text-sm text-gray-900 focus:outline-none focus:border-gray-900 rounded-none";
-  const lockedInputClass = `${inputClass} bg-gray-50 text-gray-500 cursor-not-allowed`;
-  const labelClass = "block text-xs font-medium text-gray-600 mb-1.5";
-
-  function FieldFixo({ label, children }: { label: string; children: React.ReactNode }) {
-    return (
-      <div>
-        <div className="flex items-center justify-between mb-1.5">
-          <label className={labelClass.replace("mb-1.5", "")}>{label}</label>
-          <span className="text-xs text-gray-300">📌 sempre visível</span>
-        </div>
-        {children}
-      </div>
-    );
-  }
-
-  function FieldVis({ label, campoChave, children }: { label: string; campoChave: string; children: React.ReactNode }) {
-    const config = configCampos.find((c) => c.campo_chave === campoChave);
-    const cardVal = visibilidade[campoChave]?.card ?? config?.visivel_card ?? true;
-    const fichaVal = visibilidade[campoChave]?.ficha ?? config?.visivel_ficha ?? true;
-    const isConfidencial = config?.confidencial ?? false;
-    return (
-      <div>
-        <div className="flex items-center justify-between mb-1.5">
-          <label className="text-xs font-medium text-gray-600 flex items-center gap-1.5">
-            {label}{isConfidencial && <span className="text-amber-600 text-xs font-semibold">🔒</span>}
-          </label>
-          <div className="flex items-center gap-3 text-xs text-gray-400 shrink-0 ml-2">
-            <label className="flex items-center gap-1 cursor-pointer">
-              <input type="checkbox" checked={cardVal} onChange={(e) => setVis(campoChave, "card", e.target.checked)} className="w-3 h-3 accent-[#2e3092]" />Card
-            </label>
-            <label className="flex items-center gap-1 cursor-pointer">
-              <input type="checkbox" checked={fichaVal} onChange={(e) => setVis(campoChave, "ficha", e.target.checked)} className="w-3 h-3 accent-[#2e3092]" />Ficha
-            </label>
-          </div>
-        </div>
-        {children}
-      </div>
-    );
-  }
-
-  function BoolVis({ label, campoChave, field }: { label: string; campoChave: string; field: keyof Galpao }) {
-    const config = configCampos.find((c) => c.campo_chave === campoChave);
-    const cardVal = visibilidade[campoChave]?.card ?? config?.visivel_card ?? true;
-    const fichaVal = visibilidade[campoChave]?.ficha ?? config?.visivel_ficha ?? true;
-    const isConfidencial = config?.confidencial ?? false;
-    return (
-      <div className="flex items-center justify-between gap-2 py-1">
-        <label className="flex items-center gap-2.5 text-sm text-gray-700 cursor-pointer">
-          <input type="checkbox" checked={form[field] as boolean} onChange={(e) => set(field, e.target.checked)} className="w-4 h-4 accent-[#2e3092]" />
-          {label}{isConfidencial && <span className="text-amber-600 text-xs">🔒</span>}
-        </label>
-        <div className="flex items-center gap-3 text-xs text-gray-400 shrink-0">
-          <label className="flex items-center gap-1 cursor-pointer">
-            <input type="checkbox" checked={cardVal} onChange={(e) => setVis(campoChave, "card", e.target.checked)} className="w-3 h-3 accent-[#2e3092]" />Card
-          </label>
-          <label className="flex items-center gap-1 cursor-pointer">
-            <input type="checkbox" checked={fichaVal} onChange={(e) => setVis(campoChave, "ficha", e.target.checked)} className="w-3 h-3 accent-[#2e3092]" />Ficha
-          </label>
-        </div>
-      </div>
-    );
-  }
-
-  // ── Section header ────────────────────────────────────────────────────────
-
-  function SectionTitle({ children }: { children: React.ReactNode }) {
-    return (
-      <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3 mt-6 first:mt-0">
-        {children}
-      </h3>
-    );
-  }
-
   // ── Computed values for Revisão ───────────────────────────────────────────
 
   const capaImg = existingImagens.find((i) => i.is_capa) || existingImagens[0] || null;
@@ -596,7 +606,9 @@ export default function GalpaoForm({
 
   // ── Render ────────────────────────────────────────────────────────────────
 
+  const ctxValue = { configCampos, visibilidade, setVis, form, set };
   return (
+    <GalpaoFormCtx.Provider value={ctxValue}>
     <>
       {/* Tab bar */}
       <div className="flex overflow-x-auto border-b border-gray-200 mb-8 -mx-4 px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -1194,5 +1206,6 @@ export default function GalpaoForm({
         </div>
       )}
     </>
+    </GalpaoFormCtx.Provider>
   );
 }
