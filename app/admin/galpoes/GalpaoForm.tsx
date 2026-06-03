@@ -7,6 +7,13 @@ import { createClient } from "@/lib/supabase-browser";
 import type { ConfigCampo, OverridesVisibilidade } from "@/lib/visibilidade";
 import ContatoPicker from "@/app/admin/components/ContatoPicker";
 import type { ContatoResumido } from "@/lib/types";
+import {
+  DndContext, closestCenter, PointerSensor, TouchSensor,
+  useSensor, useSensors, type DragEndEvent,
+} from "@dnd-kit/core";
+import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
+import SortableImageCard from "./SortableImageCard";
+import { applySetCapa, applyHide, applyShow, applyDragReorder, persistOrder } from "./imageOrder";
 
 const LocationMap = dynamic(() => import("./LocationMap"), {
   ssr: false,
@@ -582,20 +589,33 @@ export default function GalpaoForm({
   }
 
   async function definirCapa(imagemId: string) {
+    const reordenadas = applySetCapa(existingImagens, imagemId);
+    setExistingImagens(reordenadas);
     const supabase = createClient();
-    await supabase.from("galpao_imagens").update({ is_capa: false }).eq("galpao_id", draftId);
-    await supabase.from("galpao_imagens").update({ is_capa: true, visivel_site: true }).eq("id", imagemId);
-    setExistingImagens((imgs) => imgs.map((i) => ({
-      ...i,
-      is_capa: i.id === imagemId,
-      visivel_site: i.id === imagemId ? true : i.visivel_site,
-    })));
+    await persistOrder(supabase, reordenadas);
   }
 
   async function toggleVisibilidadeSite(imagemId: string, atual: boolean) {
+    const reordenadas = atual
+      ? applyHide(existingImagens, imagemId)
+      : applyShow(existingImagens, imagemId);
+    setExistingImagens(reordenadas);
     const supabase = createClient();
-    await supabase.from("galpao_imagens").update({ visivel_site: !atual }).eq("id", imagemId);
-    setExistingImagens((imgs) => imgs.map((i) => i.id === imagemId ? { ...i, visivel_site: !atual } : i));
+    await persistOrder(supabase, reordenadas);
+  }
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 5 } }),
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const reordenadas = applyDragReorder(existingImagens, String(active.id), String(over.id));
+    setExistingImagens(reordenadas);
+    const supabase = createClient();
+    persistOrder(supabase, reordenadas);
   }
 
   // ── Computed values for Revisão ───────────────────────────────────────────
@@ -927,59 +947,42 @@ export default function GalpaoForm({
           <SectionTitle>Fotos</SectionTitle>
 
           {existingImagens.length > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {existingImagens.map((img) => (
-                <div key={img.id} className="relative border border-gray-200 overflow-hidden">
-                  <div className="relative aspect-video bg-gray-100">
-                    <img
-                      src={`${supabaseUrl}/storage/v1/object/public/galpoes/${img.storage_path}`}
-                      alt=""
-                      className={`w-full h-full object-cover transition-opacity ${img.visivel_site ? "opacity-100" : "opacity-40"}`}
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext
+                items={existingImagens.sort((a, b) => a.ordem - b.ordem).map((i) => i.id)}
+                strategy={rectSortingStrategy}
+              >
+                {/* Mobile: lista vertical, coluna única */}
+                <div className="flex flex-col gap-2 sm:hidden">
+                  {[...existingImagens].sort((a, b) => a.ordem - b.ordem).map((img) => (
+                    <SortableImageCard
+                      key={img.id}
+                      img={img}
+                      supabaseUrl={supabaseUrl ?? ""}
+                      draftSaved={draftSaved || !!form.id}
+                      onToggleVisibilidade={toggleVisibilidadeSite}
+                      onDefinirCapa={definirCapa}
+                      onRemove={removeImagem}
                     />
-                    {img.is_capa && (
-                      <span className="absolute top-1.5 left-1.5 bg-[#2e3092] text-white text-[10px] font-bold px-1.5 py-0.5 leading-none">
-                        CAPA
-                      </span>
-                    )}
-                    {!img.visivel_site && (
-                      <span className="absolute bottom-1.5 left-1.5 bg-black/60 text-white text-[10px] px-1.5 py-0.5 leading-none">
-                        Oculta
-                      </span>
-                    )}
-                  </div>
-                  <div className="p-2 space-y-1.5">
-                    <button
-                      type="button"
-                      onClick={() => toggleVisibilidadeSite(img.id, img.visivel_site)}
-                      className={`w-full text-[11px] py-1 font-medium transition-colors ${
-                        img.visivel_site ? "bg-green-100 text-green-700 hover:bg-green-200" : "bg-gray-100 text-gray-500 hover:bg-gray-200"
-                      }`}
-                    >
-                      {img.visivel_site ? "No site" : "Oculta"}
-                    </button>
-                    {(draftSaved || !!form.id) && (
-                      <button
-                        type="button"
-                        onClick={() => definirCapa(img.id)}
-                        disabled={img.is_capa}
-                        className={`w-full text-[11px] py-1 transition-colors ${
-                          img.is_capa ? "bg-[#2e3092] text-white cursor-default" : "border border-gray-300 text-gray-600 hover:border-gray-500"
-                        }`}
-                      >
-                        {img.is_capa ? "★ Capa" : "Definir capa"}
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => removeImagem(img.id, img.storage_path)}
-                      className="w-full text-[11px] py-1 text-red-500 hover:bg-red-50 transition-colors"
-                    >
-                      Excluir
-                    </button>
-                  </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+
+                {/* Desktop: grid 3 colunas */}
+                <div className="hidden sm:grid grid-cols-3 gap-3">
+                  {[...existingImagens].sort((a, b) => a.ordem - b.ordem).map((img) => (
+                    <SortableImageCard
+                      key={img.id}
+                      img={img}
+                      supabaseUrl={supabaseUrl ?? ""}
+                      draftSaved={draftSaved || !!form.id}
+                      onToggleVisibilidade={toggleVisibilidadeSite}
+                      onDefinirCapa={definirCapa}
+                      onRemove={removeImagem}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
           )}
 
           <label className={`flex items-center gap-3 w-full border-2 border-dashed border-gray-300 px-5 py-5 cursor-pointer hover:border-gray-400 transition-colors ${uploadingImagens ? "opacity-50 pointer-events-none" : ""}`}>
