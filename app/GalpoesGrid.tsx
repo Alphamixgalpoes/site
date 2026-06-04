@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { campoVisivel, type ConfigCampo, type OverridesVisibilidade } from "@/lib/visibilidade";
 import { tipoLabel } from "@/lib/galpao-utils";
+import { imgUrl } from "@/lib/security/proxy-url";
 
 import type { GalpaoPublico as Galpao } from "@/lib/types";
 
@@ -14,7 +15,7 @@ type UsoTerreno = "todos" | "galpao" | "loja" | "ambos";
 
 type Props = {
   galpoes: Galpao[];
-  supabaseUrl: string;
+  supabaseUrl?: string; // mantido para compatibilidade, não mais utilizado
   configCampos?: ConfigCampo[];
   initialCategoria?: Categoria;
   initialNegocio?: Negocio;
@@ -39,7 +40,6 @@ const inputCls =
 
 export default function GalpoesGrid({
   galpoes,
-  supabaseUrl,
   configCampos = [],
   initialCategoria,
   initialNegocio,
@@ -325,12 +325,16 @@ export default function GalpoesGrid({
                 className="group bg-white border border-gray-200 rounded-sm shadow-sm hover:shadow-md hover:border-gray-300 transition-all duration-200 overflow-hidden flex flex-col"
               >
                 {/* Imagem */}
-                <div className="relative bg-gray-100 h-52 overflow-hidden shrink-0">
+                <div
+                  className="relative bg-gray-100 h-52 overflow-hidden shrink-0"
+                  onContextMenu={(e) => e.preventDefault()}
+                >
                   {capa ? (
                     <img
-                      src={`${supabaseUrl}/storage/v1/object/public/galpoes/${capa.storage_path}`}
+                      src={imgUrl(capa.storage_path)}
                       alt={g.titulo}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      draggable={false}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 select-none"
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-gray-300 text-xs">
