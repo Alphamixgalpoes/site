@@ -22,8 +22,8 @@ chore/nome       ← configs, dependências, textos, dados
 2. `git checkout -b feat/nome-da-tarefa`
 3. Trabalha e commita em pedaços pequenos e descritivos
 4. `git push origin feat/nome-da-tarefa`
-5. Abre Pull Request no GitHub: branch → main
-6. Merge aprovado → Vercel faz deploy automaticamente
+5. Claude pode abrir o Pull Request no GitHub — **somente o usuário aprova e faz merge**
+6. Após merge aprovado → Vercel faz deploy automaticamente
 7. `git checkout main && git pull`
 8. Deleta o branch local e remoto
 
@@ -49,11 +49,51 @@ git branch -d feat/modulo-documentos
 git push origin --delete feat/modulo-documentos
 ```
 
+No Windows, `git worktree remove` pode falhar por permissão mesmo com a pasta vazia.
+Se isso acontecer, delete a pasta manualmente e rode:
+```bash
+git worktree prune
+```
+
 ## Comportamento obrigatório do Claude
 
 1. **Forçar o procedimento padrão sempre** — se o usuário tentar um atalho (commitar na main, pular PR, merge local sem motivo), recusar e redirecionar para o fluxo correto. Explicar o risco antes de qualquer alternativa.
 
 2. **Explicar cada ação de git** — antes de executar qualquer comando relacionado a branch, worktree, commit, push ou merge, explicar em linguagem simples o que está prestes a acontecer e por quê. O usuário está aprendendo o fluxo e precisa entender cada passo.
+
+3. **Claude pode criar PRs, nunca fazer merge** — abrir PR é permitido e desejado. Aprovar, mergear ou fechar PRs é decisão exclusiva do usuário. Nunca chamar a API de merge do GitHub.
+
+4. **Nunca deletar branches remotas sem confirmação explícita** — deletar branch remota é irreversível para colaboradores. Sempre listar o que será deletado e aguardar o "pode deletar" do usuário antes de executar.
+
+5. **Sempre verificar antes de deletar branches** — rodar os três comandos abaixo e apresentar o resultado antes de qualquer deleção:
+   ```bash
+   git branch --merged main          # branches já incorporadas
+   git log main..<branch>            # commits que seriam perdidos
+   git worktree list                 # detectar branch em uso em worktree
+   ```
+
+## Push após rebase
+
+Após `git rebase`, o histórico é reescrito — o push normal é rejeitado.
+Usar sempre `--force-with-lease`, nunca `--force`:
+```bash
+git push --force-with-lease origin feat/nome
+```
+`--force-with-lease` falha se alguém else tiver pushado na branch enquanto isso — protege contra sobrescrever trabalho alheio.
+
+## Deletar branches: `-d` vs `-D`
+
+`git branch -d` só deleta se o conteúdo estiver em main pelo mesmo hash.
+Quando uma branch foi rebaseada antes do merge, o hash muda — o git reclama mesmo o conteúdo estando em main.
+Nesse caso, `-D` (force) é correto e seguro, desde que você tenha confirmado via `git log` que o conteúdo está na main.
+
+## Resolução de conflito no rebase
+
+Quando a branch a ser rebaseada modifica um arquivo que a main já evoluiu significativamente:
+1. Verificar qual versão é mais completa: `git diff origin/main...<branch> -- arquivo.tsx`
+2. Se a main tem versão mais avançada, aceitar HEAD: `git checkout --ours arquivo.tsx`
+3. Se a branch tem algo novo que não está na main, integrar manualmente
+4. Nunca aceitar cegamente nenhum dos lados sem ler o diff
 
 ## Commits
 Mensagens no formato: `tipo: descrição curta no imperativo`
