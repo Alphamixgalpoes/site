@@ -5,6 +5,45 @@ const StaticMaps = require("staticmaps");
 // CartoDB Light @2x — mapa limpo, ideal para PDF
 const CARTO_LIGHT = "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png";
 
+const TILE_SIZE = 512;
+const ZOOM_MIN = 10;
+const ZOOM_MAX = 16;
+const PADDING_X = 60;
+const PADDING_Y = 60;
+const TARGET_RADIUS_PX = 15; // raio fixo em pixels para qualquer zoom
+
+// Replicam a lógica interna do staticmaps para cálculo de zoom
+function lonToX(lon: number, z: number) {
+  return ((lon + 180) / 360) * Math.pow(2, z);
+}
+function latToY(lat: number, z: number) {
+  const sinLat = Math.sin((lat * Math.PI) / 180);
+  return (0.5 - Math.log((1 + sinLat) / (1 - sinLat)) / (4 * Math.PI)) * Math.pow(2, z);
+}
+
+function calcAutoZoom(lons: number[], lats: number[], w: number, h: number): number {
+  const minLon = Math.min(...lons), maxLon = Math.max(...lons);
+  const minLat = Math.min(...lats), maxLat = Math.max(...lats);
+  // ponto único ou todos sobrepostos → zoom razoável para imóvel individual
+  if (maxLon - minLon < 0.001 && maxLat - minLat < 0.001) return 14;
+  for (let z = ZOOM_MAX; z >= ZOOM_MIN; z--) {
+    const fw = (lonToX(maxLon, z) - lonToX(minLon, z)) * TILE_SIZE;
+    if (fw > w - PADDING_X * 2) continue;
+    const fh = (latToY(minLat, z) - latToY(maxLat, z)) * TILE_SIZE;
+    if (fh > h - PADDING_Y * 2) continue;
+    return z;
+  }
+  return ZOOM_MIN;
+}
+
+// Converte pixels → metros considerando tileSize=512 (2x)
+// staticmaps.meterToPixel usa 2^(zoom+8)=2^zoom*256 internamente;
+// com tileSize=512 cada pixel representa metade da área → divisor = 2^(zoom+9)
+function pixelsToMeters(px: number, zoom: number, lat: number): number {
+  const E = 40075016.686;
+  return px * (E * Math.cos((lat * Math.PI) / 180)) / Math.pow(2, zoom + 9);
+}
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
 
@@ -36,48 +75,51 @@ export async function GET(req: NextRequest) {
     return new NextResponse(null, { status: 400 });
   }
 
+  const lats = markers.map((m) => m.lat);
+  const lons = markers.map((m) => m.lon);
+
+  // Pré-calcular zoom para depois derivar o raio em metros
+  const zoom = calcAutoZoom(lons, lats, width, height);
+  const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2;
+  const centerLon = (Math.min(...lons) + Math.max(...lons)) / 2;
+
+  // Raio fixo de TARGET_RADIUS_PX independente do nível de zoom
+  const radiusMeters = pixelsToMeters(TARGET_RADIUS_PX, zoom, centerLat);
+
   const map = new StaticMaps({
     width,
     height,
     tileUrl: CARTO_LIGHT,
     tileSubdomains: ["a", "b", "c"],
-    tileSize: 512,
-    zoomRange: { min: 10, max: 16 },
-    paddingX: 60,
-    paddingY: 60,
-  });
-
-  // Define o extent para auto-zoom — staticmaps calcula zoom e centro automaticamente
-  map.addBound({
-    coords: markers.map(({ lon, lat }) => [lon, lat]),
+    tileSize: TILE_SIZE,
+    zoomRange: { min: ZOOM_MIN, max: ZOOM_MAX },
+    paddingX: PADDING_X,
+    paddingY: PADDING_Y,
   });
 
   for (const { lat, lon, num } of markers) {
-    // Círculo vermelho preenchido
     map.addCircle({
       coord: [lon, lat],
-      radius: 200,
+      radius: radiusMeters,
       fill: "#dc2626",
       color: "#ffffff",
-      width: 4,
+      width: 3,
     });
-    // Número branco sobre o círculo
     map.addText({
       coord: [lon, lat],
       text: String(num),
-      size: 14,
-      font: "Arial, sans-serif",
+      size: 11,
+      font: "sans-serif",
       color: "#ffffff",
       fill: "#ffffff",
       anchor: "middle",
       offsetX: 0,
-      offsetY: 5, // ajuste para centralizar verticalmente (baseline SVG)
+      offsetY: 4,
     });
   }
 
   try {
-    // render() sem args usa auto-zoom a partir do extent definido pelo addBound
-    await map.render();
+    await map.render([centerLon, centerLat], zoom);
     const buffer = await map.image.buffer("image/png");
     return new NextResponse(buffer, {
       headers: {
