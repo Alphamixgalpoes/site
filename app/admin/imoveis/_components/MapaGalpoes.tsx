@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useCallback } from "react";
-import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, Popup, GeoJSON, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import Link from "next/link";
@@ -18,6 +18,7 @@ export type GalpaoPin = {
   publicado: boolean;
   latitude: number;
   longitude: number;
+  geojson?: object | null;
 };
 
 type Props = {
@@ -165,6 +166,20 @@ export default function MapaGalpoes({
             </Popup>
           </Marker>
         ))}
+        {comCoordenadas
+          .filter((g) => g.geojson)
+          .map((g) => (
+            <GeoJSON
+              key={`poly-${g.id}`}
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              data={g.geojson as any}
+              style={{
+                color: g.id === selecionadoId ? "#2e3092" : g.publicado ? "#16a34a" : "#6b7280",
+                weight: 2,
+                fillOpacity: 0.1,
+              }}
+            />
+          ))}
       </MapContainer>
     </div>
   );
