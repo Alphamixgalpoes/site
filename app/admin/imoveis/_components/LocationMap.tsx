@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MapContainer, TileLayer, Marker, GeoJSON, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, Marker, GeoJSON, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "@geoman-io/leaflet-geoman-free";
@@ -119,6 +119,15 @@ function GeomanController({
 
 // ── LocationMap ───────────────────────────────────────────────────────────────
 
+function ClickToPlace({ onClick }: { onClick: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    click(e) {
+      onClick(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+}
+
 export type LocationMapProps = {
   lat: number | null;
   lng: number | null;
@@ -128,6 +137,7 @@ export type LocationMapProps = {
   onConfirmPin: () => void;
   onUnconfirmPin: () => void;
   onGeojsonChange: (gj: object | null) => void;
+  onManualPlace?: (lat: number, lng: number) => void;
 };
 
 export default function LocationMap({
@@ -139,8 +149,16 @@ export default function LocationMap({
   onConfirmPin,
   onUnconfirmPin,
   onGeojsonChange,
+  onManualPlace,
 }: LocationMapProps) {
   const [drawing, setDrawing] = useState(false);
+  const [manualMode, setManualMode] = useState(false);
+
+  function handleManualClick(clickLat: number, clickLng: number) {
+    setManualMode(false);
+    onDrag(clickLat, clickLng);
+    onManualPlace?.(clickLat, clickLng);
+  }
 
   const initialCenter: [number, number] = [-23.508, -46.845]; // Alphaville
   const initialZoom = 13;
@@ -180,7 +198,18 @@ export default function LocationMap({
             />
           )}
           <GeomanController drawing={drawing} onDrawEnd={handleDrawEnd} />
+          {manualMode && <ClickToPlace onClick={handleManualClick} />}
         </MapContainer>
+
+        {/* Manual mode indicator */}
+        {manualMode && (
+          <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000]">
+            <div className="bg-[#2e3092] text-white text-xs font-medium px-3 py-1.5 shadow-lg flex items-center gap-2">
+              Clique no mapa para posicionar o pin
+              <button type="button" onClick={() => setManualMode(false)} className="text-white/70 hover:text-white">✕</button>
+            </div>
+          </div>
+        )}
 
         {/* "Fixar pin" button — visible when pin not yet confirmed */}
         {lat && lng && !pinConfirmado && (
@@ -218,10 +247,17 @@ export default function LocationMap({
         )}
 
         {/* Empty state hint */}
-        {!lat && !lng && (
-          <div className="absolute inset-x-0 bottom-3 flex justify-center z-[1000] pointer-events-none">
-            <div className="bg-white/90 border border-gray-200 text-xs text-gray-500 px-4 py-2 shadow">
-              Preencha o CEP para posicionar o pin automaticamente
+        {!lat && !lng && !manualMode && (
+          <div className="absolute inset-x-0 bottom-3 flex justify-center z-[1000]">
+            <div className="bg-white/90 border border-gray-200 text-xs text-gray-500 px-4 py-2 shadow flex items-center gap-3">
+              <span>Preencha o CEP ou</span>
+              <button
+                type="button"
+                onClick={() => setManualMode(true)}
+                className="text-[#2e3092] font-medium hover:underline pointer-events-auto"
+              >
+                posicione manualmente
+              </button>
             </div>
           </div>
         )}

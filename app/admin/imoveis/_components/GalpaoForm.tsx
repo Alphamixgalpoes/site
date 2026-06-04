@@ -363,6 +363,32 @@ export default function GalpaoForm({
     };
   }
 
+  // ── Reverse geocode (pin manual → preenche endereço) ─────────────────────
+
+  async function handleManualPlace(placeLat: number, placeLng: number) {
+    setLat(placeLat);
+    setLng(placeLng);
+    setPinConfirmado(false);
+    try {
+      const res = await fetch("/api/geocode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lat: placeLat, lng: placeLng }),
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setForm((f) => ({
+        ...f,
+        logradouro: data.logradouro || f.logradouro,
+        bairro: data.bairro || f.bairro,
+        cidade: data.cidade || f.cidade,
+        uf: data.uf || f.uf,
+        cep: data.cep || f.cep,
+      }));
+      if (data.cep) setCepStatus("found");
+    } catch { /* silent */ }
+  }
+
   // ── CEP & geocoding ───────────────────────────────────────────────────────
 
   async function geocodeFromAddress(addr: { logradouro: string; bairro: string; cidade: string; cep: string }) {
@@ -844,6 +870,7 @@ export default function GalpaoForm({
             onConfirmPin={() => setPinConfirmado(true)}
             onUnconfirmPin={() => setPinConfirmado(false)}
             onGeojsonChange={setGeojson}
+            onManualPlace={handleManualPlace}
           />
         </div>
       )}
