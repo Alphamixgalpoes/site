@@ -598,7 +598,7 @@ export default function ProcessoDetalhePage() {
               ) : proprietarioContato ? (
                 <div className="flex items-center gap-2 group">
                   <div className="min-w-0">
-                    <Link href={`/admin/contatos/${proprietarioContato.id}`} className="text-sm text-gray-700 hover:text-[#2e3092] font-medium transition-colors">
+                    <Link href={`/admin/negocios/contatos/${proprietarioContato.id}`} className="text-sm text-gray-700 hover:text-[#2e3092] font-medium transition-colors">
                       {proprietarioContato.nome}
                     </Link>
                     {proprietarioContato.empresa && <span className="text-xs text-gray-400 ml-1.5">· {proprietarioContato.empresa}</span>}
@@ -634,7 +634,7 @@ export default function ProcessoDetalhePage() {
               ) : clienteContato ? (
                 <div className="flex items-center gap-2 group">
                   <div className="min-w-0">
-                    <Link href={`/admin/contatos/${clienteContato.id}`} className="text-sm text-gray-700 hover:text-[#2e3092] font-medium transition-colors">
+                    <Link href={`/admin/negocios/contatos/${clienteContato.id}`} className="text-sm text-gray-700 hover:text-[#2e3092] font-medium transition-colors">
                       {clienteContato.nome}
                     </Link>
                     {clienteContato.empresa && <span className="text-xs text-gray-400 ml-1.5">· {clienteContato.empresa}</span>}
@@ -790,7 +790,7 @@ export default function ProcessoDetalhePage() {
             {contatosVinculados.map((c) => (
               <div key={c.id} className="flex items-center gap-3 px-5 py-2.5 group hover:bg-gray-50 transition-colors">
                 <Link
-                  href={`/admin/contatos/${c.contato_id}`}
+                  href={`/admin/negocios/contatos/${c.contato_id}`}
                   className="flex-1 min-w-0 hover:text-gray-600 transition-colors"
                 >
                   <p className="text-sm text-gray-900 truncate">{c.nome}</p>

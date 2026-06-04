@@ -138,7 +138,7 @@ export default function ContatoDetalhePage() {
   async function excluir() {
     const supabase = createClient();
     await supabase.from("contatos").update({ ativo: false }).eq("id", id);
-    router.push("/admin/contatos");
+    router.push("/admin/negocios/contatos");
   }
 
   function toggleTagAdicional(tag: string) {
@@ -155,7 +155,7 @@ export default function ContatoDetalhePage() {
 
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-gray-400">
-        <Link href="/admin/contatos" className="hover:text-gray-900 transition-colors">Contatos</Link>
+        <Link href="/admin/negocios/contatos" className="hover:text-gray-900 transition-colors">Contatos</Link>
         <span>/</span>
         <span className="text-gray-700 truncate">{contato.nome}</span>
       </div>

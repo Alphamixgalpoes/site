@@ -131,7 +131,7 @@ export default function ContatoPicker({
             <div className="px-4 py-3 text-sm text-gray-500">
               Nenhum contato encontrado.{" "}
               <a
-                href="/admin/contatos"
+                href="/admin/negocios/contatos"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-[#2e3092] underline"

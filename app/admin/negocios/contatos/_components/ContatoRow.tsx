@@ -18,7 +18,7 @@ export default function ContatoRow({ contato }: { contato: Contato }) {
 
   return (
     <Link
-      href={`/admin/contatos/${contato.id}`}
+      href={`/admin/negocios/contatos/${contato.id}`}
       className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 transition-colors"
     >
       {/* Inicial */}

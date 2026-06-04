@@ -56,17 +56,14 @@ export default function CentralPage({ title, subtitle, stats, lenses, children }
       )}
 
       {/* Lenses */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
         {lenses.map((lens) => (
           <Link
             key={lens.href}
             href={lens.href}
-            className="border border-gray-200 bg-white px-5 py-4 hover:border-gray-400 transition-colors group"
+            className="shrink-0 px-4 py-2 text-sm font-medium border border-gray-200 rounded-full text-gray-700 hover:border-[#2e3092] hover:text-[#2e3092] transition-colors bg-white"
           >
-            <p className="text-sm font-medium text-gray-900 group-hover:text-[#2e3092] transition-colors">
-              {lens.label}
-            </p>
-            <p className="text-xs text-gray-400 mt-1">{lens.description}</p>
+            {lens.label}
           </Link>
         ))}
       </div>
