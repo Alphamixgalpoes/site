@@ -1,17 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import { imgUrl } from "@/lib/security/proxy-url";
 
 type GalleryImage = { id: string; storage_path: string };
 
 type Props = {
   images: GalleryImage[];
-  supabaseUrl: string;
+  supabaseUrl?: string; // mantido para compatibilidade, não mais utilizado
   alt: string;
   initialIndex?: number;
 };
 
-export default function ImageGallery({ images, supabaseUrl, alt, initialIndex = 0 }: Props) {
+export default function ImageGallery({ images, alt, initialIndex = 0 }: Props) {
   const [active, setActive] = useState(Math.min(initialIndex, Math.max(0, images.length - 1)));
 
   if (images.length === 0) {
@@ -22,21 +23,24 @@ export default function ImageGallery({ images, supabaseUrl, alt, initialIndex = 
     );
   }
 
-  const url = (img: GalleryImage) =>
-    `${supabaseUrl}/storage/v1/object/public/galpoes/${img.storage_path}`;
-
   const prev = () => setActive((i) => (i - 1 + images.length) % images.length);
   const next = () => setActive((i) => (i + 1) % images.length);
 
   return (
     <div className="space-y-2">
       {/* Imagem em foco */}
-      <div className="relative aspect-video bg-gray-100 overflow-hidden">
+      <div
+        className="relative aspect-video bg-gray-100 overflow-hidden"
+        onContextMenu={(e) => e.preventDefault()}
+      >
         <img
-          src={url(images[active])}
+          src={imgUrl(images[active].storage_path)}
           alt={alt}
-          className="w-full h-full object-cover"
+          draggable={false}
+          className="w-full h-full object-cover select-none"
         />
+        {/* Overlay invisível — captura clique direito sem bloquear cliques nos botões */}
+        <div className="absolute inset-0 pointer-events-none select-none" />
 
         {images.length > 1 && (
           <>
@@ -75,7 +79,7 @@ export default function ImageGallery({ images, supabaseUrl, alt, initialIndex = 
               }`}
               aria-label={`Ver foto ${i + 1}`}
             >
-              <img src={url(img)} alt="" className="w-full h-full object-cover" />
+              <img src={imgUrl(img.storage_path)} alt="" draggable={false} className="w-full h-full object-cover select-none" />
             </button>
           ))}
         </div>

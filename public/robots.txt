@@ -1,0 +1,9 @@
+User-agent: *
+Disallow: /admin/
+Disallow: /api/img
+
+# Google Images indexing liberado para melhor SEO
+User-agent: Googlebot-Image
+Allow: /
+
+Sitemap: https://www.alphamixgalpoes.com.br/sitemap.xml
