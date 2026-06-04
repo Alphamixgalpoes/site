@@ -17,10 +17,12 @@ let logoCache: Buffer | null = null;
 async function getWatermarkLogo(): Promise<Buffer> {
   if (logoCache) return logoCache;
 
-  const logoPath = join(process.cwd(), "public", "alphamix-logo.png");
+  // icon.png: logo circular com fundo transparente (hasAlpha: true, channels: 4)
+  // alphamix-logo.png NÃO tem alpha — usaria fundo branco sólido no watermark
+  const logoPath = join(process.cwd(), "app", "icon.png");
   const logoRaw = readFileSync(logoPath);
 
-  // Redimensionar para 120px, garantir canal alpha (RGBA)
+  // Redimensionar para 120px — icon.png já tem canal alpha, não precisa de ensureAlpha
   const { data, info } = await sharp(logoRaw)
     .resize(120, 120, { fit: "inside" })
     .ensureAlpha()
