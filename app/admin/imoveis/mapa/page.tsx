@@ -40,6 +40,12 @@ export default function MapaHubPage() {
   const [camadas, setCamadas] = useState({ publicados: true, ocultos: true });
   const [salvando, setSalvando] = useState<string | null>(null);
 
+  // Busca de endereço
+  const [busca, setBusca] = useState("");
+  const [buscando, setBuscando] = useState(false);
+  const [buscaErro, setBuscaErro] = useState("");
+  const [flyToCoord, setFlyToCoord] = useState<{ lat: number; lng: number } | null>(null);
+
   // Filtro de camadas
   const visiveis = filtrados.filter((g) => {
     if (g.publicado && !camadas.publicados) return false;
@@ -63,15 +69,40 @@ export default function MapaHubPage() {
 
   async function handleMapClick(lat: number, lng: number) {
     setCriarMode(false);
+    setSalvando("novo");
+
+    // Reverse geocode para preencher endereço
+    let endereco: Record<string, string> = {};
+    try {
+      const res = await fetch("/api/geocode", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ lat, lng }),
+      });
+      if (res.ok) endereco = await res.json();
+    } catch { /* silent */ }
+
     const supabase = createClient();
     const { data } = await supabase
       .from("galpoes")
-      .insert({ titulo: "Novo imovel", tipo: "locacao", categoria: "galpao", cidade: "Barueri", latitude: lat, longitude: lng, publicado: false })
+      .insert({
+        titulo: "Novo imovel",
+        tipo: "locacao",
+        categoria: "galpao",
+        cidade: endereco.cidade || "Barueri",
+        latitude: lat,
+        longitude: lng,
+        logradouro: endereco.logradouro || null,
+        bairro: endereco.bairro || null,
+        uf: endereco.uf || "SP",
+        cep: endereco.cep || null,
+        publicado: false,
+      })
       .select("id")
       .single();
-    if (data) {
-      router.push(`/admin/imoveis/${data.id}/editar`);
-    }
+
+    setSalvando(null);
+    if (data) router.push(`/admin/imoveis/${data.id}/editar`);
   }
 
   function handleTogglePublicado(id: string, valor: boolean) {
@@ -79,18 +110,39 @@ export default function MapaHubPage() {
     if (g) togglePublicado(id, g.publicado);
   }
 
+  async function handleBusca(e: React.FormEvent) {
+    e.preventDefault();
+    if (!busca.trim()) return;
+    setBuscando(true);
+    setBuscaErro("");
+    try {
+      const params = new URLSearchParams({ endereco: busca.trim() });
+      const res = await fetch(`/api/geocode?${params}`);
+      if (!res.ok) { setBuscaErro("Erro na busca"); return; }
+      const { lat, lng } = await res.json();
+      if (lat && lng) {
+        setFlyToCoord({ lat, lng });
+        setSelecionadoId(null);
+      } else {
+        setBuscaErro("Endereco nao encontrado");
+      }
+    } catch {
+      setBuscaErro("Erro na busca");
+    } finally {
+      setBuscando(false);
+    }
+  }
+
   return (
     <div className="space-y-0">
-      {/* Header + Toolbar */}
+      {/* Header */}
       <div className="space-y-3 mb-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-semibold text-gray-900">Mapa de Imoveis</h1>
-            <p className="text-sm text-gray-400 mt-0.5">
-              {comCoordenadas.length} com coordenadas
-              {semCoordenadas.length > 0 && ` · ${semCoordenadas.length} sem pin`}
-            </p>
-          </div>
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900">Mapa de Imoveis</h1>
+          <p className="text-sm text-gray-400 mt-0.5">
+            {comCoordenadas.length} com coordenadas
+            {semCoordenadas.length > 0 && ` · ${semCoordenadas.length} sem pin`}
+          </p>
         </div>
 
         {/* Filtros */}
@@ -115,6 +167,26 @@ export default function MapaHubPage() {
 
         {/* Toolbar */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Busca de endereço */}
+          <form onSubmit={handleBusca} className="flex items-center gap-1">
+            <input
+              type="text"
+              value={busca}
+              onChange={(e) => { setBusca(e.target.value); setBuscaErro(""); }}
+              placeholder="Buscar endereco..."
+              className="border border-gray-200 rounded-full px-3 py-1.5 text-xs w-44 focus:outline-none focus:border-gray-400"
+            />
+            <button
+              type="submit"
+              disabled={buscando}
+              className="text-xs px-2.5 py-1.5 border border-gray-200 rounded-full text-gray-600 hover:border-gray-400 transition-colors disabled:opacity-50"
+            >
+              {buscando ? "..." : "Ir"}
+            </button>
+          </form>
+
+          <div className="w-px h-5 bg-gray-200" />
+
           {/* Camadas */}
           <div className="flex items-center gap-1 text-xs">
             <button
@@ -169,15 +241,20 @@ export default function MapaHubPage() {
         </div>
 
         {/* Feedback */}
+        {buscaErro && (
+          <p className="text-xs text-red-600 bg-red-50 border border-red-200 px-3 py-2">{buscaErro}</p>
+        )}
         {geocodingProgress && (
           <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 px-3 py-2">{geocodingProgress}</p>
         )}
         {salvando && (
-          <p className="text-xs text-blue-600 bg-blue-50 border border-blue-200 px-3 py-2">Salvando posicao...</p>
+          <p className="text-xs text-blue-600 bg-blue-50 border border-blue-200 px-3 py-2">
+            {salvando === "novo" ? "Criando imovel..." : "Salvando posicao..."}
+          </p>
         )}
       </div>
 
-      {/* Mapa */}
+      {/* Mapa — sempre visível */}
       {loading ? (
         <div className="h-[45vh] md:h-[60vh] flex items-center justify-center text-sm text-gray-400 border border-gray-200 bg-gray-50">
           Carregando...
@@ -191,6 +268,7 @@ export default function MapaHubPage() {
           onPinClick={setSelecionadoId}
           criarMode={criarMode}
           onMapClick={handleMapClick}
+          flyToCoord={flyToCoord}
           height="60vh"
         />
       )}
