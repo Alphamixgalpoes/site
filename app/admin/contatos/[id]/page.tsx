@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase-browser";
-import { TIPOS, tipoLabel, tipoPlural } from "../tipos";
+import { TIPOS, tipoLabel, tipoPlural } from "../_lib/tipos";
 
 type Contato = {
   id: string;
@@ -288,7 +288,7 @@ export default function ContatoDetalhePage() {
             {processos.map((p) => (
               <Link
                 key={p.id}
-                href={`/admin/processos/${p.id}`}
+                href={`/admin/negocios/pipeline/${p.id}`}
                 className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 transition-colors"
               >
                 <div className="flex-1 min-w-0">
@@ -316,7 +316,7 @@ export default function ContatoDetalhePage() {
             {imoveisProprietario.map((g) => (
               <Link
                 key={g.id}
-                href={`/admin/galpoes/${g.id}`}
+                href={`/admin/imoveis/${g.id}/editar`}
                 className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 transition-colors"
               >
                 <div className="flex-1 min-w-0">
@@ -348,7 +348,7 @@ export default function ContatoDetalhePage() {
             {processosComoProprietario.map((p) => (
               <Link
                 key={p.id}
-                href={`/admin/processos/${p.id}`}
+                href={`/admin/negocios/pipeline/${p.id}`}
                 className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 transition-colors"
               >
                 <div className="flex-1 min-w-0">
@@ -377,7 +377,7 @@ export default function ContatoDetalhePage() {
             {processosComoCliente.map((p) => (
               <Link
                 key={p.id}
-                href={`/admin/processos/${p.id}`}
+                href={`/admin/negocios/pipeline/${p.id}`}
                 className="flex items-center gap-4 px-4 py-3 hover:bg-gray-50 transition-colors"
               >
                 <div className="flex-1 min-w-0">

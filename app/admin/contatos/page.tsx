@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase-browser";
-import { TIPOS, tipoLabel, tipoPlural } from "./tipos";
-import ContatoRow from "./ContatoRow";
+import { TIPOS, tipoLabel, tipoPlural } from "./_lib/tipos";
+import ContatoRow from "./_components/ContatoRow";
 
 type Contato = {
   id: string;
