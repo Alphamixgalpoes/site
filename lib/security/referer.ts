@@ -12,9 +12,16 @@ const ALLOWED_ORIGINS = [
 
 /**
  * Retorna true se o Referer for permitido.
- * Referer ausente (acesso direto, bookmark) é permitido para não bloquear usuários legítimos.
+ *
+ * Regras:
+ * - Referer ausente (acesso direto, bookmark) → permitido
+ * - Em preview/development (Vercel) → sem restrição de Referer (URLs de preview variam)
+ * - Em produção → apenas origens da lista ALLOWED_ORIGINS
  */
 export function isAllowedReferer(referer: string | null): boolean {
   if (!referer) return true;
+  // Em ambientes de preview e desenvolvimento não aplicar a restrição
+  // (as URLs de preview da Vercel variam e não podem ser pré-listadas)
+  if (process.env.VERCEL_ENV !== "production") return true;
   return ALLOWED_ORIGINS.some((o) => referer.startsWith(o));
 }
