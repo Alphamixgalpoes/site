@@ -1,24 +1,29 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import dynamic from "next/dynamic";
 import { createClient } from "@/lib/supabase-browser";
-import { PDFRelatorio } from "./PDFRelatorio";
-
-const PDFDownloadLink = dynamic(
-  () => import("@react-pdf/renderer").then((m) => m.PDFDownloadLink),
-  { ssr: false, loading: () => <button className="bg-gray-200 text-gray-400 px-5 py-2 text-sm cursor-not-allowed">Carregando PDF...</button> }
-);
-
+import { PDFRelatorio, type OpcoesPDF } from "./PDFRelatorio";
 import type { Galpao } from "@/lib/types";
-
-
+import type { ConfigCampo } from "@/lib/visibilidade";
 import { SUPABASE_URL } from "@/lib/constants";
+
 const supabaseUrl = SUPABASE_URL;
+
+const OPCOES_DEFAULT: OpcoesPDF = {
+  sumario: true,
+  fichas: true,
+  fotosNaFicha: 3,
+  galeria: false,
+  incluirConfidenciais: false,
+};
 
 export default function ConsultaPage() {
   const [galpoes, setGalpoes] = useState<Galpao[]>([]);
+  const [configCampos, setConfigCampos] = useState<ConfigCampo[]>([]);
   const [loading, setLoading] = useState(true);
+  const [modalPDF, setModalPDF] = useState(false);
+  const [opcoesPDF, setOpcoesPDF] = useState<OpcoesPDF>(OPCOES_DEFAULT);
+  const [gerandoPDF, setGerandoPDF] = useState(false);
 
   // Filtros
   const [tipo, setTipo] = useState("todos");
@@ -36,19 +41,52 @@ export default function ConsultaPage() {
   useEffect(() => {
     async function load() {
       const supabase = createClient();
-      const { data } = await supabase
-        .from("galpoes")
-        .select(`id, titulo, tipo, valor, cidade, bairro, endereco, publicado,
-          area_construida_m2, area_total_m2, pe_direito_m, numero_docas,
-          acesso_carreta, sprinklers, guarita, potencia_eletrica_kva,
-          vagas_estacionamento, descricao, latitude, longitude,
-          galpao_imagens (storage_path, ordem, is_capa)`)
-        .order("created_at", { ascending: false });
+      const [{ data }, { data: cfg }] = await Promise.all([
+        supabase
+          .from("galpoes")
+          .select(`id, titulo, tipo, valor, cidade, bairro, endereco, publicado,
+            area_construida_m2, area_total_m2, area_piso_m2, pe_direito_m, numero_docas,
+            acesso_carreta, sprinklers, sprinkler_tipo, guarita, potencia_eletrica_kva,
+            capacidade_piso_ton_m2, area_escritorio_m2, truck_court_m,
+            avcb_numero, avcb_validade, acessos_viarios,
+            vagas_estacionamento, condominio, valor_condominio,
+            descricao, observacoes, campos_visibilidade, latitude, longitude,
+            galpao_imagens (storage_path, ordem, is_capa, visivel_site)`)
+          .order("created_at", { ascending: false }),
+        supabase.from("config_campos").select("*").order("label"),
+      ]);
       setGalpoes((data ?? []) as unknown as Galpao[]);
+      setConfigCampos((cfg ?? []) as ConfigCampo[]);
       setLoading(false);
     }
     load();
   }, []);
+
+  async function gerarEBaixar() {
+    setGerandoPDF(true);
+    try {
+      const { pdf } = await import("@react-pdf/renderer");
+      const blob = await pdf(
+        <PDFRelatorio
+          galpoes={filtrados}
+          filtros={filtrosParaPDF}
+          supabaseUrl={supabaseUrl}
+          baseUrl={window.location.origin}
+          opcoes={opcoesPDF}
+          configCampos={configCampos}
+        />
+      ).toBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `alphamix-galpoes-consulta-${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setGerandoPDF(false);
+      setModalPDF(false);
+    }
+  }
 
   const cidades = useMemo(() => {
     const s = new Set(galpoes.map((g) => g.cidade).filter(Boolean));
@@ -96,19 +134,13 @@ export default function ConsultaPage() {
           <h1 className="text-xl font-semibold text-gray-900">Consulta</h1>
           <p className="text-sm text-gray-400 mt-0.5">{filtrados.length} galpão{filtrados.length !== 1 ? "s" : ""} encontrado{filtrados.length !== 1 ? "s" : ""}</p>
         </div>
-        <PDFDownloadLink
-          document={<PDFRelatorio galpoes={filtrados} filtros={filtrosParaPDF} supabaseUrl={supabaseUrl} baseUrl={typeof window !== "undefined" ? window.location.origin : ""} />}
-          fileName={`alphamix-galpoes-consulta-${new Date().toISOString().slice(0, 10)}.pdf`}
+        <button
+          onClick={() => setModalPDF(true)}
+          className="bg-gray-900 text-white px-5 py-2 text-sm font-medium hover:bg-gray-700 transition-colors disabled:opacity-50"
+          disabled={filtrados.length === 0}
         >
-          {({ loading: pdfLoading }) => (
-            <button
-              className="bg-gray-900 text-white px-5 py-2 text-sm font-medium hover:bg-gray-700 transition-colors disabled:opacity-50"
-              disabled={pdfLoading || filtrados.length === 0}
-            >
-              {pdfLoading ? "Gerando..." : `Gerar PDF (${filtrados.length})`}
-            </button>
-          )}
-        </PDFDownloadLink>
+          {gerandoPDF ? "Gerando..." : `Gerar PDF (${filtrados.length})`}
+        </button>
       </div>
 
       <div className="flex flex-col md:flex-row gap-6 md:gap-8">
@@ -225,6 +257,107 @@ export default function ConsultaPage() {
           )}
         </div>
       </div>
+
+      {/* Modal — configuração do PDF */}
+      {modalPDF && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white w-full max-w-sm mx-4 p-6 space-y-5 shadow-xl">
+            <h2 className="text-base font-semibold text-gray-900">Configurar PDF</h2>
+
+            <div className="space-y-4">
+              {/* Sumário */}
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 mt-0.5 shrink-0"
+                  checked={opcoesPDF.sumario}
+                  onChange={(e) => setOpcoesPDF((o) => ({ ...o, sumario: e.target.checked }))}
+                />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Sumário</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Filtros aplicados, mapa e lista compacta dos imóveis</p>
+                </div>
+              </label>
+
+              {/* Fichas detalhadas */}
+              <div className="flex items-start gap-3">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 mt-0.5 shrink-0"
+                  checked={opcoesPDF.fichas}
+                  onChange={(e) => setOpcoesPDF((o) => ({ ...o, fichas: e.target.checked }))}
+                />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-900">Fichas detalhadas</p>
+                  <p className="text-xs text-gray-400 mt-0.5 mb-2">Uma página por imóvel com ficha técnica completa</p>
+                  {opcoesPDF.fichas && (
+                    <div className="flex items-center gap-4">
+                      <span className="text-xs text-gray-500">Fotos na ficha:</span>
+                      {([1, 3, 5] as const).map((n) => (
+                        <label key={n} className="flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="fotosNaFicha"
+                            checked={opcoesPDF.fotosNaFicha === n}
+                            onChange={() => setOpcoesPDF((o) => ({ ...o, fotosNaFicha: n }))}
+                          />
+                          {n}
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Galeria completa */}
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 mt-0.5 shrink-0"
+                  checked={opcoesPDF.galeria}
+                  onChange={(e) => setOpcoesPDF((o) => ({ ...o, galeria: e.target.checked }))}
+                />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Galeria completa</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Todas as fotos visíveis de cada imóvel em grade</p>
+                </div>
+              </label>
+
+              <hr className="border-gray-200" />
+
+              {/* Campos confidenciais */}
+              <label className="flex items-start gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="w-4 h-4 mt-0.5 shrink-0"
+                  checked={opcoesPDF.incluirConfidenciais}
+                  onChange={(e) => setOpcoesPDF((o) => ({ ...o, incluirConfidenciais: e.target.checked }))}
+                />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Incluir campos confidenciais</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Valor, observações internas e outros campos marcados como confidenciais</p>
+                </div>
+              </label>
+            </div>
+
+            <div className="flex gap-3 pt-1">
+              <button
+                onClick={() => setModalPDF(false)}
+                className="flex-1 border border-gray-300 text-sm text-gray-600 py-2 hover:bg-gray-50 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={gerarEBaixar}
+                disabled={gerandoPDF || (!opcoesPDF.sumario && !opcoesPDF.fichas && !opcoesPDF.galeria)}
+                className="flex-1 bg-gray-900 text-white text-sm py-2 font-medium hover:bg-gray-700 transition-colors disabled:opacity-50"
+              >
+                {gerandoPDF ? "Gerando..." : "Gerar PDF"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

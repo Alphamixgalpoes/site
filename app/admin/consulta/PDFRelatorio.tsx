@@ -7,241 +7,610 @@ import {
   Image,
   StyleSheet,
 } from "@react-pdf/renderer";
+import type { Galpao, GalpaoImagem } from "@/lib/types";
+import type { ConfigCampo } from "@/lib/visibilidade";
 
+export type OpcoesPDF = {
+  sumario: boolean;
+  fichas: boolean;
+  fotosNaFicha: 1 | 3 | 5;
+  galeria: boolean;
+  incluirConfidenciais: boolean;
+};
+
+// ── Paleta ────────────────────────────────────────────────────────────────────
+const C = {
+  gray900: "#111827",
+  gray700: "#374151",
+  gray500: "#6b7280",
+  gray400: "#9ca3af",
+  gray200: "#e5e7eb",
+  gray100: "#f3f4f6",
+  gray50: "#f9fafb",
+};
+
+// ── Styles ────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  page: { paddingTop: 50, paddingBottom: 60, paddingHorizontal: 45, fontSize: 9, fontFamily: "Helvetica", color: "#111" },
+  page: {
+    paddingTop: 50,
+    paddingBottom: 60,
+    paddingHorizontal: 45,
+    fontSize: 9,
+    fontFamily: "Helvetica",
+    color: C.gray900,
+  },
 
   // Header
-  header: { borderBottomWidth: 1, borderBottomColor: "#e5e7eb", paddingBottom: 12, marginBottom: 16, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  header: {
+    borderBottomWidth: 1,
+    borderBottomColor: C.gray200,
+    paddingBottom: 12,
+    marginBottom: 16,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   headerLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
   headerLogo: { width: 48, height: 48 },
-  headerTitle: { fontSize: 14, fontFamily: "Helvetica-Bold", color: "#111" },
-  headerSub: { fontSize: 8, color: "#6b7280", marginTop: 2 },
-  headerRight: { fontSize: 8, color: "#6b7280", textAlign: "right", gap: 2 },
-
-  // Filtros
-  filtrosBox: { backgroundColor: "#f9fafb", borderWidth: 1, borderColor: "#e5e7eb", padding: 10, marginBottom: 20 },
-  filtrosTitle: { fontSize: 8, fontFamily: "Helvetica-Bold", color: "#374151", marginBottom: 6, textTransform: "uppercase", letterSpacing: 0.8 },
-  filtrosGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
-  filtroTag: { backgroundColor: "#e5e7eb", paddingHorizontal: 8, paddingVertical: 3, fontSize: 8, color: "#374151" },
-
-  // Galpão card
-  galpaoCard: { marginBottom: 24, borderWidth: 1, borderColor: "#e5e7eb" },
-  galpaoImg: { width: "100%", height: 180, objectFit: "cover" },
-  galpaoBody: { padding: 12 },
-  galpaoHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 },
-  galpaoTitulo: { fontSize: 11, fontFamily: "Helvetica-Bold", flex: 1 },
-  galpaoTipo: { fontSize: 8, color: "#6b7280", backgroundColor: "#f3f4f6", paddingHorizontal: 6, paddingVertical: 2 },
-  galpaoLocal: { fontSize: 8, color: "#6b7280", marginBottom: 8 },
-  galpaoValor: { fontSize: 11, fontFamily: "Helvetica-Bold", color: "#111", marginBottom: 10 },
-
-  fichaTitle: { fontSize: 8, fontFamily: "Helvetica-Bold", color: "#374151", textTransform: "uppercase", letterSpacing: 0.5, marginBottom: 6 },
-  fichaGrid: { flexDirection: "row", flexWrap: "wrap", gap: 4 },
-  fichaItem: { width: "48%", flexDirection: "row", gap: 4 },
-  fichaLabel: { fontSize: 7.5, color: "#9ca3af", width: 90 },
-  fichaValue: { fontSize: 7.5, color: "#111", flex: 1 },
-
-  descTitle: { fontSize: 8, fontFamily: "Helvetica-Bold", color: "#374151", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 10, marginBottom: 4 },
-  descText: { fontSize: 8, color: "#4b5563", lineHeight: 1.5 },
+  headerTitle: { fontSize: 14, fontFamily: "Helvetica-Bold", color: C.gray900 },
+  headerSub: { fontSize: 8, color: C.gray500, marginTop: 2 },
+  headerRight: { fontSize: 8, color: C.gray500, textAlign: "right" },
 
   // Footer
-  footer: { position: "absolute", bottom: 30, left: 45, right: 45, borderTopWidth: 1, borderTopColor: "#e5e7eb", paddingTop: 8, flexDirection: "row", justifyContent: "space-between" },
-  footerText: { fontSize: 7, color: "#9ca3af" },
+  footer: {
+    position: "absolute",
+    bottom: 30,
+    left: 45,
+    right: 45,
+    borderTopWidth: 1,
+    borderTopColor: C.gray200,
+    paddingTop: 8,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  footerText: { fontSize: 7, color: C.gray400 },
+  pageNum: { fontSize: 7, color: C.gray400 },
 
-  pageNum: { fontSize: 7, color: "#9ca3af" },
-  semResultados: { textAlign: "center", color: "#9ca3af", marginTop: 40 },
+  // Filtros
+  filtrosBox: {
+    backgroundColor: C.gray50,
+    borderWidth: 1,
+    borderColor: C.gray200,
+    padding: 10,
+    marginBottom: 16,
+  },
+  filtrosTitle: {
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
+    color: C.gray700,
+    marginBottom: 6,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+  },
+  filtrosGrid: { flexDirection: "row", flexWrap: "wrap", gap: 6 },
+  filtroTag: {
+    backgroundColor: C.gray200,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    fontSize: 8,
+    color: C.gray700,
+  },
 
   // Mapa
-  mapaBox: { marginBottom: 24, borderWidth: 1, borderColor: "#e5e7eb" },
-  mapaTitle: { fontSize: 8, fontFamily: "Helvetica-Bold", color: "#374151", textTransform: "uppercase", letterSpacing: 0.8, padding: 10, borderBottomWidth: 1, borderBottomColor: "#e5e7eb" },
-  mapaImg: { width: "100%", height: 280, objectFit: "cover" },
-  mapaAtrib: { fontSize: 6.5, color: "#9ca3af", padding: 4, paddingHorizontal: 10, borderBottomWidth: 1, borderBottomColor: "#e5e7eb" },
+  mapaBox: { marginBottom: 14, borderWidth: 1, borderColor: C.gray200 },
+  mapaTitle: {
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
+    color: C.gray700,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: C.gray200,
+  },
+  mapaImg: { width: "100%", height: 260, objectFit: "cover" },
+  mapaAtrib: {
+    fontSize: 6.5,
+    color: C.gray400,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: C.gray200,
+  },
 
-  // Legenda numerada
-  mapaLegenda: { padding: 8, paddingHorizontal: 10, backgroundColor: "#f9fafb" },
-  mapaLegendaHeader: { flexDirection: "row", paddingBottom: 4, borderBottomWidth: 0.5, borderBottomColor: "#d1d5db", marginBottom: 4 },
-  mapaLegendaHeaderNum: { fontSize: 6.5, fontFamily: "Helvetica-Bold", color: "#9ca3af", width: 18 },
-  mapaLegendaHeaderTitulo: { fontSize: 6.5, fontFamily: "Helvetica-Bold", color: "#9ca3af", width: 155 },
-  mapaLegendaHeaderEnd: { fontSize: 6.5, fontFamily: "Helvetica-Bold", color: "#9ca3af", flex: 1 },
-  mapaLegendaRow: { flexDirection: "row", marginBottom: 3 },
-  mapaLegendaNum: { fontSize: 7, fontFamily: "Helvetica-Bold", color: "#dc2626", width: 18 },
-  mapaLegendaTitulo: { fontSize: 7, color: "#374151", width: 155 },
-  mapaLegendaEnd: { fontSize: 7, color: "#6b7280", flex: 1 },
+  // Sumário — lista compacta
+  listaTitle: {
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
+    color: C.gray700,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 6,
+  },
+  listaItem: {
+    flexDirection: "row",
+    borderWidth: 1,
+    borderColor: C.gray200,
+    marginBottom: 4,
+    overflow: "hidden",
+  },
+  listaThumb: { width: 65, height: 48, backgroundColor: C.gray100 },
+  listaThumbImg: { width: 65, height: 48, objectFit: "cover" },
+  listaCorpo: {
+    flex: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    justifyContent: "center",
+  },
+  listaTitulo: {
+    fontSize: 8.5,
+    fontFamily: "Helvetica-Bold",
+    color: C.gray900,
+    marginBottom: 2,
+  },
+  listaSub: { fontSize: 7.5, color: C.gray500 },
+
+  // Ficha — cabeçalho
+  fichaCabecalho: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    marginBottom: 6,
+  },
+  fichaNumLabel: { fontSize: 8, color: C.gray500, marginBottom: 1 },
+  fichaTitulo: { fontSize: 13, fontFamily: "Helvetica-Bold", color: C.gray900 },
+  fichaTipoBadge: {
+    fontSize: 8,
+    color: C.gray500,
+    backgroundColor: C.gray100,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  fichaDivider: { borderBottomWidth: 1, borderBottomColor: C.gray900, marginBottom: 10 },
+  fichaLocal: { fontSize: 8.5, color: C.gray500, marginBottom: 4 },
+  fichaValor: {
+    fontSize: 13,
+    fontFamily: "Helvetica-Bold",
+    color: C.gray900,
+    marginBottom: 10,
+  },
+
+  // Ficha — fotos
+  fichaHeroImg: { width: "100%", objectFit: "cover" },
+  fichaSecRow: { flexDirection: "row", gap: 3 },
+  fichaSecImg: { flex: 1, objectFit: "cover" },
+
+  // Ficha — dados técnicos
+  fichaSection: {
+    fontSize: 8,
+    fontFamily: "Helvetica-Bold",
+    color: C.gray700,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  fichaGrid: { flexDirection: "row", flexWrap: "wrap", gap: 4 },
+  fichaItem: { width: "48%", flexDirection: "row", gap: 4, marginBottom: 2 },
+  fichaLabel: { fontSize: 7.5, color: C.gray400, width: 95 },
+  fichaValue: { fontSize: 7.5, color: C.gray900, flex: 1 },
+  fichaText: { fontSize: 8, color: "#4b5563", lineHeight: 1.5 },
+
+  // Galeria
+  galeriaTitle: {
+    fontSize: 10,
+    fontFamily: "Helvetica-Bold",
+    color: C.gray900,
+    marginBottom: 2,
+  },
+  galeriaSub: { fontSize: 7.5, color: C.gray500, marginBottom: 8 },
+  galeraRow: { flexDirection: "row", gap: 3, marginBottom: 3 },
+  galeriaPhoto: { flex: 1, height: 130, objectFit: "cover" },
+  galeriaPhotoEmpty: { flex: 1, height: 130, backgroundColor: C.gray50 },
+
+  semResultados: { textAlign: "center", color: C.gray400, marginTop: 40 },
 });
 
-import type { Galpao } from "@/lib/types";
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
+type GalpaoComNum = Galpao & { num: number };
 
-type MapResult = { url: string; pontos: Array<Galpao & { num: number }> };
-
-function buildMapUrl(galpoes: Galpao[], baseUrl: string): MapResult | null {
-  const comCoordenadas = galpoes.filter((g) => g.latitude && g.longitude);
-  if (comCoordenadas.length === 0) return null;
-
-  // Marcadores com índice numérico (1-based) para exibir no mapa
-  const markers = comCoordenadas
-    .map((g, i) => `${g.latitude},${g.longitude},${i + 1}`)
-    .join("|");
-
-  const params = new URLSearchParams({ size: "800x380", markers });
-  const pontos = comCoordenadas.map((g, i) => ({ ...g, num: i + 1 }));
-
-  return { url: `${baseUrl}/api/staticmap?${params}`, pontos };
+function isCampoConfidencial(campoChave: string, configCampos: ConfigCampo[]): boolean {
+  return configCampos.find((c) => c.campo_chave === campoChave)?.confidencial ?? false;
 }
 
-type Filtros = Record<string, string>;
+function fotosSite(imagens: GalpaoImagem[]): GalpaoImagem[] {
+  return [...imagens].filter((i) => i.visivel_site).sort((a, b) => a.ordem - b.ordem);
+}
+
+function imgUrl(supabaseUrl: string, img: GalpaoImagem): string {
+  return `${supabaseUrl}/storage/v1/object/public/galpoes/${img.storage_path}`;
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
+function PdfHeader({ baseUrl, agora }: { baseUrl: string; agora: string }) {
+  return (
+    <View style={styles.header} fixed>
+      <View style={styles.headerLeft}>
+        <Image src={`${baseUrl}/alphamix-logo.png`} style={styles.headerLogo} />
+        <View>
+          <Text style={styles.headerTitle}>Alphamix Galpões</Text>
+          <Text style={styles.headerSub}>Galpões Industriais · Alphaville e Barueri</Text>
+        </View>
+      </View>
+      <View style={styles.headerRight}>
+        <Text>CRECI-SP 000000-F</Text>
+        <Text>(11) 99557-1212</Text>
+        <Text>Emitido em {agora}</Text>
+      </View>
+    </View>
+  );
+}
+
+function PdfFooter() {
+  return (
+    <View style={styles.footer} fixed>
+      <Text style={styles.footerText}>
+        Alphamix Galpões · CRECI-SP 000000-F · Uso restrito · Não reproduzir sem autorização
+      </Text>
+      <Text
+        style={styles.pageNum}
+        render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`}
+      />
+    </View>
+  );
+}
+
+function SecaoSumario({
+  galpoes,
+  filtros,
+  supabaseUrl,
+  baseUrl,
+  incluirConfidenciais,
+  configCampos,
+}: {
+  galpoes: GalpaoComNum[];
+  filtros: Record<string, string>;
+  supabaseUrl: string;
+  baseUrl: string;
+  incluirConfidenciais: boolean;
+  configCampos: ConfigCampo[];
+}) {
+  const filtrosAtivos = Object.entries(filtros).filter(([, v]) => v && v !== "todos" && v !== "");
+  const comCoordenadas = galpoes.filter((g) => g.latitude && g.longitude);
+
+  let mapaUrl: string | null = null;
+  if (comCoordenadas.length > 0) {
+    const markers = comCoordenadas
+      .map((g) => `${g.latitude},${g.longitude},${g.num}`)
+      .join("|");
+    const params = new URLSearchParams({ size: "800x380", markers });
+    mapaUrl = `${baseUrl}/api/staticmap?${params}`;
+  }
+
+  const mostrarValor = incluirConfidenciais || !isCampoConfidencial("valor", configCampos);
+
+  return (
+    <>
+      {filtrosAtivos.length > 0 && (
+        <View style={styles.filtrosBox}>
+          <Text style={styles.filtrosTitle}>Filtros aplicados</Text>
+          <View style={styles.filtrosGrid}>
+            {filtrosAtivos.map(([k, v]) => (
+              <View key={k} style={styles.filtroTag}>
+                <Text>{k}: {v}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      )}
+
+      {mapaUrl && (
+        <View style={styles.mapaBox}>
+          <Text style={styles.mapaTitle}>Localização dos imóveis</Text>
+          <Image src={mapaUrl} style={styles.mapaImg} />
+          <Text style={styles.mapaAtrib}>© OpenStreetMap contributors · © CARTO</Text>
+        </View>
+      )}
+
+      {galpoes.length === 0 ? (
+        <Text style={styles.semResultados}>
+          Nenhum galpão encontrado com os filtros selecionados.
+        </Text>
+      ) : (
+        <>
+          <Text style={styles.listaTitle}>
+            {galpoes.length} imóvel{galpoes.length !== 1 ? "s" : ""} encontrado
+            {galpoes.length !== 1 ? "s" : ""}
+          </Text>
+          {galpoes.map((g) => {
+            const fotos = fotosSite(g.galpao_imagens);
+            const capa = fotos[0];
+
+            const subParts = [
+              tipoLabel(g.tipo),
+              g.cidade,
+              g.area_construida_m2 ? `${g.area_construida_m2} m²` : null,
+              mostrarValor && g.valor
+                ? `R$ ${Number(g.valor).toLocaleString("pt-BR")}${g.tipo === "locacao" ? "/mês" : ""}`
+                : null,
+            ]
+              .filter(Boolean)
+              .join(" · ");
+
+            return (
+              <View key={g.id} style={styles.listaItem}>
+                <View style={styles.listaThumb}>
+                  {capa && (
+                    <Image src={imgUrl(supabaseUrl, capa)} style={styles.listaThumbImg} />
+                  )}
+                </View>
+                <View style={styles.listaCorpo}>
+                  <Text style={styles.listaTitulo}>N°{g.num} · {g.titulo}</Text>
+                  <Text style={styles.listaSub}>{subParts}</Text>
+                </View>
+              </View>
+            );
+          })}
+        </>
+      )}
+    </>
+  );
+}
+
+function FichaGalpao({
+  g,
+  supabaseUrl,
+  opcoes,
+  configCampos,
+}: {
+  g: GalpaoComNum;
+  supabaseUrl: string;
+  opcoes: OpcoesPDF;
+  configCampos: ConfigCampo[];
+}) {
+  const visibleFotos = fotosSite(g.galpao_imagens).slice(0, opcoes.fotosNaFicha);
+  const hero = visibleFotos[0];
+  const secondary = visibleFotos.slice(1);
+
+  const heroHeight = opcoes.fotosNaFicha === 1 ? 200 : opcoes.fotosNaFicha === 3 ? 160 : 130;
+  const secHeight = opcoes.fotosNaFicha === 5 ? 80 : 90;
+
+  const mostrar = (key: string) =>
+    opcoes.incluirConfidenciais || !isCampoConfidencial(key, configCampos);
+
+  // Secondary photos in pairs (for 2-col layout)
+  const secPairs: GalpaoImagem[][] = [];
+  for (let i = 0; i < secondary.length; i += 2) {
+    secPairs.push(secondary.slice(i, i + 2));
+  }
+
+  const fichaItems = [
+    { key: "area_construida_m2", label: "Área construída", value: g.area_construida_m2 ? `${g.area_construida_m2} m²` : null },
+    { key: "area_total_m2", label: "Área total", value: g.area_total_m2 ? `${g.area_total_m2} m²` : null },
+    { key: "area_piso_m2", label: "Área de piso", value: g.area_piso_m2 ? `${g.area_piso_m2} m²` : null },
+    { key: "pe_direito_m", label: "Pé direito livre", value: g.pe_direito_m ? `${g.pe_direito_m} m` : null },
+    { key: "numero_docas", label: "Docas", value: g.numero_docas > 0 ? `${g.numero_docas}` : null },
+    { key: "vagas_estacionamento", label: "Vagas", value: g.vagas_estacionamento > 0 ? `${g.vagas_estacionamento}` : null },
+    { key: "truck_court_m", label: "Truck court", value: g.truck_court_m ? `${g.truck_court_m} m` : null },
+    { key: "area_escritorio_m2", label: "Área escritório", value: g.area_escritorio_m2 ? `${g.area_escritorio_m2} m²` : null },
+    { key: "potencia_eletrica_kva", label: "Potência elétrica", value: g.potencia_eletrica_kva ? `${g.potencia_eletrica_kva} kVA` : null },
+    { key: "capacidade_piso_ton_m2", label: "Cap. piso", value: g.capacidade_piso_ton_m2 ? `${g.capacidade_piso_ton_m2} t/m²` : null },
+    { key: "avcb_numero", label: "AVCB n°", value: g.avcb_numero ?? null },
+    { key: "avcb_validade", label: "AVCB validade", value: g.avcb_validade ?? null },
+    { key: "acesso_carreta", label: "Acesso carreta", value: g.acesso_carreta ? "Sim" : null },
+    { key: "sprinklers", label: "Sprinklers", value: g.sprinklers ? (g.sprinkler_tipo ? `Sim — ${g.sprinkler_tipo}` : "Sim") : null },
+    { key: "guarita", label: "Guarita", value: g.guarita ? "Sim" : null },
+    { key: "condominio", label: "Condomínio", value: g.condominio ? "Sim" : null },
+    { key: "valor_condominio", label: "Valor cond.", value: g.valor_condominio ? `R$ ${Number(g.valor_condominio).toLocaleString("pt-BR")}` : null },
+    { key: "acessos_viarios", label: "Acessos viários", value: g.acessos_viarios ?? null },
+  ].filter((f) => f.value !== null && mostrar(f.key));
+
+  return (
+    <View>
+      {/* Cabeçalho */}
+      <View style={styles.fichaCabecalho}>
+        <View>
+          <Text style={styles.fichaNumLabel}>N° {g.num}</Text>
+          <Text style={styles.fichaTitulo}>{g.titulo}</Text>
+        </View>
+        <Text style={styles.fichaTipoBadge}>{tipoLabel(g.tipo)}</Text>
+      </View>
+      <View style={styles.fichaDivider} />
+
+      {/* Local */}
+      <Text style={styles.fichaLocal}>
+        {[g.endereco, g.bairro, g.cidade].filter(Boolean).join(" · ")}
+      </Text>
+
+      {/* Valor */}
+      {mostrar("valor") && g.valor && (
+        <Text style={styles.fichaValor}>
+          R$ {Number(g.valor).toLocaleString("pt-BR")}
+          {g.tipo === "locacao" ? "/mês" : ""}
+        </Text>
+      )}
+
+      {/* Foto principal */}
+      {hero && (
+        <Image
+          src={imgUrl(supabaseUrl, hero)}
+          style={[styles.fichaHeroImg, { height: heroHeight, marginBottom: secPairs.length > 0 ? 3 : 10 }]}
+        />
+      )}
+
+      {/* Fotos secundárias em pares */}
+      {secPairs.map((pair, idx) => (
+        <View
+          key={idx}
+          style={[styles.fichaSecRow, { marginBottom: idx === secPairs.length - 1 ? 10 : 3 }]}
+        >
+          {pair.map((foto) => (
+            <Image
+              key={foto.storage_path}
+              src={imgUrl(supabaseUrl, foto)}
+              style={[styles.fichaSecImg, { height: secHeight }]}
+            />
+          ))}
+        </View>
+      ))}
+
+      {/* Ficha técnica */}
+      {fichaItems.length > 0 && (
+        <>
+          <Text style={styles.fichaSection}>Ficha Técnica</Text>
+          <View style={styles.fichaGrid}>
+            {fichaItems.map((item) => (
+              <View key={item.key} style={styles.fichaItem}>
+                <Text style={styles.fichaLabel}>{item.label}</Text>
+                <Text style={styles.fichaValue}>{item.value}</Text>
+              </View>
+            ))}
+          </View>
+        </>
+      )}
+
+      {/* Descrição */}
+      {g.descricao && (
+        <>
+          <Text style={styles.fichaSection}>Descrição</Text>
+          <Text style={styles.fichaText}>{g.descricao}</Text>
+        </>
+      )}
+
+      {/* Observações */}
+      {mostrar("observacoes") && g.observacoes && (
+        <>
+          <Text style={styles.fichaSection}>Observações</Text>
+          <Text style={styles.fichaText}>{g.observacoes}</Text>
+        </>
+      )}
+    </View>
+  );
+}
+
+function GaleriaGalpao({
+  g,
+  supabaseUrl,
+}: {
+  g: GalpaoComNum;
+  supabaseUrl: string;
+}) {
+  const fotos = fotosSite(g.galpao_imagens);
+
+  const rows: GalpaoImagem[][] = [];
+  for (let i = 0; i < fotos.length; i += 3) {
+    rows.push(fotos.slice(i, i + 3));
+  }
+
+  return (
+    <View>
+      <Text style={styles.galeriaTitle}>N°{g.num} · {g.titulo}</Text>
+      <Text style={styles.galeriaSub}>
+        Galeria · {[g.bairro, g.cidade].filter(Boolean).join(", ")} · {fotos.length} foto
+        {fotos.length !== 1 ? "s" : ""}
+      </Text>
+      {rows.map((row, rowIdx) => (
+        <View key={rowIdx} style={styles.galeraRow}>
+          {row.map((foto) => (
+            <Image
+              key={foto.storage_path}
+              src={imgUrl(supabaseUrl, foto)}
+              style={styles.galeriaPhoto}
+            />
+          ))}
+          {row.length < 3 &&
+            Array.from({ length: 3 - row.length }).map((_, i) => (
+              <View key={`empty-${i}`} style={styles.galeriaPhotoEmpty} />
+            ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+
+// ── Main export ───────────────────────────────────────────────────────────────
 
 export function PDFRelatorio({
   galpoes,
   filtros,
   supabaseUrl,
   baseUrl,
+  opcoes = { sumario: true, fichas: true, fotosNaFicha: 3, galeria: false, incluirConfidenciais: false },
+  configCampos = [],
 }: {
   galpoes: Galpao[];
-  filtros: Filtros;
+  filtros: Record<string, string>;
   supabaseUrl: string;
   baseUrl: string;
+  opcoes?: OpcoesPDF;
+  configCampos?: ConfigCampo[];
 }) {
   const agora = new Date().toLocaleDateString("pt-BR", {
-    day: "2-digit", month: "long", year: "numeric",
+    day: "2-digit",
+    month: "long",
+    year: "numeric",
   });
 
-  const filtrosAtivos = Object.entries(filtros).filter(([, v]) => v && v !== "todos" && v !== "");
-  const mapaResult = buildMapUrl(galpoes, baseUrl);
+  const galpoesComNum: GalpaoComNum[] = galpoes.map((g, i) => ({ ...g, num: i + 1 }));
+
+  const galpoesComGaleria = opcoes.galeria
+    ? galpoesComNum.filter((g) => fotosSite(g.galpao_imagens).length >= 2)
+    : [];
+
+  const nenhumaSelecionada = !opcoes.sumario && !opcoes.fichas && !opcoes.galeria;
 
   return (
     <Document title="Relatório de Galpões — Alphamix Galpões">
-      <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header} fixed>
-          <View style={styles.headerLeft}>
-            <Image src={`${baseUrl}/alphamix-logo.png`} style={styles.headerLogo} />
-            <View>
-              <Text style={styles.headerTitle}>Alphamix Galpões</Text>
-              <Text style={styles.headerSub}>Galpões Industriais · Alphaville e Barueri</Text>
-            </View>
-          </View>
-          <View style={styles.headerRight}>
-            <Text>CRECI-SP 000000-F</Text>
-            <Text>(11) 99557-1212</Text>
-            <Text>Emitido em {agora}</Text>
-          </View>
-        </View>
+      {/* ── Sumário ── */}
+      {opcoes.sumario && (
+        <Page size="A4" style={styles.page}>
+          <PdfHeader baseUrl={baseUrl} agora={agora} />
+          <SecaoSumario
+            galpoes={galpoesComNum}
+            filtros={filtros}
+            supabaseUrl={supabaseUrl}
+            baseUrl={baseUrl}
+            incluirConfidenciais={opcoes.incluirConfidenciais}
+            configCampos={configCampos}
+          />
+          <PdfFooter />
+        </Page>
+      )}
 
-        {/* Filtros aplicados */}
-        {filtrosAtivos.length > 0 && (
-          <View style={styles.filtrosBox}>
-            <Text style={styles.filtrosTitle}>Filtros aplicados</Text>
-            <View style={styles.filtrosGrid}>
-              {filtrosAtivos.map(([k, v]) => (
-                <View key={k} style={styles.filtroTag}>
-                  <Text>{k}: {v}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
+      {/* ── Fichas detalhadas — 1 página por imóvel ── */}
+      {opcoes.fichas &&
+        galpoesComNum.map((g) => (
+          <Page key={`ficha-${g.id}`} size="A4" style={styles.page}>
+            <PdfHeader baseUrl={baseUrl} agora={agora} />
+            <FichaGalpao
+              g={g}
+              supabaseUrl={supabaseUrl}
+              opcoes={opcoes}
+              configCampos={configCampos}
+            />
+            <PdfFooter />
+          </Page>
+        ))}
 
-        {/* Mapa de localização */}
-        {mapaResult && (
-          <View style={styles.mapaBox}>
-            <Text style={styles.mapaTitle}>Localização dos imóveis</Text>
-            <Image src={mapaResult.url} style={styles.mapaImg} />
-            <Text style={styles.mapaAtrib}>© OpenStreetMap contributors · © CARTO</Text>
+      {/* ── Galeria completa ── */}
+      {galpoesComGaleria.map((g) => (
+        <Page key={`galeria-${g.id}`} size="A4" style={styles.page}>
+          <PdfHeader baseUrl={baseUrl} agora={agora} />
+          <GaleriaGalpao g={g} supabaseUrl={supabaseUrl} />
+          <PdfFooter />
+        </Page>
+      ))}
 
-            {/* Legenda numerada */}
-            <View style={styles.mapaLegenda}>
-              <View style={styles.mapaLegendaHeader}>
-                <Text style={styles.mapaLegendaHeaderNum}>N°</Text>
-                <Text style={styles.mapaLegendaHeaderTitulo}>Imóvel</Text>
-                <Text style={styles.mapaLegendaHeaderEnd}>Endereço</Text>
-              </View>
-              {mapaResult.pontos.map((g) => (
-                <View key={g.id} style={styles.mapaLegendaRow}>
-                  <Text style={styles.mapaLegendaNum}>{g.num}</Text>
-                  <Text style={styles.mapaLegendaTitulo}>{g.titulo}</Text>
-                  <Text style={styles.mapaLegendaEnd}>
-                    {[g.endereco, g.bairro, g.cidade].filter(Boolean).join(" · ")}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
-
-        {/* Resultados */}
-        {galpoes.length === 0 ? (
-          <Text style={styles.semResultados}>Nenhum galpão encontrado com os filtros selecionados.</Text>
-        ) : (
-          galpoes.map((g) => {
-            const imgs = [...g.galpao_imagens].sort((a, b) => a.ordem - b.ordem);
-            const capa = imgs.find((i) => i.is_capa) ?? imgs[0];
-            const imgUrl = capa ? `${supabaseUrl}/storage/v1/object/public/galpoes/${capa.storage_path}` : null;
-
-            const ficha = [
-              { label: "Área construída", value: g.area_construida_m2 ? `${g.area_construida_m2} m²` : null },
-              { label: "Área total", value: g.area_total_m2 ? `${g.area_total_m2} m²` : null },
-              { label: "Pé direito livre", value: g.pe_direito_m ? `${g.pe_direito_m} m` : null },
-              { label: "Docas", value: g.numero_docas > 0 ? `${g.numero_docas}` : null },
-              { label: "Potência elétrica", value: g.potencia_eletrica_kva ? `${g.potencia_eletrica_kva} kVA` : null },
-              { label: "Vagas", value: g.vagas_estacionamento > 0 ? `${g.vagas_estacionamento}` : null },
-              { label: "Acesso carreta", value: g.acesso_carreta ? "Sim" : null },
-              { label: "Sprinklers", value: g.sprinklers ? "Sim" : null },
-              { label: "Guarita", value: g.guarita ? "Sim" : null },
-            ].filter((i) => i.value);
-
-            return (
-              <View key={g.id} style={styles.galpaoCard} wrap={false}>
-                {imgUrl && <Image src={imgUrl} style={styles.galpaoImg} />}
-                <View style={styles.galpaoBody}>
-                  <View style={styles.galpaoHeader}>
-                    <Text style={styles.galpaoTitulo}>{g.titulo}</Text>
-                    <Text style={styles.galpaoTipo}>{tipoLabel(g.tipo)}</Text>
-                  </View>
-                  <Text style={styles.galpaoLocal}>
-                    {[g.endereco, g.bairro, g.cidade].filter(Boolean).join(" · ")}
-                  </Text>
-                  {g.valor && (
-                    <Text style={styles.galpaoValor}>
-                      R$ {Number(g.valor).toLocaleString("pt-BR")}
-                      {g.tipo === "locacao" ? "/mês" : ""}
-                    </Text>
-                  )}
-
-                  {ficha.length > 0 && (
-                    <>
-                      <Text style={styles.fichaTitle}>Ficha Técnica</Text>
-                      <View style={styles.fichaGrid}>
-                        {ficha.map((item) => (
-                          <View key={item.label} style={styles.fichaItem}>
-                            <Text style={styles.fichaLabel}>{item.label}</Text>
-                            <Text style={styles.fichaValue}>{item.value}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    </>
-                  )}
-
-                  {g.descricao && (
-                    <>
-                      <Text style={styles.descTitle}>Descrição</Text>
-                      <Text style={styles.descText}>{g.descricao}</Text>
-                    </>
-                  )}
-                </View>
-              </View>
-            );
-          })
-        )}
-
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>
-            Documento emitido por Alphamix Galpões · CRECI-SP 000000-F · Uso restrito · Não reproduzir sem autorização
-          </Text>
-          <Text style={styles.pageNum} render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} />
-        </View>
-      </Page>
+      {/* Fallback — nenhuma seção */}
+      {nenhumaSelecionada && (
+        <Page size="A4" style={styles.page}>
+          <PdfHeader baseUrl={baseUrl} agora={agora} />
+          <Text style={styles.semResultados}>Nenhuma seção selecionada.</Text>
+          <PdfFooter />
+        </Page>
+      )}
     </Document>
   );
 }
