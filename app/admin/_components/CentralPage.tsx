@@ -13,6 +13,7 @@ type Lens = {
   label: string;
   href: string;
   description: string;
+  icon: ReactNode;
 };
 
 type Props = {
@@ -56,14 +57,19 @@ export default function CentralPage({ title, subtitle, stats, lenses, children }
       )}
 
       {/* Lenses */}
-      <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+      <div className="flex gap-6 overflow-x-auto pb-1 -mx-1 px-1">
         {lenses.map((lens) => (
           <Link
             key={lens.href}
             href={lens.href}
-            className="shrink-0 px-4 py-2 text-sm font-medium border border-gray-200 rounded-full text-gray-700 hover:border-[#2e3092] hover:text-[#2e3092] transition-colors bg-white"
+            className="shrink-0 flex flex-col items-center gap-1.5 group"
           >
-            {lens.label}
+            <div className="w-14 h-14 rounded-full border border-gray-200 bg-white flex items-center justify-center text-gray-500 group-hover:border-[#2e3092] group-hover:text-[#2e3092] transition-colors">
+              {lens.icon}
+            </div>
+            <span className="text-xs text-gray-600 group-hover:text-[#2e3092] transition-colors font-medium">
+              {lens.label}
+            </span>
           </Link>
         ))}
       </div>
