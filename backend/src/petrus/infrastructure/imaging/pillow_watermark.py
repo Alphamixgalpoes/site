@@ -9,7 +9,8 @@ from petrus.domain.services.image_service import ImageService
 from petrus.domain.services.storage_service import StorageService
 
 _logo_cache: Image.Image | None = None
-LOGO_PATH = Path(__file__).resolve().parents[4] / "assets" / "icon.png"
+_DOCKER_PATH = Path("/app/assets/icon.png")
+LOGO_PATH = _DOCKER_PATH if _DOCKER_PATH.exists() else Path(__file__).resolve().parents[4] / "assets" / "icon.png"
 
 
 def _get_logo() -> Image.Image:

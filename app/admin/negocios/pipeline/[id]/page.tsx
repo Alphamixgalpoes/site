@@ -243,75 +243,84 @@ export default function ProcessoDetalhePage() {
   useEffect(() => { load(); }, [id]);
 
   async function load() {
-    const [proc, its, cats, pc] = await Promise.all([
-      apiGet<any>(`/api/v1/processos/${id}`, { auth: true }),
-      apiGet<Item[]>(`/api/v1/processos/${id}/itens`, { auth: true }),
-      apiGet<Categoria[]>(`/api/v1/processos/${id}/categorias`, { auth: true }),
-      apiGet<any[]>(`/api/v1/processos/${id}/contatos`, { auth: true }),
-    ]);
+    try {
+      const [proc, its, cats, pc] = await Promise.all([
+        apiGet<any>(`/api/v1/processos/${id}`, { auth: true }),
+        apiGet<Item[]>(`/api/v1/processos/${id}/itens`, { auth: true }),
+        apiGet<Categoria[]>(`/api/v1/processos/${id}/categorias`, { auth: true }),
+        apiGet<any[]>(`/api/v1/processos/${id}/contatos`, { auth: true }),
+      ]);
 
-    if (proc) {
-      let galpaoVinculado: GalpaoVinculado | null = null;
-      if (proc.galpao_id) {
-        try {
-          const g = await apiGet<any>(`/api/v1/galpoes/${proc.galpao_id}`, { auth: true });
-          galpaoVinculado = g ? { id: g.id, titulo: g.titulo, tipo: g.tipo, area_total_m2: g.area_total_m2 } : null;
-        } catch { /* galpao not found */ }
+      if (proc) {
+        let galpaoVinculado: GalpaoVinculado | null = null;
+        if (proc.galpao_id) {
+          try {
+            const g = await apiGet<any>(`/api/v1/galpoes/${proc.galpao_id}`, { auth: true });
+            galpaoVinculado = g ? { id: g.id, titulo: g.titulo, tipo: g.tipo, area_total_m2: g.area_total_m2 } : null;
+          } catch { /* galpao not found */ }
+        }
+        setProcesso({ ...proc, galpao: galpaoVinculado } as Processo);
+        if (proc.proprietario) setProprietarioContato(proc.proprietario as ContatoResumido);
+        if (proc.cliente) setClienteContato(proc.cliente as ContatoResumido);
+        setEditTitulo(proc.titulo);
+        setEditParteA(proc.parte_a ?? "");
+        setEditParteB(proc.parte_b ?? "");
+        setEditValor(proc.valor ? String(proc.valor) : "");
+        setEditNotas(proc.notas ?? "");
       }
-      setProcesso({ ...proc, galpao: galpaoVinculado } as Processo);
-      if (proc.proprietario) setProprietarioContato(proc.proprietario as ContatoResumido);
-      if (proc.cliente) setClienteContato(proc.cliente as ContatoResumido);
-      setEditTitulo(proc.titulo);
-      setEditParteA(proc.parte_a ?? "");
-      setEditParteB(proc.parte_b ?? "");
-      setEditValor(proc.valor ? String(proc.valor) : "");
-      setEditNotas(proc.notas ?? "");
+
+      const items = its ?? [];
+      setItens(items);
+
+      if (cats && cats.length > 0) {
+        setCategorias(cats);
+        setNovaCategoria(cats[0]?.slug ?? "");
+      } else {
+        const slugsUnicos = Array.from(new Set(items.map((i) => i.categoria)));
+        const catsDerivadas: Categoria[] = slugsUnicos.map((slug, idx) => ({
+          id: slug,
+          slug,
+          label: slug.charAt(0).toUpperCase() + slug.slice(1).replace(/_/g, " "),
+          ordem: idx + 1,
+        }));
+        setCategorias(catsDerivadas);
+        setNovaCategoria(catsDerivadas[0]?.slug ?? "");
+      }
+
+      if (pc) {
+        setContatosVinculados(
+          pc
+            .filter((row: any) => row.contatos)
+            .map((row: any) => {
+              const c = row.contatos as { id: string; nome: string; tipo_principal: string };
+              return {
+                id: row.id,
+                contato_id: row.contato_id,
+                papel: row.papel,
+                nome: c.nome,
+                tipo_principal: c.tipo_principal,
+              };
+            })
+        );
+      }
+
+      await loadSignedUrls(items);
+    } catch (err) {
+      console.error("Erro ao carregar processo:", err);
+    } finally {
+      setLoading(false);
     }
-
-    const items = its ?? [];
-    setItens(items);
-
-    if (cats && cats.length > 0) {
-      setCategorias(cats);
-      setNovaCategoria(cats[0]?.slug ?? "");
-    } else {
-      const slugsUnicos = Array.from(new Set(items.map((i) => i.categoria)));
-      const catsDerivadas: Categoria[] = slugsUnicos.map((slug, idx) => ({
-        id: slug,
-        slug,
-        label: slug.charAt(0).toUpperCase() + slug.slice(1).replace(/_/g, " "),
-        ordem: idx + 1,
-      }));
-      setCategorias(catsDerivadas);
-      setNovaCategoria(catsDerivadas[0]?.slug ?? "");
-    }
-
-    if (pc) {
-      setContatosVinculados(
-        pc
-          .filter((row: any) => row.contatos)
-          .map((row: any) => {
-            const c = row.contatos as { id: string; nome: string; tipo_principal: string };
-            return {
-              id: row.id,
-              contato_id: row.contato_id,
-              papel: row.papel,
-              nome: c.nome,
-              tipo_principal: c.tipo_principal,
-            };
-          })
-      );
-    }
-
-    setLoading(false);
-    await loadSignedUrls(items);
   }
 
   async function loadSignedUrls(items: Item[]) {
     const comArquivo = items.filter((i) => i.arquivo_path);
     if (comArquivo.length === 0) return;
-    const urls = await apiGet<Record<string, string>>(`/api/v1/processos/${id}/signed-urls`, { auth: true });
-    setSignedUrls(urls);
+    try {
+      const urls = await apiGet<Record<string, string>>(`/api/v1/processos/${id}/signed-urls`, { auth: true });
+      setSignedUrls(urls);
+    } catch (err) {
+      console.error("Erro ao carregar URLs assinadas:", err);
+    }
   }
 
   // ── trocar proprietário / cliente ─────────────────────────────────────────

@@ -80,41 +80,46 @@ export default function ContatoDetalhePage() {
   useEffect(() => { load(); }, [id]);
 
   async function load() {
-    const [c, rels] = await Promise.all([
-      apiGet<Contato>(`/api/v1/contatos/${id}`, { auth: true }),
-      apiGet<{
-        processo_contatos: Array<{ papel: string; processos: { id: string; titulo: string; tipo: string; status: string } | null }>;
-        imoveis_proprietario: ImovelResumido[];
-        processos_proprietario: ProcessoResumido[];
-        processos_cliente: ProcessoResumido[];
-      }>(`/api/v1/contatos/${id}/relationships`, { auth: true }),
-    ]);
+    try {
+      const [c, rels] = await Promise.all([
+        apiGet<Contato>(`/api/v1/contatos/${id}`, { auth: true }),
+        apiGet<{
+          processo_contatos: Array<{ papel: string; processos: { id: string; titulo: string; tipo: string; status: string } | null }>;
+          imoveis_proprietario: ImovelResumido[];
+          processos_proprietario: ProcessoResumido[];
+          processos_cliente: ProcessoResumido[];
+        }>(`/api/v1/contatos/${id}/relationships`, { auth: true }),
+      ]);
 
-    if (c) {
-      setContato(c);
-      setNome(c.nome);
-      setTipoPrincipal(c.tipo_principal);
-      setTagsAdicionais(c.tags.filter((t: string) => t !== c.tipo_principal));
-      setTelefone(c.telefone ?? "");
-      setEmail(c.email ?? "");
-      setEmpresa(c.empresa ?? "");
-      setCpfCnpj(c.cpf_cnpj ?? "");
-      setNotas(c.notas ?? "");
+      if (c) {
+        setContato(c);
+        setNome(c.nome);
+        setTipoPrincipal(c.tipo_principal);
+        setTagsAdicionais(c.tags.filter((t: string) => t !== c.tipo_principal));
+        setTelefone(c.telefone ?? "");
+        setEmail(c.email ?? "");
+        setEmpresa(c.empresa ?? "");
+        setCpfCnpj(c.cpf_cnpj ?? "");
+        setNotas(c.notas ?? "");
+      }
+
+      setProcessos(
+        (rels.processo_contatos ?? [])
+          .filter((row) => row.processos)
+          .map((row) => ({
+            ...row.processos!,
+            papel: row.papel,
+          }))
+      );
+
+      setImoveisProprietario(rels.imoveis_proprietario ?? []);
+      setProcessosComoProprietario(rels.processos_proprietario ?? []);
+      setProcessosComoCliente(rels.processos_cliente ?? []);
+    } catch (err) {
+      console.error("Erro ao carregar contato:", err);
+    } finally {
+      setLoading(false);
     }
-
-    setProcessos(
-      (rels.processo_contatos ?? [])
-        .filter((row) => row.processos)
-        .map((row) => ({
-          ...row.processos!,
-          papel: row.papel,
-        }))
-    );
-
-    setImoveisProprietario(rels.imoveis_proprietario ?? []);
-    setProcessosComoProprietario(rels.processos_proprietario ?? []);
-    setProcessosComoCliente(rels.processos_cliente ?? []);
-    setLoading(false);
   }
 
   async function salvar() {

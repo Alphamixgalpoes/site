@@ -67,23 +67,28 @@ export default function ProcessosPage() {
   useEffect(() => { load(); }, []);
 
   async function load() {
-    const [procs, allTipos] = await Promise.all([
-      apiGet<Processo[]>("/api/v1/processos", { auth: true }),
-      apiGet<(TipoDisponivel & { ativo: boolean })[]>("/api/v1/config/processo-tipos", { auth: true }),
-    ]);
-    setProcessos(procs);
-    const tipos = allTipos.filter((t) => t.ativo);
-    if (tipos.length > 0) {
-      setTiposDisponiveis(tipos);
-      setTipo(tipos[0].slug);
-    } else {
-      setTiposDisponiveis([
-        { id: "venda", slug: "venda", label: "Venda" },
-        { id: "locacao", slug: "locacao", label: "Locação" },
-        { id: "regularizacao", slug: "regularizacao", label: "Regularização" },
+    try {
+      const [procs, allTipos] = await Promise.all([
+        apiGet<Processo[]>("/api/v1/processos", { auth: true }),
+        apiGet<(TipoDisponivel & { ativo: boolean })[]>("/api/v1/config/processo-tipos", { auth: true }),
       ]);
+      setProcessos(procs);
+      const tipos = allTipos.filter((t) => t.ativo);
+      if (tipos.length > 0) {
+        setTiposDisponiveis(tipos);
+        setTipo(tipos[0].slug);
+      } else {
+        setTiposDisponiveis([
+          { id: "venda", slug: "venda", label: "Venda" },
+          { id: "locacao", slug: "locacao", label: "Locação" },
+          { id: "regularizacao", slug: "regularizacao", label: "Regularização" },
+        ]);
+      }
+    } catch (err) {
+      console.error("Erro ao carregar processos:", err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   // Mapa slug -> label para exibição na lista

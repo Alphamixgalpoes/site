@@ -13,8 +13,9 @@ export default function ConfiguracoesPage() {
   useEffect(() => {
     apiGet<ConfigCampo[]>("/api/v1/config/campos", { auth: true }).then((data) => {
       setCampos(data);
-      setLoading(false);
-    });
+    }).catch((err) => {
+      console.error("Erro ao carregar configurações:", err);
+    }).finally(() => setLoading(false));
   }, []);
 
   return (

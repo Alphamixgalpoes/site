@@ -12,8 +12,9 @@ export default function NovoGalpaoPage() {
   useEffect(() => {
     apiGet<ConfigCampo[]>("/api/v1/config/campos", { auth: true }).then((data) => {
       setConfigCampos(data);
-      setLoading(false);
-    });
+    }).catch((err) => {
+      console.error("Erro ao carregar config:", err);
+    }).finally(() => setLoading(false));
   }, []);
 
   if (loading) {

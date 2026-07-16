@@ -10,18 +10,23 @@ export default function NegociosCentral() {
 
   useEffect(() => {
     async function load() {
-      const [leadsList, processosList, contatosList] = await Promise.all([
-        apiGet<any[]>("/api/v1/leads", { auth: true }),
-        apiGet<any[]>("/api/v1/processos", { auth: true }),
-        apiGet<any[]>("/api/v1/contatos", { auth: true }),
-      ]);
-      setStats({
-        leads: leadsList.length,
-        emAndamento: processosList.filter((p) => p.status === "em_andamento").length,
-        concluidos: processosList.filter((p) => p.status === "concluido").length,
-        contatos: contatosList.length,
-      });
-      setLoading(false);
+      try {
+        const [leadsList, processosList, contatosList] = await Promise.all([
+          apiGet<any[]>("/api/v1/leads", { auth: true }),
+          apiGet<any[]>("/api/v1/processos", { auth: true }),
+          apiGet<any[]>("/api/v1/contatos", { auth: true }),
+        ]);
+        setStats({
+          leads: leadsList.length,
+          emAndamento: processosList.filter((p) => p.status === "em_andamento").length,
+          concluidos: processosList.filter((p) => p.status === "concluido").length,
+          contatos: contatosList.length,
+        });
+      } catch (err) {
+        console.error("Erro ao carregar negócios:", err);
+      } finally {
+        setLoading(false);
+      }
     }
     load();
   }, []);

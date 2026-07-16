@@ -32,13 +32,18 @@ export function useGalpoes() {
   useEffect(() => { load(); }, []);
 
   async function load() {
-    const [data, cfg] = await Promise.all([
-      apiGet<Galpao[]>("/api/v1/galpoes", { auth: true }),
-      apiGet<ConfigCampo[]>("/api/v1/config/campos", { auth: true }),
-    ]);
-    setGalpoes(data);
-    setConfigCampos(cfg);
-    setLoading(false);
+    try {
+      const [data, cfg] = await Promise.all([
+        apiGet<Galpao[]>("/api/v1/galpoes", { auth: true }),
+        apiGet<ConfigCampo[]>("/api/v1/config/campos", { auth: true }),
+      ]);
+      setGalpoes(data);
+      setConfigCampos(cfg);
+    } catch (err) {
+      console.error("Erro ao carregar galpões:", err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   const cidades = useMemo(() => {

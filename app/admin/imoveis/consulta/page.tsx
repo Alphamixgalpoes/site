@@ -45,8 +45,9 @@ export default function ConsultaPage() {
     ]).then(([data, cfg]) => {
       setGalpoes(data);
       setConfigCampos(cfg);
-      setLoading(false);
-    });
+    }).catch((err) => {
+      console.error("Erro ao carregar consulta:", err);
+    }).finally(() => setLoading(false));
   }, []);
 
   async function gerarEBaixar() {
