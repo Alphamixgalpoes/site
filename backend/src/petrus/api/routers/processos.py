@@ -101,6 +101,17 @@ async def create_item(
     return await repo.create_item(data)
 
 
+@router.put("/{processo_id}/itens/reorder")
+async def reorder_items(
+    processo_id: str,
+    items: list[dict],
+    _user: dict = Depends(get_current_user),
+    repo: ProcessoRepository = Depends(get_processo_repo),
+):
+    await repo.reorder_items(items)
+    return {"ok": True}
+
+
 @router.put("/{processo_id}/itens/{item_id}")
 async def update_item(
     processo_id: str,
@@ -121,17 +132,6 @@ async def delete_item(
     repo: ProcessoRepository = Depends(get_processo_repo),
 ):
     await repo.delete_item(UUID(item_id))
-    return {"ok": True}
-
-
-@router.put("/{processo_id}/itens/reorder")
-async def reorder_items(
-    processo_id: str,
-    items: list[dict],
-    _user: dict = Depends(get_current_user),
-    repo: ProcessoRepository = Depends(get_processo_repo),
-):
-    await repo.reorder_items(items)
     return {"ok": True}
 
 
