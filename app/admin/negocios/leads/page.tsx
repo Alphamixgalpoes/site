@@ -23,9 +23,14 @@ export default function LeadsPage() {
   }, []);
 
   async function load() {
-    const data = await apiGet<Lead[]>("/api/v1/leads", { auth: true });
-    setLeads(data);
-    setLoading(false);
+    try {
+      const data = await apiGet<Lead[]>("/api/v1/leads", { auth: true });
+      setLeads(data);
+    } catch (err) {
+      console.error("Erro ao carregar leads:", err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function toggleContactado(id: string, atual: boolean) {

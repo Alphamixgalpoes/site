@@ -41,9 +41,14 @@ export default function ContatosPage() {
   useEffect(() => { load(); }, []);
 
   async function load() {
-    const data = await apiGet<Contato[]>("/api/v1/contatos", { auth: true });
-    setContatos(data);
-    setLoading(false);
+    try {
+      const data = await apiGet<Contato[]>("/api/v1/contatos", { auth: true });
+      setContatos(data);
+    } catch (err) {
+      console.error("Erro ao carregar contatos:", err);
+    } finally {
+      setLoading(false);
+    }
   }
 
   function resetForm() {

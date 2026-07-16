@@ -51,13 +51,18 @@ export default function ContatoPicker({
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(async () => {
       setLoading(true);
-      const data = await apiGet<ContatoResumido[]>("/api/v1/contatos/search", {
-        auth: true,
-        params: { q: query.trim() },
-      });
-      setResults(data);
-      setOpen(true);
-      setLoading(false);
+      try {
+        const data = await apiGet<ContatoResumido[]>("/api/v1/contatos/search", {
+          auth: true,
+          params: { q: query.trim() },
+        });
+        setResults(data);
+        setOpen(true);
+      } catch (err) {
+        console.error("Erro ao buscar contatos:", err);
+      } finally {
+        setLoading(false);
+      }
     }, 300);
   }, [query]);
 

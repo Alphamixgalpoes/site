@@ -13,8 +13,9 @@ export default function ImoveisCentral() {
       const t = data.length;
       const p = data.filter((g) => g.publicado).length;
       setStats({ total: t, publicados: p, ocultos: t - p });
-      setLoading(false);
-    });
+    }).catch((err) => {
+      console.error("Erro ao carregar imóveis:", err);
+    }).finally(() => setLoading(false));
   }, []);
 
   return (

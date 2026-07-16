@@ -45,8 +45,10 @@ export default function EditarGalpaoPage() {
       });
       setImagens(imgs);
       setConfigCampos(cfg);
-      setLoading(false);
-    }).catch(() => setNotFoundState(true));
+    }).catch((err) => {
+      console.error("Erro ao carregar galpão:", err);
+      setNotFoundState(true);
+    }).finally(() => setLoading(false));
   }, [id]);
 
   if (notFoundState) notFound();

@@ -53,8 +53,9 @@ export default function ProcessoConfigPage() {
           })),
       }));
       setTipos(hidratados);
-      setLoading(false);
-    });
+    }).catch((err) => {
+      console.error("Erro ao carregar config de processos:", err);
+    }).finally(() => setLoading(false));
   }, []);
 
   return (
