@@ -4,8 +4,7 @@ import { useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useGalpoes } from "../_hooks/useGalpoes";
-import { createClient } from "@/lib/supabase-browser";
-import { apiGet, apiPost } from "@/lib/api-client";
+import { apiGet, apiPost, apiPatch } from "@/lib/api-client";
 import GalpaoFiltros from "../_components/GalpaoFiltros";
 import MapaListaItem from "../_components/MapaListaItem";
 
@@ -63,8 +62,7 @@ export default function MapaHubPage() {
 
   async function handlePinDrag(id: string, lat: number, lng: number) {
     setSalvando(id);
-    const supabase = createClient();
-    await supabase.from("galpoes").update({ latitude: lat, longitude: lng }).eq("id", id);
+    await apiPatch(`/api/v1/galpoes/${id}/coords?lat=${lat}&lng=${lng}`, { auth: true });
     setSalvando(null);
   }
 
@@ -82,27 +80,22 @@ export default function MapaHubPage() {
       );
     } catch { /* silent */ }
 
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("galpoes")
-      .insert({
-        titulo: "Novo imovel",
-        tipo: "locacao",
-        categoria: "galpao",
-        cidade: endereco.cidade || "Barueri",
-        latitude: lat,
-        longitude: lng,
-        logradouro: endereco.logradouro || null,
-        bairro: endereco.bairro || null,
-        uf: endereco.uf || "SP",
-        cep: endereco.cep || null,
-        publicado: false,
-      })
-      .select("id")
-      .single();
+    const data = await apiPost<{ id: string }>("/api/v1/galpoes", {
+      titulo: "Novo imovel",
+      tipo: "locacao",
+      categoria: "galpao",
+      cidade: endereco.cidade || "Barueri",
+      latitude: lat,
+      longitude: lng,
+      logradouro: endereco.logradouro || null,
+      bairro: endereco.bairro || null,
+      uf: endereco.uf || "SP",
+      cep: endereco.cep || null,
+      publicado: false,
+    }, { auth: true });
 
     setSalvando(null);
-    if (data) router.push(`/admin/imoveis/${data.id}/editar`);
+    if (data?.id) router.push(`/admin/imoveis/${data.id}/editar`);
   }
 
   function handleTogglePublicado(id: string, valor: boolean) {

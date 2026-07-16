@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase-browser";
+import { apiGet } from "@/lib/api-client";
 import CentralPage from "../_components/CentralPage";
 
 export default function ImoveisCentral() {
@@ -9,16 +9,12 @@ export default function ImoveisCentral() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function load() {
-      const supabase = createClient();
-      const { count: total } = await supabase.from("galpoes").select("*", { count: "exact", head: true });
-      const { count: publicados } = await supabase.from("galpoes").select("*", { count: "exact", head: true }).eq("publicado", true);
-      const t = total ?? 0;
-      const p = publicados ?? 0;
+    apiGet<{ publicado: boolean }[]>("/api/v1/galpoes", { auth: true }).then((data) => {
+      const t = data.length;
+      const p = data.filter((g) => g.publicado).length;
       setStats({ total: t, publicados: p, ocultos: t - p });
       setLoading(false);
-    }
-    load();
+    });
   }, []);
 
   return (

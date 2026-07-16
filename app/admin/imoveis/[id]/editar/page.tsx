@@ -1,52 +1,67 @@
-import { createClient } from "@/lib/supabase-server";
-import { notFound } from "next/navigation";
+"use client";
+
+import { useEffect, useState } from "react";
+import { useParams, notFound } from "next/navigation";
+import { apiGet } from "@/lib/api-client";
 import GalpaoForm from "../../_components/GalpaoForm";
 import type { ConfigCampo } from "@/lib/visibilidade";
 
-export default async function EditarGalpaoPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  const supabase = await createClient();
+export default function EditarGalpaoPage() {
+  const { id } = useParams<{ id: string }>();
+  const [initial, setInitial] = useState<any>(null);
+  const [imagens, setImagens] = useState<any[]>([]);
+  const [configCampos, setConfigCampos] = useState<ConfigCampo[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [notFoundState, setNotFoundState] = useState(false);
 
-  const [{ data: galpao }, { data: configCampos }] = await Promise.all([
-    supabase.from("galpoes").select("*, proprietario:contatos!galpoes_proprietario_id_fkey(id, nome, empresa, tipo_principal)").eq("id", id).single(),
-    supabase.from("config_campos").select("*").order("label"),
-  ]);
+  useEffect(() => {
+    Promise.all([
+      apiGet<any>(`/api/v1/galpoes/${id}`, { auth: true }),
+      apiGet<ConfigCampo[]>("/api/v1/config/campos", { auth: true }),
+    ]).then(([galpao, cfg]) => {
+      if (!galpao) { setNotFoundState(true); return; }
 
-  if (!galpao) notFound();
+      const imgs = (galpao.galpao_imagens ?? [])
+        .sort((a: any, b: any) => a.ordem - b.ordem);
 
-  const { data: imagens } = await supabase
-    .from("galpao_imagens")
-    .select("id, storage_path, ordem, visivel_site, is_capa")
-    .eq("galpao_id", id)
-    .order("ordem");
+      setInitial({
+        ...galpao,
+        valor: galpao.valor?.toString() ?? "",
+        area_total_m2: galpao.area_total_m2?.toString() ?? "",
+        area_construida_m2: galpao.area_construida_m2?.toString() ?? "",
+        area_piso_m2: galpao.area_piso_m2?.toString() ?? "",
+        pe_direito_m: galpao.pe_direito_m?.toString() ?? "",
+        numero_docas: galpao.numero_docas?.toString() ?? "0",
+        potencia_eletrica_kva: galpao.potencia_eletrica_kva?.toString() ?? "",
+        capacidade_piso_ton_m2: galpao.capacidade_piso_ton_m2?.toString() ?? "",
+        area_escritorio_m2: galpao.area_escritorio_m2?.toString() ?? "",
+        truck_court_m: galpao.truck_court_m?.toString() ?? "",
+        logradouro: galpao.logradouro ?? "",
+        numero: galpao.numero ?? "",
+        complemento: galpao.complemento ?? "",
+        uf: galpao.uf ?? "",
+        vagas_estacionamento: galpao.vagas_estacionamento?.toString() ?? "0",
+        valor_condominio: galpao.valor_condominio?.toString() ?? "",
+      });
+      setImagens(imgs);
+      setConfigCampos(cfg);
+      setLoading(false);
+    }).catch(() => setNotFoundState(true));
+  }, [id]);
 
-  const initial = {
-    ...galpao,
-    valor: galpao.valor?.toString() ?? "",
-    area_total_m2: galpao.area_total_m2?.toString() ?? "",
-    area_construida_m2: galpao.area_construida_m2?.toString() ?? "",
-    area_piso_m2: galpao.area_piso_m2?.toString() ?? "",
-    pe_direito_m: galpao.pe_direito_m?.toString() ?? "",
-    numero_docas: galpao.numero_docas?.toString() ?? "0",
-    potencia_eletrica_kva: galpao.potencia_eletrica_kva?.toString() ?? "",
-    capacidade_piso_ton_m2: galpao.capacidade_piso_ton_m2?.toString() ?? "",
-    area_escritorio_m2: galpao.area_escritorio_m2?.toString() ?? "",
-    truck_court_m: galpao.truck_court_m?.toString() ?? "",
-    logradouro: galpao.logradouro ?? "",
-    numero: galpao.numero ?? "",
-    complemento: galpao.complemento ?? "",
-    uf: galpao.uf ?? "",
-    vagas_estacionamento: galpao.vagas_estacionamento?.toString() ?? "0",
-    valor_condominio: galpao.valor_condominio?.toString() ?? "",
-  };
+  if (notFoundState) notFound();
+
+  if (loading) {
+    return <div className="text-sm text-gray-400 py-12 text-center">Carregando...</div>;
+  }
 
   return (
     <div>
       <h1 className="text-xl font-semibold text-gray-900 mb-8">Editar Galpao</h1>
       <GalpaoForm
         initial={initial}
-        imagens={imagens ?? []}
-        configCampos={(configCampos ?? []) as ConfigCampo[]}
+        imagens={imagens}
+        configCampos={configCampos}
       />
     </div>
   );

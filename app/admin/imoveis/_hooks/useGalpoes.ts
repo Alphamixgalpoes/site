@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { createClient } from "@/lib/supabase-browser";
-import { apiGet } from "@/lib/api-client";
+import { apiGet, apiPatch, apiDelete } from "@/lib/api-client";
 import type { ConfigCampo } from "@/lib/visibilidade";
 
 import type { Galpao } from "@/lib/types";
@@ -33,26 +32,12 @@ export function useGalpoes() {
   useEffect(() => { load(); }, []);
 
   async function load() {
-    const supabase = createClient();
-    const [{ data }, { data: cfg }] = await Promise.all([
-      supabase
-        .from("galpoes")
-        .select(`id, titulo, tipo, categoria, uso_terreno, valor, cidade, bairro, endereco,
-          logradouro, numero, complemento, uf, cep, geojson, publicado,
-          area_construida_m2, area_total_m2, area_piso_m2, pe_direito_m, numero_docas,
-          acesso_carreta, sprinklers, sprinkler_tipo, guarita, potencia_eletrica_kva,
-          capacidade_piso_ton_m2, area_escritorio_m2, truck_court_m,
-          avcb_numero, avcb_validade, acessos_viarios, video_url, planta_baixa_url,
-          vagas_estacionamento, condominio, valor_condominio, descricao, observacoes,
-          campos_visibilidade, latitude, longitude, proprietario_id,
-          proprietario:contatos!galpoes_proprietario_id_fkey(id, nome),
-          galpao_imagens (id, storage_path, ordem, visivel_site, is_capa)`)
-        .order("created_at", { ascending: false }),
-      supabase.from("config_campos").select("*").order("label"),
+    const [data, cfg] = await Promise.all([
+      apiGet<Galpao[]>("/api/v1/galpoes", { auth: true }),
+      apiGet<ConfigCampo[]>("/api/v1/config/campos", { auth: true }),
     ]);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    setGalpoes((data ?? []) as any as Galpao[]);
-    setConfigCampos((cfg ?? []) as ConfigCampo[]);
+    setGalpoes(data);
+    setConfigCampos(cfg);
     setLoading(false);
   }
 
@@ -114,8 +99,7 @@ export function useGalpoes() {
 
   async function togglePublicado(id: string, atual: boolean) {
     setGalpoes((prev) => prev.map((g) => g.id === id ? { ...g, publicado: !atual } : g));
-    const supabase = createClient();
-    await supabase.from("galpoes").update({ publicado: !atual }).eq("id", id);
+    await apiPatch(`/api/v1/galpoes/${id}/toggle-published?current=${atual}`, { auth: true });
   }
 
   async function geocodificarTodos() {
@@ -126,7 +110,6 @@ export function useGalpoes() {
       return;
     }
 
-    const supabase = createClient();
     for (let i = 0; i < semCoordenadas.length; i++) {
       const g = semCoordenadas[i];
       setGeocodingProgress(`Geocodificando ${i + 1}/${semCoordenadas.length}: ${g.titulo}...`);
@@ -137,7 +120,7 @@ export function useGalpoes() {
           { auth: true, params: { endereco: g.endereco ?? "", bairro: g.bairro ?? "", cidade: g.cidade ?? "" } },
         );
         if (lat && lng) {
-          await supabase.from("galpoes").update({ latitude: lat, longitude: lng }).eq("id", g.id);
+          await apiPatch(`/api/v1/galpoes/${g.id}/coords?lat=${lat}&lng=${lng}`, { auth: true });
           setGalpoes((prev) => prev.map((p) => p.id === g.id ? { ...p, latitude: lat, longitude: lng } : p));
         }
       } catch {
@@ -152,8 +135,7 @@ export function useGalpoes() {
   }
 
   async function excluir(id: string) {
-    const supabase = createClient();
-    await supabase.from("galpoes").delete().eq("id", id);
+    await apiDelete(`/api/v1/galpoes/${id}`, { auth: true });
     setGalpoes((prev) => prev.filter((g) => g.id !== id));
     setDeletingId(null);
   }

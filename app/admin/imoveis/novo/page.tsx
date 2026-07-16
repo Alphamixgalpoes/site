@@ -1,18 +1,29 @@
-import { createClient } from "@/lib/supabase-server";
+"use client";
+
+import { useEffect, useState } from "react";
+import { apiGet } from "@/lib/api-client";
 import GalpaoForm from "../_components/GalpaoForm";
 import type { ConfigCampo } from "@/lib/visibilidade";
 
-export default async function NovoGalpaoPage() {
-  const supabase = await createClient();
-  const { data: configCampos } = await supabase
-    .from("config_campos")
-    .select("*")
-    .order("label");
+export default function NovoGalpaoPage() {
+  const [configCampos, setConfigCampos] = useState<ConfigCampo[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiGet<ConfigCampo[]>("/api/v1/config/campos", { auth: true }).then((data) => {
+      setConfigCampos(data);
+      setLoading(false);
+    });
+  }, []);
+
+  if (loading) {
+    return <div className="text-sm text-gray-400 py-12 text-center">Carregando...</div>;
+  }
 
   return (
     <div>
       <h1 className="text-xl font-semibold text-gray-900 mb-8">Novo Galpao</h1>
-      <GalpaoForm configCampos={(configCampos ?? []) as ConfigCampo[]} />
+      <GalpaoForm configCampos={configCampos} />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { createClient } from "@/lib/supabase-browser";
+import { apiGet } from "@/lib/api-client";
 import { PDFRelatorio, type OpcoesPDF } from "../_components/PDFRelatorio";
 import type { Galpao } from "@/lib/types";
 import type { ConfigCampo } from "@/lib/visibilidade";
@@ -39,27 +39,14 @@ export default function ConsultaPage() {
   const [docasMin, setDocasMin] = useState("");
 
   useEffect(() => {
-    async function load() {
-      const supabase = createClient();
-      const [{ data }, { data: cfg }] = await Promise.all([
-        supabase
-          .from("galpoes")
-          .select(`id, titulo, tipo, valor, cidade, bairro, endereco, publicado,
-            area_construida_m2, area_total_m2, area_piso_m2, pe_direito_m, numero_docas,
-            acesso_carreta, sprinklers, sprinkler_tipo, guarita, potencia_eletrica_kva,
-            capacidade_piso_ton_m2, area_escritorio_m2, truck_court_m,
-            avcb_numero, avcb_validade, acessos_viarios,
-            vagas_estacionamento, condominio, valor_condominio,
-            descricao, observacoes, campos_visibilidade, latitude, longitude,
-            galpao_imagens (storage_path, ordem, is_capa, visivel_site)`)
-          .order("created_at", { ascending: false }),
-        supabase.from("config_campos").select("*").order("label"),
-      ]);
-      setGalpoes((data ?? []) as unknown as Galpao[]);
-      setConfigCampos((cfg ?? []) as ConfigCampo[]);
+    Promise.all([
+      apiGet<Galpao[]>("/api/v1/galpoes", { auth: true }),
+      apiGet<ConfigCampo[]>("/api/v1/config/campos", { auth: true }),
+    ]).then(([data, cfg]) => {
+      setGalpoes(data);
+      setConfigCampos(cfg);
       setLoading(false);
-    }
-    load();
+    });
   }, []);
 
   async function gerarEBaixar() {

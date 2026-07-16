@@ -91,6 +91,27 @@ export async function apiDelete<T = unknown>(
   return res.json();
 }
 
+export async function apiUpload<T = unknown>(
+  path: string,
+  file: File,
+  fields?: Record<string, string>,
+  opts?: { auth?: boolean },
+): Promise<T> {
+  const auth = opts?.auth ?? false;
+  const fd = new FormData();
+  fd.append("file", file);
+  if (fields) {
+    for (const [k, v] of Object.entries(fields)) fd.append(k, v);
+  }
+  const res = await fetch(`${API_URL}${path}`, {
+    method: "POST",
+    headers: await headers(auth),
+    body: fd,
+  });
+  if (!res.ok) throw new ApiError(res.status, await res.text());
+  return res.json();
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
