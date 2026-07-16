@@ -63,6 +63,34 @@ export async function apiPatch<T = unknown>(
   return res.json();
 }
 
+export async function apiPut<T = unknown>(
+  path: string,
+  body: unknown,
+  opts?: { auth?: boolean },
+): Promise<T> {
+  const auth = opts?.auth ?? false;
+  const res = await fetch(`${API_URL}${path}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...(await headers(auth)) },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new ApiError(res.status, await res.text());
+  return res.json();
+}
+
+export async function apiDelete<T = unknown>(
+  path: string,
+  opts?: { auth?: boolean },
+): Promise<T> {
+  const auth = opts?.auth ?? false;
+  const res = await fetch(`${API_URL}${path}`, {
+    method: "DELETE",
+    headers: await headers(auth),
+  });
+  if (!res.ok) throw new ApiError(res.status, await res.text());
+  return res.json();
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
