@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase-browser";
+import { apiGet, apiPatch } from "@/lib/api-client";
 
 type Lead = {
   id: string;
@@ -23,12 +23,8 @@ export default function LeadsPage() {
   }, []);
 
   async function load() {
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("leads")
-      .select("*")
-      .order("created_at", { ascending: false });
-    setLeads(data ?? []);
+    const data = await apiGet<Lead[]>("/api/v1/leads", { auth: true });
+    setLeads(data);
     setLoading(false);
   }
 
@@ -36,8 +32,7 @@ export default function LeadsPage() {
     setLeads((prev) =>
       prev.map((l) => (l.id === id ? { ...l, contactado: !atual } : l))
     );
-    const supabase = createClient();
-    await supabase.from("leads").update({ contactado: !atual }).eq("id", id);
+    await apiPatch(`/api/v1/leads/${id}/toggle-contactado?current=${atual}`, { auth: true });
   }
 
   const pendentes = leads.filter((l) => !l.contactado).length;
