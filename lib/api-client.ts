@@ -50,6 +50,19 @@ export async function apiPost<T = unknown>(
   return res.json();
 }
 
+export async function apiPatch<T = unknown>(
+  path: string,
+  opts?: { auth?: boolean },
+): Promise<T> {
+  const auth = opts?.auth ?? false;
+  const res = await fetch(`${API_URL}${path}`, {
+    method: "PATCH",
+    headers: await headers(auth),
+  });
+  if (!res.ok) throw new ApiError(res.status, await res.text());
+  return res.json();
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
