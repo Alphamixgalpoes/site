@@ -3,8 +3,7 @@
 import { useState, useMemo, createContext, useContext } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase-browser";
-import { apiGet, apiPost } from "@/lib/api-client";
+import { apiGet, apiPost, apiPut, apiPatch, apiDelete, apiUpload } from "@/lib/api-client";
 import type { ConfigCampo, OverridesVisibilidade } from "@/lib/visibilidade";
 import ContatoPicker from "@/app/admin/_components/ContatoPicker";
 import type { ContatoResumido } from "@/lib/types";
@@ -437,25 +436,28 @@ export default function GalpaoForm({
 
   async function ensureDraftSaved(): Promise<boolean> {
     if (draftSaved) return true;
-    const supabase = createClient();
-    const { error: err } = await supabase.from("galpoes").insert({
-      id: draftId,
-      titulo: form.titulo || "Rascunho",
-      categoria: form.categoria,
-      tipo: form.tipo,
-      cidade: form.cidade,
-      publicado: false,
-      numero_docas: 0,
-      acesso_carreta: false,
-      sprinklers: false,
-      guarita: false,
-      vagas_estacionamento: 0,
-      condominio: false,
-      campos_visibilidade: {},
-    });
-    if (err) { setError(`Erro ao inicializar rascunho: ${err.message}`); return false; }
-    setDraftSaved(true);
-    return true;
+    try {
+      await apiPost("/api/v1/galpoes", {
+        id: draftId,
+        titulo: form.titulo || "Rascunho",
+        categoria: form.categoria,
+        tipo: form.tipo,
+        cidade: form.cidade,
+        publicado: false,
+        numero_docas: 0,
+        acesso_carreta: false,
+        sprinklers: false,
+        guarita: false,
+        vagas_estacionamento: 0,
+        condominio: false,
+        campos_visibilidade: {},
+      }, { auth: true });
+      setDraftSaved(true);
+      return true;
+    } catch (e: any) {
+      setError(`Erro ao inicializar rascunho: ${e.message}`);
+      return false;
+    }
   }
 
   async function handleStepChange(newStep: number) {
@@ -466,8 +468,7 @@ export default function GalpaoForm({
       try {
         const ok = await ensureDraftSaved();
         if (ok) {
-          const supabase = createClient();
-          await supabase.from("galpoes").update(buildPayload()).eq("id", draftId);
+          await apiPut(`/api/v1/galpoes/${draftId}`, buildPayload(), { auth: true });
         }
       } catch { /* silent */ }
       setAutoSaving(false);
@@ -535,16 +536,17 @@ export default function GalpaoForm({
     setWarningModal(null);
 
     const payload = buildPayload();
-    const supabase = createClient();
     const redirectToEdit = !form.id;
 
-    if (draftSaved || form.id) {
-      const { error: e } = await supabase.from("galpoes").update(payload).eq("id", draftId);
-      if (e) { setError(e.message); setSaving(false); return; }
-    } else {
-      const { error: e } = await supabase.from("galpoes").insert({ id: draftId, ...payload });
-      if (e) { setError(e.message); setSaving(false); return; }
-      setDraftSaved(true);
+    try {
+      if (draftSaved || form.id) {
+        await apiPut(`/api/v1/galpoes/${draftId}`, payload, { auth: true });
+      } else {
+        await apiPost("/api/v1/galpoes", { id: draftId, ...payload }, { auth: true });
+        setDraftSaved(true);
+      }
+    } catch (e: any) {
+      setError(e.message); setSaving(false); return;
     }
 
     // Geocode if pin not yet confirmed and we have an address
@@ -563,7 +565,7 @@ export default function GalpaoForm({
           },
         );
         if (gLat && gLng) {
-          await supabase.from("galpoes").update({ latitude: gLat, longitude: gLng }).eq("id", draftId);
+          await apiPatch(`/api/v1/galpoes/${draftId}/coords?lat=${gLat}&lng=${gLng}`, { auth: true });
         }
       } catch { /* optional */ }
     }
@@ -584,40 +586,39 @@ export default function GalpaoForm({
     if (!ok) return;
     setUploadingImagens(true);
     setError("");
-    const supabase = createClient();
     const novas: ImagemExistente[] = [];
     const proximaOrdem = existingImagens.length;
     for (let i = 0; i < fileList.length; i++) {
       const file = fileList[i];
-      const ext = file.name.split(".").pop();
-      const path = `${draftId}/${Date.now()}-${i}.${ext}`;
-      const { error: uploadErr } = await supabase.storage.from("galpoes").upload(path, file);
-      if (uploadErr) { setError(`Erro ao enviar ${file.name}: ${uploadErr.message}`); continue; }
-      const { data, error: insertErr } = await supabase
-        .from("galpao_imagens")
-        .insert({ galpao_id: draftId, storage_path: path, ordem: proximaOrdem + i, visivel_site: true, is_capa: false })
-        .select("id, storage_path, ordem, visivel_site, is_capa")
-        .single();
-      if (insertErr) { setError(`Erro ao salvar imagem: ${insertErr.message}`); continue; }
-      novas.push(data as ImagemExistente);
+      try {
+        const data = await apiUpload<ImagemExistente>(
+          `/api/v1/galpoes/${draftId}/images`,
+          file,
+          { ordem: String(proximaOrdem + i) },
+          { auth: true },
+        );
+        novas.push(data);
+      } catch (e: any) {
+        setError(`Erro ao enviar ${file.name}: ${e.message}`);
+      }
     }
     setExistingImagens((prev) => [...prev, ...novas]);
     setUploadingImagens(false);
   }
 
   async function removeImagem(imagemId: string, path: string) {
-    const supabase = createClient();
-    await supabase.storage.from("galpoes").remove([path]);
-    const { error: delErr } = await supabase.from("galpao_imagens").delete().eq("id", imagemId);
-    if (delErr) { setError(`Erro ao excluir imagem: ${delErr.message}`); return; }
-    setExistingImagens((imgs) => imgs.filter((i) => i.id !== imagemId));
+    try {
+      await apiDelete(`/api/v1/galpoes/${draftId}/images/${imagemId}?storage_path=${encodeURIComponent(path)}`, { auth: true });
+      setExistingImagens((imgs) => imgs.filter((i) => i.id !== imagemId));
+    } catch (e: any) {
+      setError(`Erro ao excluir imagem: ${e.message}`);
+    }
   }
 
   async function definirCapa(imagemId: string) {
     const reordenadas = applySetCapa(existingImagens, imagemId);
     setExistingImagens(reordenadas);
-    const supabase = createClient();
-    await persistOrder(supabase, reordenadas);
+    await persistOrder(draftId, reordenadas);
   }
 
   async function toggleVisibilidadeSite(imagemId: string, atual: boolean) {
@@ -625,8 +626,7 @@ export default function GalpaoForm({
       ? applyHide(existingImagens, imagemId)
       : applyShow(existingImagens, imagemId);
     setExistingImagens(reordenadas);
-    const supabase = createClient();
-    await persistOrder(supabase, reordenadas);
+    await persistOrder(draftId, reordenadas);
   }
 
   const sensors = useSensors(
@@ -639,8 +639,7 @@ export default function GalpaoForm({
     if (!over || active.id === over.id) return;
     const reordenadas = applyDragReorder(existingImagens, String(active.id), String(over.id));
     setExistingImagens(reordenadas);
-    const supabase = createClient();
-    persistOrder(supabase, reordenadas);
+    persistOrder(draftId, reordenadas);
   }
 
   // ── Computed values for Revisão ───────────────────────────────────────────

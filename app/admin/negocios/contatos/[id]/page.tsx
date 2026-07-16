@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase-browser";
+import { apiGet, apiPut, apiDelete } from "@/lib/api-client";
 import { TIPOS, tipoLabel, tipoPlural } from "../_lib/tipos";
 
 type Contato = {
@@ -80,13 +80,14 @@ export default function ContatoDetalhePage() {
   useEffect(() => { load(); }, [id]);
 
   async function load() {
-    const supabase = createClient();
-    const [{ data: c }, { data: pc }, { data: imoveis }, { data: procProp }, { data: procCli }] = await Promise.all([
-      supabase.from("contatos").select("*").eq("id", id).single(),
-      supabase.from("processo_contatos").select("papel, processos(id, titulo, tipo, status)").eq("contato_id", id),
-      supabase.from("galpoes").select("id, titulo, tipo, categoria, cidade, publicado, area_construida_m2").eq("proprietario_id", id).order("created_at", { ascending: false }),
-      supabase.from("processos").select("id, titulo, tipo, status, valor").eq("proprietario_id", id).order("created_at", { ascending: false }),
-      supabase.from("processos").select("id, titulo, tipo, status, valor").eq("cliente_id", id).order("created_at", { ascending: false }),
+    const [c, rels] = await Promise.all([
+      apiGet<Contato>(`/api/v1/contatos/${id}`, { auth: true }),
+      apiGet<{
+        processo_contatos: Array<{ papel: string; processos: { id: string; titulo: string; tipo: string; status: string } | null }>;
+        imoveis_proprietario: ImovelResumido[];
+        processos_proprietario: ProcessoResumido[];
+        processos_cliente: ProcessoResumido[];
+      }>(`/api/v1/contatos/${id}/relationships`, { auth: true }),
     ]);
 
     if (c) {
@@ -101,28 +102,25 @@ export default function ContatoDetalhePage() {
       setNotas(c.notas ?? "");
     }
 
-    if (pc) {
-      setProcessos(
-        pc
-          .filter((row) => row.processos)
-          .map((row) => ({
-            ...(row.processos as unknown as { id: string; titulo: string; tipo: string; status: string }),
-            papel: row.papel,
-          }))
-      );
-    }
+    setProcessos(
+      (rels.processo_contatos ?? [])
+        .filter((row) => row.processos)
+        .map((row) => ({
+          ...row.processos!,
+          papel: row.papel,
+        }))
+    );
 
-    setImoveisProprietario((imoveis ?? []) as ImovelResumido[]);
-    setProcessosComoProprietario((procProp ?? []) as ProcessoResumido[]);
-    setProcessosComoCliente((procCli ?? []) as ProcessoResumido[]);
+    setImoveisProprietario(rels.imoveis_proprietario ?? []);
+    setProcessosComoProprietario(rels.processos_proprietario ?? []);
+    setProcessosComoCliente(rels.processos_cliente ?? []);
     setLoading(false);
   }
 
   async function salvar() {
     setSaving(true);
     const tags = [...new Set([tipoPrincipal, ...tagsAdicionais])];
-    const supabase = createClient();
-    await supabase.from("contatos").update({
+    await apiPut(`/api/v1/contatos/${id}`, {
       nome: nome.trim(),
       tipo_principal: tipoPrincipal,
       tags,
@@ -131,13 +129,12 @@ export default function ContatoDetalhePage() {
       empresa: empresa.trim() || null,
       cpf_cnpj: cpfCnpj.trim() || null,
       notas: notas.trim() || null,
-    }).eq("id", id);
+    }, { auth: true });
     setSaving(false);
   }
 
   async function excluir() {
-    const supabase = createClient();
-    await supabase.from("contatos").update({ ativo: false }).eq("id", id);
+    await apiDelete(`/api/v1/contatos/${id}`, { auth: true });
     router.push("/admin/negocios/contatos");
   }
 

@@ -1,4 +1,7 @@
-import { createClient } from "@/lib/supabase-server";
+"use client";
+
+import { useEffect, useState } from "react";
+import { apiGet } from "@/lib/api-client";
 import ProcessoConfigClient from "./ProcessoConfigClient";
 
 export type ItemTemplate = {
@@ -26,37 +29,33 @@ export type TipoTemplate = {
   categorias: CategoriaTemplate[];
 };
 
-export default async function ProcessoConfigPage() {
-  const supabase = await createClient();
+export default function ProcessoConfigPage() {
+  const [tipos, setTipos] = useState<TipoTemplate[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const { data: tipos } = await supabase
-    .from("processo_tipos")
-    .select(`
-      id, slug, label, descricao, ativo, ordem,
-      processo_tipo_categorias (
-        id, slug, label, ordem,
-        processo_tipo_itens ( id, titulo, descricao, ordem )
-      )
-    `)
-    .order("ordem");
-
-  const tiposHidratados: TipoTemplate[] = (tipos ?? []).map((t: any) => ({
-    id: t.id,
-    slug: t.slug,
-    label: t.label,
-    descricao: t.descricao,
-    ativo: t.ativo,
-    ordem: t.ordem,
-    categorias: (t.processo_tipo_categorias ?? [])
-      .sort((a: any, b: any) => a.ordem - b.ordem)
-      .map((c: any) => ({
-        id: c.id,
-        slug: c.slug,
-        label: c.label,
-        ordem: c.ordem,
-        itens: (c.processo_tipo_itens ?? []).sort((a: any, b: any) => a.ordem - b.ordem),
-      })),
-  }));
+  useEffect(() => {
+    apiGet<any[]>("/api/v1/config/processo-tipos", { auth: true, params: { full: "true" } }).then((data) => {
+      const hidratados: TipoTemplate[] = data.map((t) => ({
+        id: t.id,
+        slug: t.slug,
+        label: t.label,
+        descricao: t.descricao,
+        ativo: t.ativo,
+        ordem: t.ordem,
+        categorias: (t.processo_tipo_categorias ?? [])
+          .sort((a: any, b: any) => a.ordem - b.ordem)
+          .map((c: any) => ({
+            id: c.id,
+            slug: c.slug,
+            label: c.label,
+            ordem: c.ordem,
+            itens: (c.processo_tipo_itens ?? []).sort((a: any, b: any) => a.ordem - b.ordem),
+          })),
+      }));
+      setTipos(hidratados);
+      setLoading(false);
+    });
+  }, []);
 
   return (
     <div className="space-y-5 max-w-3xl">
@@ -66,7 +65,11 @@ export default async function ProcessoConfigPage() {
           Tipos, categorias e itens que são gerados automaticamente ao criar um novo processo.
         </p>
       </div>
-      <ProcessoConfigClient tiposIniciais={tiposHidratados} />
+      {loading ? (
+        <div className="text-sm text-gray-400 py-12 text-center">Carregando...</div>
+      ) : (
+        <ProcessoConfigClient tiposIniciais={tipos} />
+      )}
     </div>
   );
 }

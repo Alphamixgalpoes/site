@@ -144,19 +144,68 @@ async def upload_item_file(
     repo: ProcessoRepository = Depends(get_processo_repo),
     storage: StorageService = Depends(get_storage_service),
 ):
+    # Remove old file if exists
+    items = await repo.list_items(UUID(processo_id))
+    old_item = next((i for i in items if i["id"] == item_id), None)
+    if old_item and old_item.get("arquivo_path"):
+        try:
+            await storage.remove("processos", [old_item["arquivo_path"]])
+        except Exception:
+            pass
     file_bytes = await file.read()
     filename = file.filename or "document"
     path = f"{processo_id}/{item_id}/{filename}"
     await storage.upload("processos", path, file_bytes, file.content_type or "application/octet-stream")
+    tipo = "pdf" if filename.lower().endswith(".pdf") else "imagem"
     await repo.update_item(
         UUID(item_id),
         {
             "arquivo_path": path,
             "arquivo_nome": filename,
-            "arquivo_tipo": file.content_type or "application/octet-stream",
+            "arquivo_tipo": tipo,
+            "feito": True,
         },
     )
-    return {"path": path, "nome": filename}
+    signed_url = await storage.create_signed_url("processos", path, 3600)
+    return {"path": path, "nome": filename, "tipo": tipo, "signed_url": signed_url}
+
+
+@router.get("/{processo_id}/signed-urls")
+async def get_signed_urls(
+    processo_id: str,
+    _user: dict = Depends(get_current_user),
+    repo: ProcessoRepository = Depends(get_processo_repo),
+    storage: StorageService = Depends(get_storage_service),
+):
+    items = await repo.list_items(UUID(processo_id))
+    urls: dict[str, str] = {}
+    for item in items:
+        if item.get("arquivo_path"):
+            try:
+                url = await storage.create_signed_url("processos", item["arquivo_path"], 3600)
+                urls[item["id"]] = url
+            except Exception:
+                pass
+    return urls
+
+
+@router.delete("/{processo_id}/itens/{item_id}/file")
+async def remove_item_file(
+    processo_id: str,
+    item_id: str,
+    _user: dict = Depends(get_current_user),
+    repo: ProcessoRepository = Depends(get_processo_repo),
+    storage: StorageService = Depends(get_storage_service),
+):
+    items = await repo.list_items(UUID(processo_id))
+    item = next((i for i in items if i["id"] == item_id), None)
+    if item and item.get("arquivo_path"):
+        await storage.remove("processos", [item["arquivo_path"]])
+    await repo.update_item(
+        UUID(item_id),
+        {"arquivo_path": None, "arquivo_nome": None, "arquivo_tipo": None},
+    )
+    return {"ok": True}
 
 
 # --- Categories ---

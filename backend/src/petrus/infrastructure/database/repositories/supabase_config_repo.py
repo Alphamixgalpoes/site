@@ -28,6 +28,15 @@ class SupabaseConfigRepo(ConfigRepository):
         )
         return res.data or []
 
+    async def list_tipos_full(self) -> list[dict[str, Any]]:
+        res = (
+            self._sb.table("processo_tipos")
+            .select("*, processo_tipo_categorias(*, processo_tipo_itens(*))")
+            .order("ordem")
+            .execute()
+        )
+        return res.data or []
+
     async def get_tipo_with_template(self, tipo_id: UUID) -> dict[str, Any] | None:
         res = (
             self._sb.table("processo_tipos")

@@ -37,9 +37,12 @@ async def upsert_campos(
 
 @router.get("/processo-tipos")
 async def list_tipos(
+    full: bool = False,
     _user: dict = Depends(get_current_user),
     repo: ConfigRepository = Depends(get_config_repo),
 ):
+    if full:
+        return await repo.list_tipos_full()
     return await repo.list_tipos()
 
 

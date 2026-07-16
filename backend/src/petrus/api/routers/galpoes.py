@@ -11,6 +11,17 @@ from petrus.domain.repositories.galpao_repo import GalpaoRepository
 router = APIRouter(prefix="/api/v1/galpoes", tags=["galpoes"])
 
 
+@router.get("/search")
+async def search_galpoes(
+    q: str = "",
+    _user: dict = Depends(get_current_user),
+    repo: GalpaoRepository = Depends(get_galpao_repo),
+):
+    if len(q) < 2:
+        return []
+    return await repo.search(q)
+
+
 @router.get("")
 async def list_galpoes(
     user: dict | None = Depends(optional_user),

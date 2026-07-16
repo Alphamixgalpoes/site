@@ -1,14 +1,21 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase-server";
+import { apiGet } from "@/lib/api-client";
 import ConfigCamposClient from "./ConfigCamposClient";
 import type { ConfigCampo } from "@/lib/visibilidade";
 
-export default async function ConfiguracoesPage() {
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("config_campos")
-    .select("*")
-    .order("label");
+export default function ConfiguracoesPage() {
+  const [campos, setCampos] = useState<ConfigCampo[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    apiGet<ConfigCampo[]>("/api/v1/config/campos", { auth: true }).then((data) => {
+      setCampos(data);
+      setLoading(false);
+    });
+  }, []);
 
   return (
     <div className="max-w-2xl space-y-10">
@@ -38,7 +45,11 @@ export default async function ConfiguracoesPage() {
             Campos confidenciais ficam ocultos e podem ser liberados individualmente em cada imóvel.
           </p>
         </div>
-        <ConfigCamposClient initial={(data ?? []) as ConfigCampo[]} />
+        {loading ? (
+          <div className="text-sm text-gray-400 py-12 text-center">Carregando...</div>
+        ) : (
+          <ConfigCamposClient initial={campos} />
+        )}
       </div>
     </div>
   );

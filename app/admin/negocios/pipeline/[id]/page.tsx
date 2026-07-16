@@ -12,7 +12,7 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { createClient } from "@/lib/supabase-browser";
+import { apiGet, apiPut, apiPost, apiDelete, apiUpload } from "@/lib/api-client";
 import ContatoPicker from "@/app/admin/_components/ContatoPicker";
 import type { ContatoResumido } from "@/lib/types";
 
@@ -20,7 +20,7 @@ type GalpaoVinculado = {
   id: string;
   titulo: string;
   tipo: string | null;
-  area_total: number | null;
+  area_total_m2: number | null;
 };
 
 type Processo = {
@@ -75,7 +75,7 @@ type GalpaoBusca = {
   id: string;
   titulo: string;
   tipo: string | null;
-  area_total: number | null;
+  area_total_m2: number | null;
 };
 
 const statusOpcoes = [
@@ -243,30 +243,24 @@ export default function ProcessoDetalhePage() {
   useEffect(() => { load(); }, [id]);
 
   async function load() {
-    const supabase = createClient();
-    const [{ data: proc }, { data: its }, { data: cats }, { data: pc }] = await Promise.all([
-      supabase.from("processos").select(`*, proprietario:contatos!processos_proprietario_id_fkey(id, nome, empresa, tipo_principal), cliente:contatos!processos_cliente_id_fkey(id, nome, empresa, tipo_principal)`).eq("id", id).single(),
-      supabase.from("processo_itens").select("*").eq("processo_id", id).order("ordem"),
-      supabase.from("processo_categorias").select("*").eq("processo_id", id).order("ordem"),
-      supabase.from("processo_contatos").select("id, papel, contato_id, contatos(id, nome, tipo_principal)").eq("processo_id", id),
+    const [proc, its, cats, pc] = await Promise.all([
+      apiGet<any>(`/api/v1/processos/${id}`, { auth: true }),
+      apiGet<Item[]>(`/api/v1/processos/${id}/itens`, { auth: true }),
+      apiGet<Categoria[]>(`/api/v1/processos/${id}/categorias`, { auth: true }),
+      apiGet<any[]>(`/api/v1/processos/${id}/contatos`, { auth: true }),
     ]);
 
     if (proc) {
-      // Busca galpão vinculado separadamente (evita falha de cache de schema do PostgREST)
       let galpaoVinculado: GalpaoVinculado | null = null;
       if (proc.galpao_id) {
-        const { data: g } = await supabase
-          .from("galpoes")
-          .select("id, titulo, tipo, area_total")
-          .eq("id", proc.galpao_id)
-          .single();
-        galpaoVinculado = g ?? null;
+        try {
+          const g = await apiGet<any>(`/api/v1/galpoes/${proc.galpao_id}`, { auth: true });
+          galpaoVinculado = g ? { id: g.id, titulo: g.titulo, tipo: g.tipo, area_total_m2: g.area_total_m2 } : null;
+        } catch { /* galpao not found */ }
       }
       setProcesso({ ...proc, galpao: galpaoVinculado } as Processo);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if ((proc as any).proprietario) setProprietarioContato((proc as any).proprietario as ContatoResumido);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if ((proc as any).cliente) setClienteContato((proc as any).cliente as ContatoResumido);
+      if (proc.proprietario) setProprietarioContato(proc.proprietario as ContatoResumido);
+      if (proc.cliente) setClienteContato(proc.cliente as ContatoResumido);
       setEditTitulo(proc.titulo);
       setEditParteA(proc.parte_a ?? "");
       setEditParteB(proc.parte_b ?? "");
@@ -281,7 +275,7 @@ export default function ProcessoDetalhePage() {
       setCategorias(cats);
       setNovaCategoria(cats[0]?.slug ?? "");
     } else {
-      const slugsUnicos = Array.from(new Set((its ?? []).map((i) => i.categoria)));
+      const slugsUnicos = Array.from(new Set(items.map((i) => i.categoria)));
       const catsDerivadas: Categoria[] = slugsUnicos.map((slug, idx) => ({
         id: slug,
         slug,
@@ -295,9 +289,9 @@ export default function ProcessoDetalhePage() {
     if (pc) {
       setContatosVinculados(
         pc
-          .filter((row) => row.contatos)
-          .map((row) => {
-            const c = row.contatos as unknown as { id: string; nome: string; tipo_principal: string };
+          .filter((row: any) => row.contatos)
+          .map((row: any) => {
+            const c = row.contatos as { id: string; nome: string; tipo_principal: string };
             return {
               id: row.id,
               contato_id: row.contato_id,
@@ -316,12 +310,7 @@ export default function ProcessoDetalhePage() {
   async function loadSignedUrls(items: Item[]) {
     const comArquivo = items.filter((i) => i.arquivo_path);
     if (comArquivo.length === 0) return;
-    const supabase = createClient();
-    const urls: Record<string, string> = {};
-    await Promise.all(comArquivo.map(async (item) => {
-      const { data } = await supabase.storage.from("processos").createSignedUrl(item.arquivo_path!, 3600);
-      if (data?.signedUrl) urls[item.id] = data.signedUrl;
-    }));
+    const urls = await apiGet<Record<string, string>>(`/api/v1/processos/${id}/signed-urls`, { auth: true });
     setSignedUrls(urls);
   }
 
@@ -330,30 +319,23 @@ export default function ProcessoDetalhePage() {
   async function trocarProprietario(c: ContatoResumido | null) {
     setProprietarioContato(c);
     setTrocandoProprietario(false);
-    const supabase = createClient();
-    await supabase.from("processos").update({
-      proprietario_id: c?.id ?? null,
-      parte_a: c?.nome ?? processo?.parte_a ?? null,
-    }).eq("id", id);
-    setProcesso((p) => p ? { ...p, proprietario_id: c?.id ?? null, parte_a: c?.nome ?? p.parte_a } : p);
+    const data = { proprietario_id: c?.id ?? null, parte_a: c?.nome ?? processo?.parte_a ?? null };
+    await apiPut(`/api/v1/processos/${id}`, data, { auth: true });
+    setProcesso((p) => p ? { ...p, ...data } : p);
   }
 
   async function trocarCliente(c: ContatoResumido | null) {
     setClienteContato(c);
     setTrocandoCliente(false);
-    const supabase = createClient();
-    await supabase.from("processos").update({
-      cliente_id: c?.id ?? null,
-      parte_b: c?.nome ?? processo?.parte_b ?? null,
-    }).eq("id", id);
-    setProcesso((p) => p ? { ...p, cliente_id: c?.id ?? null, parte_b: c?.nome ?? p.parte_b } : p);
+    const data = { cliente_id: c?.id ?? null, parte_b: c?.nome ?? processo?.parte_b ?? null };
+    await apiPut(`/api/v1/processos/${id}`, data, { auth: true });
+    setProcesso((p) => p ? { ...p, ...data } : p);
   }
 
   // ── salvar campo inline ───────────────────────────────────────────────────
 
   async function salvarCampo(campo: string, valor: string | number | null) {
-    const supabase = createClient();
-    await supabase.from("processos").update({ [campo]: valor }).eq("id", id);
+    await apiPut(`/api/v1/processos/${id}`, { [campo]: valor }, { auth: true });
     setProcesso((p) => p ? { ...p, [campo]: valor } : p);
   }
 
@@ -361,28 +343,25 @@ export default function ProcessoDetalhePage() {
 
   async function atualizarStatus(status: string) {
     setProcesso((p) => p ? { ...p, status } : p);
-    const supabase = createClient();
-    await supabase.from("processos").update({ status }).eq("id", id);
+    await apiPut(`/api/v1/processos/${id}`, { status }, { auth: true });
   }
 
   // ── checklist ─────────────────────────────────────────────────────────────
 
   async function toggleFeito(item: Item) {
     setItens((prev) => prev.map((i) => i.id === item.id ? { ...i, feito: !item.feito } : i));
-    const supabase = createClient();
-    await supabase.from("processo_itens").update({ feito: !item.feito }).eq("id", item.id);
+    await apiPut(`/api/v1/processos/${id}/itens/${item.id}`, { feito: !item.feito }, { auth: true });
   }
 
   async function adicionarItem() {
     if (!novoTitulo.trim() || !novaCategoria) return;
     setAdicionando(true);
-    const supabase = createClient();
     const maxOrdem = Math.max(0, ...itens.filter((i) => i.categoria === novaCategoria).map((i) => i.ordem));
-    const { data } = await supabase
-      .from("processo_itens")
-      .insert({ processo_id: id, categoria: novaCategoria, titulo: novoTitulo.trim(), ordem: maxOrdem + 1 })
-      .select()
-      .single();
+    const data = await apiPost<Item>(`/api/v1/processos/${id}/itens`, {
+      categoria: novaCategoria,
+      titulo: novoTitulo.trim(),
+      ordem: maxOrdem + 1,
+    }, { auth: true });
     if (data) setItens((prev) => [...prev, data]);
     setNovoTitulo("");
     setMostrarFormItem(false);
@@ -392,37 +371,28 @@ export default function ProcessoDetalhePage() {
   async function removerItem(itemId: string) {
     const item = itens.find((i) => i.id === itemId);
     if (!window.confirm(`Excluir "${item?.titulo}"?`)) return;
-    if (item?.arquivo_path) {
-      const supabase = createClient();
-      await supabase.storage.from("processos").remove([item.arquivo_path]);
-    }
     setItens((prev) => prev.filter((i) => i.id !== itemId));
-    const supabase = createClient();
-    await supabase.from("processo_itens").delete().eq("id", itemId);
+    await apiDelete(`/api/v1/processos/${id}/itens/${itemId}`, { auth: true });
   }
 
   async function handleUpload(item: Item, file: File) {
     if (file.size > MAX_MB * 1024 * 1024) { alert(`Máximo ${MAX_MB}MB`); return; }
     setUploading((prev) => ({ ...prev, [item.id]: true }));
-    const supabase = createClient();
-    if (item.arquivo_path) await supabase.storage.from("processos").remove([item.arquivo_path]);
-    const ext = file.name.split(".").pop()?.toLowerCase() ?? "bin";
-    const path = `${id}/${item.id}/${Date.now()}.${ext}`;
-    const { error } = await supabase.storage.from("processos").upload(path, file, { upsert: true });
-    if (error) { alert("Erro no upload."); setUploading((prev) => ({ ...prev, [item.id]: false })); return; }
-    const tipo = ext === "pdf" ? "pdf" : "imagem";
-    await supabase.from("processo_itens").update({ arquivo_path: path, arquivo_nome: file.name, arquivo_tipo: tipo, feito: true }).eq("id", item.id);
-    const { data: signed } = await supabase.storage.from("processos").createSignedUrl(path, 3600);
-    setItens((prev) => prev.map((i) => i.id === item.id ? { ...i, arquivo_path: path, arquivo_nome: file.name, arquivo_tipo: tipo, feito: true } : i));
-    if (signed?.signedUrl) setSignedUrls((prev) => ({ ...prev, [item.id]: signed.signedUrl }));
+    try {
+      const result = await apiUpload<{ path: string; nome: string; tipo: string; signed_url: string }>(
+        `/api/v1/processos/${id}/itens/${item.id}/upload`, file, {}, { auth: true }
+      );
+      setItens((prev) => prev.map((i) => i.id === item.id ? { ...i, arquivo_path: result.path, arquivo_nome: result.nome, arquivo_tipo: result.tipo, feito: true } : i));
+      if (result.signed_url) setSignedUrls((prev) => ({ ...prev, [item.id]: result.signed_url }));
+    } catch {
+      alert("Erro no upload.");
+    }
     setUploading((prev) => ({ ...prev, [item.id]: false }));
   }
 
   async function handleRemoverArquivo(item: Item) {
     if (!item.arquivo_path) return;
-    const supabase = createClient();
-    await supabase.storage.from("processos").remove([item.arquivo_path]);
-    await supabase.from("processo_itens").update({ arquivo_path: null, arquivo_nome: null, arquivo_tipo: null }).eq("id", item.id);
+    await apiDelete(`/api/v1/processos/${id}/itens/${item.id}/file`, { auth: true });
     setItens((prev) => prev.map((i) => i.id === item.id ? { ...i, arquivo_path: null, arquivo_nome: null, arquivo_tipo: null } : i));
     setSignedUrls((prev) => { const n = { ...prev }; delete n[item.id]; return n; });
   }
@@ -440,10 +410,7 @@ export default function ProcessoDetalhePage() {
       const outros = prev.filter((i) => i.categoria !== catSlug);
       return [...outros, ...reordenados].sort((a, b) => a.ordem - b.ordem);
     });
-    const supabase = createClient();
-    await Promise.all(reordenados.map((i) =>
-      supabase.from("processo_itens").update({ ordem: i.ordem }).eq("id", i.id)
-    ));
+    await apiPut(`/api/v1/processos/${id}/itens/reorder`, reordenados.map((i) => ({ id: i.id, ordem: i.ordem })), { auth: true });
   }
 
   async function handleDragEndCategorias(event: DragEndEvent) {
@@ -453,40 +420,26 @@ export default function ProcessoDetalhePage() {
     const newIdx = categorias.findIndex((c) => c.id === over.id);
     const reordenadas = arrayMove(categorias, oldIdx, newIdx).map((c, idx) => ({ ...c, ordem: idx + 1 }));
     setCategorias(reordenadas);
-    const supabase = createClient();
-    const { data: existentes } = await supabase.from("processo_categorias").select("id").eq("processo_id", id);
-    if (existentes && existentes.length > 0) {
-      await Promise.all(reordenadas.map((c) =>
-        supabase.from("processo_categorias").update({ ordem: c.ordem }).eq("id", c.id)
-      ));
-    }
+    await apiPut(`/api/v1/processos/${id}/categorias/reorder`, reordenadas.map((c) => ({ id: c.id, ordem: c.ordem })), { auth: true });
   }
 
   // ── contatos ──────────────────────────────────────────────────────────────
 
   async function buscarContatos(termo: string) {
     if (termo.length < 2) { setResultadosContato([]); return; }
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("contatos")
-      .select("id, nome, tipo_principal")
-      .ilike("nome", `%${termo}%`)
-      .eq("ativo", true)
-      .limit(8);
+    const data = await apiGet<ContatoBusca[]>(`/api/v1/contatos/search?q=${encodeURIComponent(termo)}`, { auth: true });
     setResultadosContato(data ?? []);
   }
 
   async function vincularContato() {
     if (!contatoSelecionado || !papelContato.trim()) return;
     setVinculandoContato(true);
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("processo_contatos")
-      .insert({ processo_id: id, contato_id: contatoSelecionado.id, papel: papelContato.trim() })
-      .select("id, papel, contato_id, contatos(id, nome, tipo_principal)")
-      .single();
+    const data = await apiPost<any>(`/api/v1/processos/${id}/contatos`, {
+      contato_id: contatoSelecionado.id,
+      papel: papelContato.trim(),
+    }, { auth: true });
     if (data && data.contatos) {
-      const c = data.contatos as unknown as { id: string; nome: string; tipo_principal: string };
+      const c = data.contatos as { id: string; nome: string; tipo_principal: string };
       setContatosVinculados((prev) => [...prev, {
         id: data.id,
         contato_id: data.contato_id,
@@ -504,8 +457,7 @@ export default function ProcessoDetalhePage() {
   }
 
   async function desvincularContato(pcId: string) {
-    const supabase = createClient();
-    await supabase.from("processo_contatos").delete().eq("id", pcId);
+    await apiDelete(`/api/v1/processos/${id}/contatos/${pcId}`, { auth: true });
     setContatosVinculados((prev) => prev.filter((c) => c.id !== pcId));
   }
 
@@ -513,18 +465,12 @@ export default function ProcessoDetalhePage() {
 
   async function buscarGalpoes(termo: string) {
     if (termo.length < 2) { setResultadosGalpao([]); return; }
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("galpoes")
-      .select("id, titulo, tipo, area_total")
-      .ilike("titulo", `%${termo}%`)
-      .limit(8);
+    const data = await apiGet<GalpaoBusca[]>(`/api/v1/galpoes/search?q=${encodeURIComponent(termo)}`, { auth: true });
     setResultadosGalpao(data ?? []);
   }
 
   async function vincularGalpao(galpao: GalpaoBusca) {
-    const supabase = createClient();
-    await supabase.from("processos").update({ galpao_id: galpao.id }).eq("id", id);
+    await apiPut(`/api/v1/processos/${id}/galpao`, { galpao_id: galpao.id }, { auth: true });
     setProcesso((p) => p ? { ...p, galpao_id: galpao.id, galpao: galpao } : p);
     setBuscaGalpao("");
     setResultadosGalpao([]);
@@ -532,8 +478,7 @@ export default function ProcessoDetalhePage() {
   }
 
   async function desvincularGalpao() {
-    const supabase = createClient();
-    await supabase.from("processos").update({ galpao_id: null }).eq("id", id);
+    await apiDelete(`/api/v1/processos/${id}/galpao`, { auth: true });
     setProcesso((p) => p ? { ...p, galpao_id: null, galpao: null } : p);
   }
 
@@ -718,7 +663,7 @@ export default function ProcessoDetalhePage() {
                           className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0"
                         >
                           <span className="font-medium">{g.titulo}</span>
-                          {g.area_total && <span className="text-gray-400 ml-2 text-xs">{g.area_total.toLocaleString("pt-BR")} m²</span>}
+                          {g.area_total_m2 && <span className="text-gray-400 ml-2 text-xs">{g.area_total_m2.toLocaleString("pt-BR")} m²</span>}
                         </button>
                       ))}
                     </div>

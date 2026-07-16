@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { createClient } from "@/lib/supabase-browser";
+import { apiGet } from "@/lib/api-client";
 import type { ContatoResumido } from "@/lib/types";
 
 const TIPO_LABEL: Record<string, string> = {
@@ -51,14 +51,11 @@ export default function ContatoPicker({
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(async () => {
       setLoading(true);
-      const supabase = createClient();
-      const { data } = await supabase
-        .from("contatos")
-        .select("id, nome, empresa, tipo_principal")
-        .ilike("nome", `%${query.trim()}%`)
-        .eq("ativo", true)
-        .limit(8);
-      setResults((data ?? []) as ContatoResumido[]);
+      const data = await apiGet<ContatoResumido[]>("/api/v1/contatos/search", {
+        auth: true,
+        params: { q: query.trim() },
+      });
+      setResults(data);
       setOpen(true);
       setLoading(false);
     }, 300);

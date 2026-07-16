@@ -19,7 +19,7 @@ class SupabaseProcessoRepo(ProcessoRepository):
     async def get_by_id(self, processo_id: UUID) -> dict[str, Any] | None:
         res = (
             self._sb.table("processos")
-            .select("*, proprietario:contatos!processos_proprietario_id_fkey(id, nome, tipo_principal), cliente:contatos!processos_cliente_id_fkey(id, nome, tipo_principal)")
+            .select("*, proprietario:contatos!processos_proprietario_id_fkey(id, nome, empresa, tipo_principal), cliente:contatos!processos_cliente_id_fkey(id, nome, empresa, tipo_principal)")
             .eq("id", str(processo_id))
             .maybe_single()
             .execute()

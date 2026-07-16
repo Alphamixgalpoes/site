@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase-browser";
+import { apiPut } from "@/lib/api-client";
 import type { ConfigCampo } from "@/lib/visibilidade";
 
 export default function ConfigCamposClient({ initial }: { initial: ConfigCampo[] }) {
@@ -31,17 +31,14 @@ export default function ConfigCamposClient({ initial }: { initial: ConfigCampo[]
   async function handleSave() {
     setSaving(true);
     setErro("");
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("config_campos")
-      .upsert(campos, { onConflict: "campo_chave" });
-    setSaving(false);
-    if (error) {
-      setErro(error.message);
-    } else {
+    try {
+      await apiPut("/api/v1/config/campos", campos, { auth: true });
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
+    } catch (e: any) {
+      setErro(e.message ?? "Erro ao salvar");
     }
+    setSaving(false);
   }
 
   return (

@@ -40,3 +40,6 @@ class GalpaoRepository(ABC):
 
     @abstractmethod
     async def reorder_images(self, images: list[dict[str, Any]]) -> None: ...
+
+    @abstractmethod
+    async def search(self, query: str, limit: int = 8) -> list[dict[str, Any]]: ...

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { createClient } from "@/lib/supabase-browser";
+import { apiGet, apiPost } from "@/lib/api-client";
 import { TIPOS, tipoLabel, tipoPlural } from "./_lib/tipos";
 import ContatoRow from "./_components/ContatoRow";
 
@@ -41,13 +41,8 @@ export default function ContatosPage() {
   useEffect(() => { load(); }, []);
 
   async function load() {
-    const supabase = createClient();
-    const { data } = await supabase
-      .from("contatos")
-      .select("*")
-      .eq("ativo", true)
-      .order("nome");
-    setContatos(data ?? []);
+    const data = await apiGet<Contato[]>("/api/v1/contatos", { auth: true });
+    setContatos(data);
     setLoading(false);
   }
 
@@ -66,8 +61,7 @@ export default function ContatosPage() {
     if (!nome.trim()) return;
     setSaving(true);
     const tags = [...new Set([tipoPrincipal, ...tagsAdicionais])];
-    const supabase = createClient();
-    const { data } = await supabase.from("contatos").insert({
+    const data = await apiPost<Contato>("/api/v1/contatos", {
       nome: nome.trim(),
       tipo_principal: tipoPrincipal,
       tags,
@@ -76,14 +70,12 @@ export default function ContatosPage() {
       empresa: empresa.trim() || null,
       cpf_cnpj: cpfCnpj.trim() || null,
       notas: notas.trim() || null,
-    }).select().single();
+    }, { auth: true });
 
     setSaving(false);
-    if (data) {
-      setContatos((prev) => [...prev, data].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")));
-      setModal(false);
-      resetForm();
-    }
+    setContatos((prev) => [...prev, data].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR")));
+    setModal(false);
+    resetForm();
   }
 
   // Filtragem

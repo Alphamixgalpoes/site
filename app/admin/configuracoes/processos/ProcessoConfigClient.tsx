@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, arrayMove, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import { createClient } from "@/lib/supabase-browser";
+import { apiPost, apiPut } from "@/lib/api-client";
 import ProcessoTipoEditor from "./ProcessoTipoEditor";
 import type { TipoTemplate } from "./page";
 
@@ -28,9 +28,8 @@ export default function ProcessoConfigClient({ tiposIniciais }: Props) {
     const newIdx = tipos.findIndex((t) => t.id === over.id);
     const reordenados = arrayMove(tipos, oldIdx, newIdx).map((t, idx) => ({ ...t, ordem: idx + 1 }));
     setTipos(reordenados);
-    const supabase = createClient();
     await Promise.all(reordenados.map((t) =>
-      supabase.from("processo_tipos").update({ ordem: t.ordem }).eq("id", t.id)
+      apiPut(`/api/v1/config/processo-tipos/${t.id}`, { ordem: t.ordem }, { auth: true })
     ));
   }
 
@@ -41,13 +40,8 @@ export default function ProcessoConfigClient({ tiposIniciais }: Props) {
     const label = novoLabel.trim();
     if (!slug || !label) return;
     setCriando(true);
-    const supabase = createClient();
     const maxOrdem = tipos.length > 0 ? Math.max(...tipos.map((t) => t.ordem)) : 0;
-    const { data } = await supabase
-      .from("processo_tipos")
-      .insert({ slug, label, ativo: true, ordem: maxOrdem + 1 })
-      .select()
-      .single();
+    const data = await apiPost<any>("/api/v1/config/processo-tipos", { slug, label, ativo: true, ordem: maxOrdem + 1 }, { auth: true });
     if (data) setTipos((prev) => [...prev, { ...data, categorias: [] }]);
     setNovoSlug("");
     setNovoLabel("");

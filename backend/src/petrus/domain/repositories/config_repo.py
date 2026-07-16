@@ -16,6 +16,9 @@ class ConfigRepository(ABC):
     async def list_tipos(self) -> list[dict[str, Any]]: ...
 
     @abstractmethod
+    async def list_tipos_full(self) -> list[dict[str, Any]]: ...
+
+    @abstractmethod
     async def get_tipo_with_template(self, tipo_id: UUID) -> dict[str, Any] | None: ...
 
     @abstractmethod

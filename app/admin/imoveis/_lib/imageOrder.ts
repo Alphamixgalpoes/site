@@ -89,14 +89,12 @@ export function applyDragReorder<T extends ImagemOrdenavel>(
 }
 
 /** Persiste ordem, is_capa e visivel_site de todas as imagens no banco. */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function persistOrder(supabase: any, images: ImagemOrdenavel[]): Promise<void> {
-  await Promise.all(
-    images.map((img) =>
-      supabase
-        .from("galpao_imagens")
-        .update({ ordem: img.ordem, is_capa: img.is_capa, visivel_site: img.visivel_site })
-        .eq("id", img.id),
-    ),
-  );
+export async function persistOrder(galpaoId: string, images: ImagemOrdenavel[]): Promise<void> {
+  const { apiPut } = await import("@/lib/api-client");
+  await apiPut(`/api/v1/galpoes/${galpaoId}/images/reorder`, images.map((img) => ({
+    id: img.id,
+    ordem: img.ordem,
+    is_capa: img.is_capa,
+    visivel_site: img.visivel_site,
+  })), { auth: true });
 }
