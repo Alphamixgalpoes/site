@@ -102,3 +102,13 @@ class SupabaseGalpaoRepo(GalpaoRepository):
             self._sb.table("galpao_imagens").update(
                 {"ordem": img["ordem"], "is_capa": img.get("is_capa", False), "visivel_site": img.get("visivel_site", True)}
             ).eq("id", img["id"]).execute()
+
+    async def search(self, query: str, limit: int = 8) -> list[dict[str, Any]]:
+        res = (
+            self._sb.table("galpoes")
+            .select("id, titulo, tipo, area_total_m2")
+            .ilike("titulo", f"%{query}%")
+            .limit(limit)
+            .execute()
+        )
+        return res.data or []

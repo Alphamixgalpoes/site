@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase-browser";
+import { apiGet } from "@/lib/api-client";
 import CentralPage from "../_components/CentralPage";
 
 export default function NegociosCentral() {
@@ -10,14 +10,17 @@ export default function NegociosCentral() {
 
   useEffect(() => {
     async function load() {
-      const supabase = createClient();
-      const [{ count: leads }, { count: emAndamento }, { count: concluidos }, { count: contatos }] = await Promise.all([
-        supabase.from("leads").select("*", { count: "exact", head: true }),
-        supabase.from("processos").select("*", { count: "exact", head: true }).eq("status", "em_andamento"),
-        supabase.from("processos").select("*", { count: "exact", head: true }).eq("status", "concluido"),
-        supabase.from("contatos").select("*", { count: "exact", head: true }).eq("ativo", true),
+      const [leadsList, processosList, contatosList] = await Promise.all([
+        apiGet<any[]>("/api/v1/leads", { auth: true }),
+        apiGet<any[]>("/api/v1/processos", { auth: true }),
+        apiGet<any[]>("/api/v1/contatos", { auth: true }),
       ]);
-      setStats({ leads: leads ?? 0, emAndamento: emAndamento ?? 0, concluidos: concluidos ?? 0, contatos: contatos ?? 0 });
+      setStats({
+        leads: leadsList.length,
+        emAndamento: processosList.filter((p) => p.status === "em_andamento").length,
+        concluidos: processosList.filter((p) => p.status === "concluido").length,
+        contatos: contatosList.length,
+      });
       setLoading(false);
     }
     load();

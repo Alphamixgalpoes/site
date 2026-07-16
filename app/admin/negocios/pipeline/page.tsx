@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase-browser";
+import { apiGet, apiPost } from "@/lib/api-client";
 import ContatoPicker from "@/app/admin/_components/ContatoPicker";
 import type { ContatoResumido } from "@/lib/types";
 
@@ -67,14 +67,13 @@ export default function ProcessosPage() {
   useEffect(() => { load(); }, []);
 
   async function load() {
-    const supabase = createClient();
-    const [{ data: procs }, { data: tipos }] = await Promise.all([
-      supabase.from("processos").select("*").order("created_at", { ascending: false }),
-      supabase.from("processo_tipos").select("id, slug, label").eq("ativo", true).order("ordem"),
+    const [procs, allTipos] = await Promise.all([
+      apiGet<Processo[]>("/api/v1/processos", { auth: true }),
+      apiGet<(TipoDisponivel & { ativo: boolean })[]>("/api/v1/config/processo-tipos", { auth: true }),
     ]);
-    setProcessos(procs ?? []);
-    // Fallback: se a tabela ainda não existir, usa os 3 hardcoded
-    if (tipos && tipos.length > 0) {
+    setProcessos(procs);
+    const tipos = allTipos.filter((t) => t.ativo);
+    if (tipos.length > 0) {
       setTiposDisponiveis(tipos);
       setTipo(tipos[0].slug);
     } else {
@@ -95,11 +94,8 @@ export default function ProcessosPage() {
   async function criar() {
     if (!titulo.trim()) return;
     setSaving(true);
-    const supabase = createClient();
-
-    const { data: proc, error } = await supabase
-      .from("processos")
-      .insert({
+    try {
+      await apiPost("/api/v1/processos", {
         titulo: titulo.trim(),
         tipo,
         proprietario_id: proprietarioContato?.id ?? null,
@@ -108,54 +104,11 @@ export default function ProcessosPage() {
         parte_b: clienteContato?.nome ?? null,
         valor: valor ? Number(valor) : null,
         notas: notas.trim() || null,
-      })
-      .select()
-      .single();
-
-    if (error || !proc) { setSaving(false); return; }
-
-    // Tenta usar template do banco
-    const { data: templateTipo } = await supabase
-      .from("processo_tipos")
-      .select(`
-        id,
-        processo_tipo_categorias (
-          id, slug, label, ordem,
-          processo_tipo_itens ( titulo, descricao, ordem )
-        )
-      `)
-      .eq("slug", tipo)
-      .single();
-
-    if ((templateTipo?.processo_tipo_categorias?.length ?? 0) > 0) {
-      const categorias = (templateTipo!.processo_tipo_categorias as any[])
-        .sort((a, b) => a.ordem - b.ordem);
-
-      // Insere categorias do processo
-      await supabase.from("processo_categorias").insert(
-        categorias.map((c) => ({
-          processo_id: proc.id,
-          slug: c.slug,
-          label: c.label,
-          ordem: c.ordem,
-        }))
-      );
-
-      // Insere itens do processo
-      const itens = categorias.flatMap((c: any) =>
-        (c.processo_tipo_itens ?? []).map((item: any) => ({
-          processo_id: proc.id,
-          categoria: c.slug,
-          titulo: item.titulo,
-          descricao: item.descricao ?? null,
-          ordem: item.ordem,
-        }))
-      );
-      if (itens.length > 0) {
-        await supabase.from("processo_itens").insert(itens);
-      }
+      }, { auth: true });
+    } catch {
+      setSaving(false);
+      return;
     }
-
     setSaving(false);
     setModal(false);
     resetForm();
