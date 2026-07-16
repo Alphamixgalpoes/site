@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { useGalpoes } from "../_hooks/useGalpoes";
 import { createClient } from "@/lib/supabase-browser";
+import { apiGet, apiPost } from "@/lib/api-client";
 import GalpaoFiltros from "../_components/GalpaoFiltros";
 import MapaListaItem from "../_components/MapaListaItem";
 
@@ -74,12 +75,11 @@ export default function MapaHubPage() {
     // Reverse geocode para preencher endereço
     let endereco: Record<string, string> = {};
     try {
-      const res = await fetch("/api/geocode", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lat, lng }),
-      });
-      if (res.ok) endereco = await res.json();
+      endereco = await apiPost<Record<string, string>>(
+        "/api/v1/geocode/reverse",
+        { lat, lng },
+        { auth: true },
+      );
     } catch { /* silent */ }
 
     const supabase = createClient();
@@ -116,10 +116,10 @@ export default function MapaHubPage() {
     setBuscando(true);
     setBuscaErro("");
     try {
-      const params = new URLSearchParams({ endereco: busca.trim() });
-      const res = await fetch(`/api/geocode?${params}`);
-      if (!res.ok) { setBuscaErro("Erro na busca"); return; }
-      const { lat, lng } = await res.json();
+      const { lat, lng } = await apiGet<{ lat: number | null; lng: number | null }>(
+        "/api/v1/geocode/forward",
+        { auth: true, params: { endereco: busca.trim() } },
+      );
       if (lat && lng) {
         setFlyToCoord({ lat, lng });
         setSelecionadoId(null);

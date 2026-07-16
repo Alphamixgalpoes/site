@@ -4,6 +4,7 @@ import { useState, useMemo, createContext, useContext } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
+import { apiGet, apiPost } from "@/lib/api-client";
 import type { ConfigCampo, OverridesVisibilidade } from "@/lib/visibilidade";
 import ContatoPicker from "@/app/admin/_components/ContatoPicker";
 import type { ContatoResumido } from "@/lib/types";
@@ -370,13 +371,11 @@ export default function GalpaoForm({
     setLng(placeLng);
     setPinConfirmado(false);
     try {
-      const res = await fetch("/api/geocode", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lat: placeLat, lng: placeLng }),
-      });
-      if (!res.ok) return;
-      const data = await res.json();
+      const data = await apiPost<Record<string, string>>(
+        "/api/v1/geocode/reverse",
+        { lat: placeLat, lng: placeLng },
+        { auth: true },
+      );
       setForm((f) => ({
         ...f,
         logradouro: data.logradouro || f.logradouro,
@@ -394,16 +393,14 @@ export default function GalpaoForm({
   async function geocodeFromAddress(addr: { logradouro: string; bairro: string; cidade: string; cep: string }) {
     try {
       const enderecoStr = [addr.logradouro, form.numero].filter(Boolean).join(", ");
-      const params = new URLSearchParams({
-        endereco: enderecoStr, bairro: addr.bairro, cidade: addr.cidade, cep: addr.cep,
-      });
-      const res = await fetch(`/api/geocode?${params}`);
-      if (!res.ok) return;
-      const { lat: gLat, lng: gLng } = await res.json();
+      const { lat: gLat, lng: gLng } = await apiGet<{ lat: number | null; lng: number | null }>(
+        "/api/v1/geocode/forward",
+        { auth: true, params: { endereco: enderecoStr, bairro: addr.bairro, cidade: addr.cidade, cep: addr.cep } },
+      );
       if (gLat && gLng) {
         setLat(gLat);
         setLng(gLng);
-        setPinConfirmado(false); // User must still confirm
+        setPinConfirmado(false);
       }
     } catch { /* silent */ }
   }
@@ -553,18 +550,20 @@ export default function GalpaoForm({
     // Geocode if pin not yet confirmed and we have an address
     if (!pinConfirmado && (form.logradouro || form.cidade)) {
       try {
-        const params = new URLSearchParams({
-          endereco: [form.logradouro, form.numero].filter(Boolean).join(", "),
-          bairro: form.bairro,
-          cidade: form.cidade,
-          cep: form.cep,
-        });
-        const res = await fetch(`/api/geocode?${params}`);
-        if (res.ok) {
-          const { lat: gLat, lng: gLng } = await res.json();
-          if (gLat && gLng) {
-            await supabase.from("galpoes").update({ latitude: gLat, longitude: gLng }).eq("id", draftId);
-          }
+        const { lat: gLat, lng: gLng } = await apiGet<{ lat: number | null; lng: number | null }>(
+          "/api/v1/geocode/forward",
+          {
+            auth: true,
+            params: {
+              endereco: [form.logradouro, form.numero].filter(Boolean).join(", "),
+              bairro: form.bairro,
+              cidade: form.cidade,
+              cep: form.cep,
+            },
+          },
+        );
+        if (gLat && gLng) {
+          await supabase.from("galpoes").update({ latitude: gLat, longitude: gLng }).eq("id", draftId);
         }
       } catch { /* optional */ }
     }

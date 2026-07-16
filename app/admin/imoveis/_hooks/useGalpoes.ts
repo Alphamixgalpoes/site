@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { createClient } from "@/lib/supabase-browser";
+import { apiGet } from "@/lib/api-client";
 import type { ConfigCampo } from "@/lib/visibilidade";
 
 import type { Galpao } from "@/lib/types";
@@ -131,18 +132,13 @@ export function useGalpoes() {
       setGeocodingProgress(`Geocodificando ${i + 1}/${semCoordenadas.length}: ${g.titulo}...`);
 
       try {
-        const params = new URLSearchParams({
-          endereco: g.endereco ?? "",
-          bairro: g.bairro ?? "",
-          cidade: g.cidade ?? "",
-        });
-        const res = await fetch(`/api/geocode?${params}`);
-        if (res.ok) {
-          const { lat, lng } = await res.json();
-          if (lat && lng) {
-            await supabase.from("galpoes").update({ latitude: lat, longitude: lng }).eq("id", g.id);
-            setGalpoes((prev) => prev.map((p) => p.id === g.id ? { ...p, latitude: lat, longitude: lng } : p));
-          }
+        const { lat, lng } = await apiGet<{ lat: number | null; lng: number | null }>(
+          "/api/v1/geocode/forward",
+          { auth: true, params: { endereco: g.endereco ?? "", bairro: g.bairro ?? "", cidade: g.cidade ?? "" } },
+        );
+        if (lat && lng) {
+          await supabase.from("galpoes").update({ latitude: lat, longitude: lng }).eq("id", g.id);
+          setGalpoes((prev) => prev.map((p) => p.id === g.id ? { ...p, latitude: lat, longitude: lng } : p));
         }
       } catch {
         // ignora erro individual
