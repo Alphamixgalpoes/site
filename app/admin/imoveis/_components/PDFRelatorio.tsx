@@ -8,6 +8,7 @@ import {
   StyleSheet,
 } from "@react-pdf/renderer";
 import type { Galpao, GalpaoImagem } from "@/lib/types";
+import { API_BASE_URL } from "@/lib/api-client";
 import type { ConfigCampo } from "@/lib/visibilidade";
 
 export type OpcoesPDF = {
@@ -286,7 +287,7 @@ function SecaoSumario({
       .map((g) => `${g.latitude},${g.longitude},${g.num}`)
       .join("|");
     const params = new URLSearchParams({ size: "800x380", markers });
-    mapaUrl = `${baseUrl}/api/staticmap?${params}`;
+    mapaUrl = `${API_BASE_URL}/api/v1/maps/static?${params}`;
   }
 
   const mostrarValor = incluirConfidenciais || !isCampoConfidencial("valor", configCampos);

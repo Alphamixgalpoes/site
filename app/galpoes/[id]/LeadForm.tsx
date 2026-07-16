@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { apiPost } from "@/lib/api-client";
 
 type Props = {
   galpaoId: string;
@@ -20,26 +21,20 @@ export default function LeadForm({ galpaoId, galpaoTitulo }: Props) {
     setErro("");
     setLoading(true);
 
-    const res = await fetch("/api/leads", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    try {
+      await apiPost("/api/v1/leads", {
         nome,
         telefone,
         empresa,
         galpao_id: galpaoId,
         galpao_titulo: galpaoTitulo,
-      }),
-    });
-
-    setLoading(false);
-
-    if (!res.ok) {
+      });
+      setEnviado(true);
+    } catch {
       setErro("Erro ao enviar. Tente pelo WhatsApp.");
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    setEnviado(true);
   }
 
   if (enviado) {

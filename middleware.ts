@@ -1,19 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { isBlockedUserAgent } from "@/lib/security/user-agent";
-import { isAllowedReferer } from "@/lib/security/referer";
 
 export async function middleware(request: NextRequest) {
-  // Guarda do proxy de imagem — curto-circuita antes de tocar o Supabase Auth
-  if (request.nextUrl.pathname === "/api/img") {
-    const ua = request.headers.get("user-agent");
-    const referer = request.headers.get("referer");
-    if (isBlockedUserAgent(ua) || !isAllowedReferer(referer)) {
-      return new NextResponse("Forbidden", { status: 403 });
-    }
-    return NextResponse.next();
-  }
-
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -51,5 +39,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/admin/:path*", "/login", "/api/img"],
+  matcher: ["/admin/:path*", "/login"],
 };
