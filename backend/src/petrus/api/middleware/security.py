@@ -10,6 +10,8 @@ ALLOWED_ORIGINS = [
     "https://www.alphamixgalpoes.com.br",
     "https://alphamixgalpoes.com.br",
     "https://petrusweb.vercel.app",
+    "http://localhost:3000",
+    "http://localhost:3001",
 ]
 
 
