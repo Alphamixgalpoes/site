@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { createClient } from "@/lib/supabase-browser";
+import { apiPut, apiDelete } from "@/lib/api-client";
 import type { ItemTemplate } from "./page";
 
 type Props = {
@@ -30,8 +30,7 @@ export default function ItemEditor({ item, onUpdate, onDelete }: Props) {
   async function salvarTitulo() {
     const val = titulo.trim();
     if (!val || val === item.titulo) { setEditandoTitulo(false); return; }
-    const supabase = createClient();
-    await supabase.from("processo_tipo_itens").update({ titulo: val }).eq("id", item.id);
+    await apiPut(`/api/v1/config/itens/${item.id}`, { titulo: val }, { auth: true });
     onUpdate(item.id, { titulo: val });
     setEditandoTitulo(false);
   }
@@ -39,16 +38,14 @@ export default function ItemEditor({ item, onUpdate, onDelete }: Props) {
   async function salvarDescricao() {
     const val = descricao.trim() || null;
     if (val === item.descricao) { setEditandoDesc(false); return; }
-    const supabase = createClient();
-    await supabase.from("processo_tipo_itens").update({ descricao: val }).eq("id", item.id);
+    await apiPut(`/api/v1/config/itens/${item.id}`, { descricao: val }, { auth: true });
     onUpdate(item.id, { descricao: val });
     setEditandoDesc(false);
   }
 
   async function deletar() {
     if (!window.confirm(`Excluir o item "${item.titulo}"?`)) return;
-    const supabase = createClient();
-    await supabase.from("processo_tipo_itens").delete().eq("id", item.id);
+    await apiDelete(`/api/v1/config/itens/${item.id}`, { auth: true });
     onDelete(item.id);
   }
 

@@ -5,7 +5,7 @@ import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-
 import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { arrayMove } from "@dnd-kit/sortable";
-import { createClient } from "@/lib/supabase-browser";
+import { apiPut, apiPost, apiDelete } from "@/lib/api-client";
 import ItemEditor from "./ItemEditor";
 import type { CategoriaTemplate, ItemTemplate } from "./page";
 
@@ -41,8 +41,7 @@ export default function CategoriaEditor({ categoria, onUpdate, onDelete, onItens
   async function salvarLabel() {
     const val = label.trim();
     if (!val || val === categoria.label) { setEditandoLabel(false); return; }
-    const supabase = createClient();
-    await supabase.from("processo_tipo_categorias").update({ label: val }).eq("id", categoria.id);
+    await apiPut(`/api/v1/config/categorias/${categoria.id}`, { label: val }, { auth: true });
     onUpdate(categoria.id, { label: val });
     setEditandoLabel(false);
   }
@@ -55,26 +54,19 @@ export default function CategoriaEditor({ categoria, onUpdate, onDelete, onItens
     const reordenados = arrayMove(itens, oldIdx, newIdx).map((item, idx) => ({ ...item, ordem: idx + 1 }));
     setItens(reordenados);
     onItensChange(categoria.id, reordenados);
-    const supabase = createClient();
     await Promise.all(reordenados.map((item) =>
-      supabase.from("processo_tipo_itens").update({ ordem: item.ordem }).eq("id", item.id)
+      apiPut(`/api/v1/config/itens/${item.id}`, { ordem: item.ordem }, { auth: true })
     ));
   }
 
   async function adicionarItem() {
     if (!novoItemTitulo.trim()) return;
     setAdicionando(true);
-    const supabase = createClient();
     const maxOrdem = itens.length > 0 ? Math.max(...itens.map((i) => i.ordem)) : 0;
-    const { data } = await supabase
-      .from("processo_tipo_itens")
-      .insert({
-        categoria_id: categoria.id,
-        titulo: novoItemTitulo.trim(),
-        ordem: maxOrdem + 1,
-      })
-      .select()
-      .single();
+    const data = await apiPost<any>(`/api/v1/config/categorias/${categoria.id}/itens`, {
+      titulo: novoItemTitulo.trim(),
+      ordem: maxOrdem + 1,
+    }, { auth: true });
     if (data) {
       const novosItens = [...itens, data];
       setItens(novosItens);
@@ -87,8 +79,7 @@ export default function CategoriaEditor({ categoria, onUpdate, onDelete, onItens
 
   async function deletarCategoria() {
     if (!window.confirm(`Excluir a categoria "${categoria.label}"?\nTodos os itens desta categoria serão removidos do template.`)) return;
-    const supabase = createClient();
-    await supabase.from("processo_tipo_categorias").delete().eq("id", categoria.id);
+    await apiDelete(`/api/v1/config/categorias/${categoria.id}`, { auth: true });
     onDelete(categoria.id);
   }
 

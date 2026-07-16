@@ -5,7 +5,7 @@ import { useSortable, SortableContext, verticalListSortingStrategy } from "@dnd-
 import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { arrayMove } from "@dnd-kit/sortable";
-import { createClient } from "@/lib/supabase-browser";
+import { apiPut, apiPost, apiDelete } from "@/lib/api-client";
 import CategoriaEditor from "./CategoriaEditor";
 import type { TipoTemplate, CategoriaTemplate, ItemTemplate } from "./page";
 
@@ -41,8 +41,7 @@ export default function ProcessoTipoEditor({ tipo, onUpdate, onDelete }: Props) 
   async function salvarLabel() {
     const val = label.trim();
     if (!val || val === tipo.label) { setEditandoLabel(false); return; }
-    const supabase = createClient();
-    await supabase.from("processo_tipos").update({ label: val }).eq("id", tipo.id);
+    await apiPut(`/api/v1/config/processo-tipos/${tipo.id}`, { label: val }, { auth: true });
     onUpdate(tipo.id, { label: val });
     setEditandoLabel(false);
   }
@@ -52,14 +51,12 @@ export default function ProcessoTipoEditor({ tipo, onUpdate, onDelete }: Props) 
     if (!window.confirm(
       `Excluir o tipo "${tipo.label}"?\n\nIsso vai remover ${categorias.length} categorias e ${totalItens} itens do template.\nProcessos já criados com este tipo NÃO serão afetados.\n\nEsta ação não pode ser desfeita.`
     )) return;
-    const supabase = createClient();
-    await supabase.from("processo_tipos").delete().eq("id", tipo.id);
+    await apiDelete(`/api/v1/config/processo-tipos/${tipo.id}`, { auth: true });
     onDelete(tipo.id);
   }
 
   async function toggleAtivo() {
-    const supabase = createClient();
-    await supabase.from("processo_tipos").update({ ativo: !tipo.ativo }).eq("id", tipo.id);
+    await apiPut(`/api/v1/config/processo-tipos/${tipo.id}`, { ativo: !tipo.ativo }, { auth: true });
     onUpdate(tipo.id, { ativo: !tipo.ativo });
   }
 
@@ -70,25 +67,19 @@ export default function ProcessoTipoEditor({ tipo, onUpdate, onDelete }: Props) 
     const newIdx = categorias.findIndex((c) => c.id === over.id);
     const reordenadas = arrayMove(categorias, oldIdx, newIdx).map((c, idx) => ({ ...c, ordem: idx + 1 }));
     setCategorias(reordenadas);
-    const supabase = createClient();
     await Promise.all(reordenadas.map((c) =>
-      supabase.from("processo_tipo_categorias").update({ ordem: c.ordem }).eq("id", c.id)
+      apiPut(`/api/v1/config/categorias/${c.id}`, { ordem: c.ordem }, { auth: true })
     ));
   }
 
   async function adicionarCategoria() {
     if (!novaCategLabel.trim()) return;
     setAdicionandoCateg(true);
-    const supabase = createClient();
     const maxOrdem = categorias.length > 0 ? Math.max(...categorias.map((c) => c.ordem)) : 0;
     const slug = novaCategLabel.trim().toLowerCase()
       .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
       .replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
-    const { data } = await supabase
-      .from("processo_tipo_categorias")
-      .insert({ tipo_id: tipo.id, slug, label: novaCategLabel.trim(), ordem: maxOrdem + 1 })
-      .select()
-      .single();
+    const data = await apiPost<any>(`/api/v1/config/processo-tipos/${tipo.id}/categorias`, { slug, label: novaCategLabel.trim(), ordem: maxOrdem + 1 }, { auth: true });
     if (data) setCategorias((prev) => [...prev, { ...data, itens: [] }]);
     setNovaCategLabel("");
     setMostrarFormCateg(false);
