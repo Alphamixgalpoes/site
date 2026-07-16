@@ -5,9 +5,19 @@ import { createClient } from "@/lib/supabase-browser";
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000";
 
 async function getToken(): Promise<string | null> {
-  const supabase = createClient();
-  const { data } = await supabase.auth.getSession();
-  return data.session?.access_token ?? null;
+  try {
+    const supabase = createClient();
+    const { data } = await supabase.auth.getSession();
+    if (data.session?.access_token) return data.session.access_token;
+    // Fallback: tentar refresh se getSession retornou null
+    const { data: refreshed } = await supabase.auth.refreshSession();
+    if (refreshed.session?.access_token) return refreshed.session.access_token;
+    console.warn("[api-client] Token de autenticação não disponível");
+    return null;
+  } catch (e) {
+    console.warn("[api-client] Erro ao obter token:", e);
+    return null;
+  }
 }
 
 async function headers(auth: boolean): Promise<Record<string, string>> {
