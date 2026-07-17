@@ -146,10 +146,10 @@ async def upload_item_file(
 ):
     # Remove old file if exists
     items = await repo.list_items(UUID(processo_id))
-    old_item = next((i for i in items if i["id"] == item_id), None)
-    if old_item and old_item.get("arquivo_path"):
+    old_item = next((i for i in items if str(i.id) == item_id), None)
+    if old_item and old_item.arquivo_path:
         try:
-            await storage.remove("processos", [old_item["arquivo_path"]])
+            await storage.remove("processos", [old_item.arquivo_path])
         except Exception:
             pass
     file_bytes = await file.read()
@@ -180,10 +180,10 @@ async def get_signed_urls(
     items = await repo.list_items(UUID(processo_id))
     urls: dict[str, str] = {}
     for item in items:
-        if item.get("arquivo_path"):
+        if item.arquivo_path:
             try:
-                url = await storage.create_signed_url("processos", item["arquivo_path"], 3600)
-                urls[item["id"]] = url
+                url = await storage.create_signed_url("processos", item.arquivo_path, 3600)
+                urls[str(item.id)] = url
             except Exception:
                 pass
     return urls
@@ -198,9 +198,9 @@ async def remove_item_file(
     storage: StorageService = Depends(get_storage_service),
 ):
     items = await repo.list_items(UUID(processo_id))
-    item = next((i for i in items if i["id"] == item_id), None)
-    if item and item.get("arquivo_path"):
-        await storage.remove("processos", [item["arquivo_path"]])
+    item = next((i for i in items if str(i.id) == item_id), None)
+    if item and item.arquivo_path:
+        await storage.remove("processos", [item.arquivo_path])
     await repo.update_item(
         UUID(item_id),
         {"arquivo_path": None, "arquivo_nome": None, "arquivo_tipo": None},

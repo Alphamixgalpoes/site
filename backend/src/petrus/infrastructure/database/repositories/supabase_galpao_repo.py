@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+from dataclasses import fields as dc_fields
 from typing import Any
 from uuid import UUID, uuid4
 
 from supabase import Client
 
+from petrus.domain.entities.contato import ContatoResumido
+from petrus.domain.entities.galpao import Galpao, GalpaoImagem, GalpaoResumido
 from petrus.domain.repositories.galpao_repo import GalpaoRepository
 
 GALPAO_SELECT = """id, titulo, tipo, categoria, uso_terreno, valor, cidade, bairro, endereco,
@@ -18,16 +21,35 @@ campos_visibilidade, latitude, longitude, proprietario_id, created_at,
 proprietario:contatos!galpoes_proprietario_id_fkey(id, nome, empresa, tipo_principal),
 galpao_imagens(id, storage_path, ordem, visivel_site, is_capa)"""
 
+_GALPAO_FIELDS = {f.name for f in dc_fields(Galpao)}
+
+
+def _to_galpao(row: dict) -> Galpao:
+    row = dict(row)
+    imagens_data = row.pop("galpao_imagens", []) or []
+    prop_data = row.pop("proprietario", None)
+
+    imagens = [GalpaoImagem(**img) for img in imagens_data]
+    proprietario = ContatoResumido(**prop_data) if prop_data else None
+
+    known = {k: v for k, v in row.items() if k in _GALPAO_FIELDS}
+    return Galpao(**known, galpao_imagens=imagens, proprietario=proprietario)
+
+
+def _to_galpao_from_insert(row: dict) -> Galpao:
+    known = {k: v for k, v in row.items() if k in _GALPAO_FIELDS}
+    return Galpao(**known)
+
 
 class SupabaseGalpaoRepo(GalpaoRepository):
     def __init__(self, client: Client) -> None:
         self._sb = client
 
-    async def list_all(self) -> list[dict[str, Any]]:
+    async def list_all(self) -> list[Galpao]:
         res = self._sb.table("galpoes").select(GALPAO_SELECT).order("created_at", desc=True).execute()
-        return res.data or []
+        return [_to_galpao(row) for row in (res.data or [])]
 
-    async def list_published(self) -> list[dict[str, Any]]:
+    async def list_published(self) -> list[Galpao]:
         res = (
             self._sb.table("galpoes")
             .select(GALPAO_SELECT)
@@ -35,9 +57,9 @@ class SupabaseGalpaoRepo(GalpaoRepository):
             .order("created_at", desc=True)
             .execute()
         )
-        return res.data or []
+        return [_to_galpao(row) for row in (res.data or [])]
 
-    async def get_by_id(self, galpao_id: UUID) -> dict[str, Any] | None:
+    async def get_by_id(self, galpao_id: UUID) -> Galpao | None:
         res = (
             self._sb.table("galpoes")
             .select(GALPAO_SELECT)
@@ -45,20 +67,20 @@ class SupabaseGalpaoRepo(GalpaoRepository):
             .maybe_single()
             .execute()
         )
-        return res.data
+        return _to_galpao(res.data) if res.data else None
 
-    async def create(self, data: dict[str, Any]) -> dict[str, Any]:
+    async def create(self, data: dict[str, Any]) -> Galpao:
         res = self._sb.table("galpoes").insert(data).execute()
-        return res.data[0]
+        return _to_galpao_from_insert(res.data[0])
 
-    async def update(self, galpao_id: UUID, data: dict[str, Any]) -> dict[str, Any]:
+    async def update(self, galpao_id: UUID, data: dict[str, Any]) -> Galpao:
         res = (
             self._sb.table("galpoes")
             .update(data)
             .eq("id", str(galpao_id))
             .execute()
         )
-        return res.data[0]
+        return _to_galpao_from_insert(res.data[0])
 
     async def delete(self, galpao_id: UUID) -> None:
         self._sb.table("galpoes").delete().eq("id", str(galpao_id)).execute()
@@ -75,7 +97,7 @@ class SupabaseGalpaoRepo(GalpaoRepository):
 
     async def upload_image(
         self, galpao_id: UUID, file_bytes: bytes, filename: str, ordem: int
-    ) -> dict[str, Any]:
+    ) -> GalpaoImagem:
         path = f"{galpao_id}/{uuid4()}_{filename}"
         self._sb.storage.from_("galpoes").upload(path, file_bytes)
         res = (
@@ -91,7 +113,7 @@ class SupabaseGalpaoRepo(GalpaoRepository):
             )
             .execute()
         )
-        return res.data[0]
+        return GalpaoImagem(**{k: v for k, v in res.data[0].items() if k in {f.name for f in dc_fields(GalpaoImagem)}})
 
     async def delete_image(self, image_id: UUID, storage_path: str) -> None:
         self._sb.storage.from_("galpoes").remove([storage_path])
@@ -103,7 +125,7 @@ class SupabaseGalpaoRepo(GalpaoRepository):
                 {"ordem": img["ordem"], "is_capa": img.get("is_capa", False), "visivel_site": img.get("visivel_site", True)}
             ).eq("id", img["id"]).execute()
 
-    async def search(self, query: str, limit: int = 8) -> list[dict[str, Any]]:
+    async def search(self, query: str, limit: int = 8) -> list[GalpaoResumido]:
         res = (
             self._sb.table("galpoes")
             .select("id, titulo, tipo, area_total_m2")
@@ -111,4 +133,4 @@ class SupabaseGalpaoRepo(GalpaoRepository):
             .limit(limit)
             .execute()
         )
-        return res.data or []
+        return [GalpaoResumido(**row) for row in (res.data or [])]

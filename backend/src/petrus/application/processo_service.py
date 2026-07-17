@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from petrus.domain.entities.processo import Processo
 from petrus.domain.repositories.processo_repo import ProcessoRepository
 
 
@@ -11,25 +12,25 @@ class ProcessoAppService:
 
     async def create_with_template(
         self, data: dict[str, Any], tipo_slug: str
-    ) -> dict[str, Any]:
+    ) -> Processo:
         proc = await self._repo.create(data)
-        proc_id = proc["id"]
+        proc_id = str(proc.id)
 
         template = await self._repo.get_type_template(tipo_slug)
-        if not template or not template.get("processo_tipo_categorias"):
+        if not template or not template.processo_tipo_categorias:
             return proc
 
         categorias = sorted(
-            template["processo_tipo_categorias"], key=lambda c: c["ordem"]
+            template.processo_tipo_categorias, key=lambda c: c.ordem
         )
 
         await self._repo.create_categories(
             [
                 {
                     "processo_id": proc_id,
-                    "slug": c["slug"],
-                    "label": c["label"],
-                    "ordem": c["ordem"],
+                    "slug": c.slug,
+                    "label": c.label,
+                    "ordem": c.ordem,
                 }
                 for c in categorias
             ]
@@ -37,14 +38,14 @@ class ProcessoAppService:
 
         itens = []
         for cat in categorias:
-            for item in cat.get("processo_tipo_itens", []):
+            for item in cat.processo_tipo_itens:
                 itens.append(
                     {
                         "processo_id": proc_id,
-                        "categoria": cat["slug"],
-                        "titulo": item["titulo"],
-                        "descricao": item.get("descricao"),
-                        "ordem": item["ordem"],
+                        "categoria": cat.slug,
+                        "titulo": item.titulo,
+                        "descricao": item.descricao,
+                        "ordem": item.ordem,
                     }
                 )
 

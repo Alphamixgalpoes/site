@@ -50,7 +50,7 @@ async def get_galpao(
     g = await repo.get_by_id(UUID(galpao_id))
     if not g:
         raise HTTPException(status_code=404, detail="Galpao not found")
-    if not user and not g.get("publicado"):
+    if not user and not g.publicado:
         raise HTTPException(status_code=404, detail="Galpao not found")
     return g
 
