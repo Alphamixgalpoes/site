@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 
 from petrus.api.middleware.auth import get_current_user
 from petrus.api.schemas.processo import (
@@ -13,10 +13,9 @@ from petrus.api.schemas.processo import (
     LinkContact,
     LinkGalpao,
 )
-from petrus.api.deps import get_processo_repo, get_processo_file_service
+from petrus.api.deps import get_processo_service, get_processo_file_service
 from petrus.application.processo_service import ProcessoAppService
 from petrus.application.processo_file_service import ProcessoFileService
-from petrus.domain.repositories.processo_repo import ProcessoRepository
 
 router = APIRouter(prefix="/api/v1/processos", tags=["processos"])
 
@@ -27,18 +26,17 @@ router = APIRouter(prefix="/api/v1/processos", tags=["processos"])
 @router.get("")
 async def list_processos(
     _user: dict = Depends(get_current_user),
-    repo: ProcessoRepository = Depends(get_processo_repo),
+    svc: ProcessoAppService = Depends(get_processo_service),
 ):
-    return await repo.list_all()
+    return await svc.list_all()
 
 
 @router.post("")
 async def create_processo(
     body: ProcessoCreate,
     _user: dict = Depends(get_current_user),
-    repo: ProcessoRepository = Depends(get_processo_repo),
+    svc: ProcessoAppService = Depends(get_processo_service),
 ):
-    svc = ProcessoAppService(repo)
     data = body.model_dump(exclude_none=True)
     tipo_slug = data.get("tipo", "")
     return await svc.create_with_template(data, tipo_slug)
@@ -48,9 +46,9 @@ async def create_processo(
 async def get_processo(
     processo_id: str,
     _user: dict = Depends(get_current_user),
-    repo: ProcessoRepository = Depends(get_processo_repo),
+    svc: ProcessoAppService = Depends(get_processo_service),
 ):
-    p = await repo.get_by_id(UUID(processo_id))
+    p = await svc.get(UUID(processo_id))
     if not p:
         raise HTTPException(status_code=404, detail="Process not found")
     return p
@@ -61,19 +59,19 @@ async def update_processo(
     processo_id: str,
     body: ProcessoUpdate,
     _user: dict = Depends(get_current_user),
-    repo: ProcessoRepository = Depends(get_processo_repo),
+    svc: ProcessoAppService = Depends(get_processo_service),
 ):
     data = body.model_dump(exclude_none=True)
-    return await repo.update(UUID(processo_id), data)
+    return await svc.update(UUID(processo_id), data)
 
 
 @router.delete("/{processo_id}")
 async def delete_processo(
     processo_id: str,
     _user: dict = Depends(get_current_user),
-    repo: ProcessoRepository = Depends(get_processo_repo),
+    svc: ProcessoAppService = Depends(get_processo_service),
 ):
-    await repo.delete(UUID(processo_id))
+    await svc.delete(UUID(processo_id))
     return {"ok": True}
 
 
@@ -84,9 +82,9 @@ async def delete_processo(
 async def list_items(
     processo_id: str,
     _user: dict = Depends(get_current_user),
-    repo: ProcessoRepository = Depends(get_processo_repo),
+    svc: ProcessoAppService = Depends(get_processo_service),
 ):
-    return await repo.list_items(UUID(processo_id))
+    return await svc.list_items(UUID(processo_id))
 
 
 @router.post("/{processo_id}/itens")
@@ -94,11 +92,10 @@ async def create_item(
     processo_id: str,
     body: ItemCreate,
     _user: dict = Depends(get_current_user),
-    repo: ProcessoRepository = Depends(get_processo_repo),
+    svc: ProcessoAppService = Depends(get_processo_service),
 ):
     data = body.model_dump()
-    data["processo_id"] = processo_id
-    return await repo.create_item(data)
+    return await svc.create_item(UUID(processo_id), data)
 
 
 @router.put("/{processo_id}/itens/reorder")
@@ -106,9 +103,9 @@ async def reorder_items(
     processo_id: str,
     items: list[dict],
     _user: dict = Depends(get_current_user),
-    repo: ProcessoRepository = Depends(get_processo_repo),
+    svc: ProcessoAppService = Depends(get_processo_service),
 ):
-    await repo.reorder_items(items)
+    await svc.reorder_items(items)
     return {"ok": True}
 
 
@@ -118,10 +115,10 @@ async def update_item(
     item_id: str,
     body: ItemUpdate,
     _user: dict = Depends(get_current_user),
-    repo: ProcessoRepository = Depends(get_processo_repo),
+    svc: ProcessoAppService = Depends(get_processo_service),
 ):
     data = body.model_dump(exclude_none=True)
-    return await repo.update_item(UUID(item_id), data)
+    return await svc.update_item(UUID(item_id), data)
 
 
 @router.delete("/{processo_id}/itens/{item_id}")
@@ -129,9 +126,9 @@ async def delete_item(
     processo_id: str,
     item_id: str,
     _user: dict = Depends(get_current_user),
-    repo: ProcessoRepository = Depends(get_processo_repo),
+    svc: ProcessoAppService = Depends(get_processo_service),
 ):
-    await repo.delete_item(UUID(item_id))
+    await svc.delete_item(UUID(item_id))
     return {"ok": True}
 
 
@@ -181,9 +178,9 @@ async def remove_item_file(
 async def list_categories(
     processo_id: str,
     _user: dict = Depends(get_current_user),
-    repo: ProcessoRepository = Depends(get_processo_repo),
+    svc: ProcessoAppService = Depends(get_processo_service),
 ):
-    return await repo.list_categories(UUID(processo_id))
+    return await svc.list_categories(UUID(processo_id))
 
 
 @router.put("/{processo_id}/categorias/reorder")
@@ -191,9 +188,9 @@ async def reorder_categories(
     processo_id: str,
     categories: list[dict],
     _user: dict = Depends(get_current_user),
-    repo: ProcessoRepository = Depends(get_processo_repo),
+    svc: ProcessoAppService = Depends(get_processo_service),
 ):
-    await repo.reorder_categories(categories)
+    await svc.reorder_categories(categories)
     return {"ok": True}
 
 
@@ -204,9 +201,9 @@ async def reorder_categories(
 async def list_processo_contacts(
     processo_id: str,
     _user: dict = Depends(get_current_user),
-    repo: ProcessoRepository = Depends(get_processo_repo),
+    svc: ProcessoAppService = Depends(get_processo_service),
 ):
-    return await repo.list_contacts(UUID(processo_id))
+    return await svc.list_contacts(UUID(processo_id))
 
 
 @router.post("/{processo_id}/contatos")
@@ -214,9 +211,9 @@ async def link_contact(
     processo_id: str,
     body: LinkContact,
     _user: dict = Depends(get_current_user),
-    repo: ProcessoRepository = Depends(get_processo_repo),
+    svc: ProcessoAppService = Depends(get_processo_service),
 ):
-    return await repo.link_contact(UUID(processo_id), UUID(body.contato_id), body.papel)
+    return await svc.link_contact(UUID(processo_id), UUID(body.contato_id), body.papel)
 
 
 @router.delete("/{processo_id}/contatos/{link_id}")
@@ -224,9 +221,9 @@ async def unlink_contact(
     processo_id: str,
     link_id: str,
     _user: dict = Depends(get_current_user),
-    repo: ProcessoRepository = Depends(get_processo_repo),
+    svc: ProcessoAppService = Depends(get_processo_service),
 ):
-    await repo.unlink_contact(UUID(link_id))
+    await svc.unlink_contact(UUID(link_id))
     return {"ok": True}
 
 
@@ -238,9 +235,9 @@ async def link_galpao(
     processo_id: str,
     body: LinkGalpao,
     _user: dict = Depends(get_current_user),
-    repo: ProcessoRepository = Depends(get_processo_repo),
+    svc: ProcessoAppService = Depends(get_processo_service),
 ):
-    await repo.link_galpao(UUID(processo_id), UUID(body.galpao_id))
+    await svc.link_galpao(UUID(processo_id), UUID(body.galpao_id))
     return {"ok": True}
 
 
@@ -248,7 +245,7 @@ async def link_galpao(
 async def unlink_galpao(
     processo_id: str,
     _user: dict = Depends(get_current_user),
-    repo: ProcessoRepository = Depends(get_processo_repo),
+    svc: ProcessoAppService = Depends(get_processo_service),
 ):
-    await repo.unlink_galpao(UUID(processo_id))
+    await svc.unlink_galpao(UUID(processo_id))
     return {"ok": True}

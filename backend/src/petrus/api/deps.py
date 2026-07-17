@@ -21,11 +21,16 @@ from petrus.domain.services.email_service import EmailService
 from petrus.domain.services.geocoding_service import GeocodingService
 from petrus.domain.services.image_service import ImageService
 
+from petrus.application.galpao_service import GalpaoService
 from petrus.application.galpao_image_service import GalpaoImageService
+from petrus.application.contato_service import ContatoService
+from petrus.application.lead_service import LeadAppService
+from petrus.application.processo_service import ProcessoAppService
 from petrus.application.processo_file_service import ProcessoFileService
+from petrus.application.config_service import ConfigService
 
 
-# --- Repositories ---
+# --- Repositories (trocar banco = mudar apenas aqui) ---
 
 
 def get_galpao_repo() -> GalpaoRepository:
@@ -64,16 +69,35 @@ def get_geocoding_service() -> GeocodingService:
 
 
 def get_image_service() -> ImageService:
-    storage = get_storage_service()
-    return PillowImageService(storage)
+    return PillowImageService(get_storage_service())
 
 
 # --- Application services ---
+
+
+def get_galpao_service() -> GalpaoService:
+    return GalpaoService(get_galpao_repo())
 
 
 def get_galpao_image_service() -> GalpaoImageService:
     return GalpaoImageService(get_galpao_repo(), get_storage_service())
 
 
+def get_contato_service() -> ContatoService:
+    return ContatoService(get_contato_repo())
+
+
+def get_lead_service() -> LeadAppService:
+    return LeadAppService(get_lead_repo(), get_email_service())
+
+
+def get_processo_service() -> ProcessoAppService:
+    return ProcessoAppService(get_processo_repo())
+
+
 def get_processo_file_service() -> ProcessoFileService:
     return ProcessoFileService(get_processo_repo(), get_storage_service())
+
+
+def get_config_service() -> ConfigService:
+    return ConfigService(get_config_repo())

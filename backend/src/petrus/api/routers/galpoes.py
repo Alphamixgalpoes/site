@@ -5,9 +5,9 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 
 from petrus.api.middleware.auth import get_current_user, optional_user
-from petrus.api.deps import get_galpao_repo, get_galpao_image_service
+from petrus.api.deps import get_galpao_service, get_galpao_image_service
+from petrus.application.galpao_service import GalpaoService
 from petrus.application.galpao_image_service import GalpaoImageService
-from petrus.domain.repositories.galpao_repo import GalpaoRepository
 
 router = APIRouter(prefix="/api/v1/galpoes", tags=["galpoes"])
 
@@ -16,42 +16,43 @@ router = APIRouter(prefix="/api/v1/galpoes", tags=["galpoes"])
 async def search_galpoes(
     q: str = "",
     _user: dict = Depends(get_current_user),
-    repo: GalpaoRepository = Depends(get_galpao_repo),
+    svc: GalpaoService = Depends(get_galpao_service),
 ):
     if len(q) < 2:
         return []
-    return await repo.search(q)
+    return await svc.search(q)
 
 
 @router.get("")
 async def list_galpoes(
     user: dict | None = Depends(optional_user),
-    repo: GalpaoRepository = Depends(get_galpao_repo),
+    svc: GalpaoService = Depends(get_galpao_service),
 ):
     if user:
-        return await repo.list_all()
-    return await repo.list_published()
+        return await svc.list_for_admin()
+    return await svc.list_for_public()
 
 
 @router.post("")
 async def create_galpao(
     data: dict,
     _user: dict = Depends(get_current_user),
-    repo: GalpaoRepository = Depends(get_galpao_repo),
+    svc: GalpaoService = Depends(get_galpao_service),
 ):
-    return await repo.create(data)
+    return await svc.create(data)
 
 
 @router.get("/{galpao_id}")
 async def get_galpao(
     galpao_id: str,
     user: dict | None = Depends(optional_user),
-    repo: GalpaoRepository = Depends(get_galpao_repo),
+    svc: GalpaoService = Depends(get_galpao_service),
 ):
-    g = await repo.get_by_id(UUID(galpao_id))
+    if user:
+        g = await svc.get_admin(UUID(galpao_id))
+    else:
+        g = await svc.get_public(UUID(galpao_id))
     if not g:
-        raise HTTPException(status_code=404, detail="Galpao not found")
-    if not user and not g.publicado:
         raise HTTPException(status_code=404, detail="Galpao not found")
     return g
 
@@ -61,18 +62,18 @@ async def update_galpao(
     galpao_id: str,
     data: dict,
     _user: dict = Depends(get_current_user),
-    repo: GalpaoRepository = Depends(get_galpao_repo),
+    svc: GalpaoService = Depends(get_galpao_service),
 ):
-    return await repo.update(UUID(galpao_id), data)
+    return await svc.update(UUID(galpao_id), data)
 
 
 @router.delete("/{galpao_id}")
 async def delete_galpao(
     galpao_id: str,
     _user: dict = Depends(get_current_user),
-    repo: GalpaoRepository = Depends(get_galpao_repo),
+    svc: GalpaoService = Depends(get_galpao_service),
 ):
-    await repo.delete(UUID(galpao_id))
+    await svc.delete(UUID(galpao_id))
     return {"ok": True}
 
 
@@ -81,9 +82,9 @@ async def toggle_published(
     galpao_id: str,
     current: bool,
     _user: dict = Depends(get_current_user),
-    repo: GalpaoRepository = Depends(get_galpao_repo),
+    svc: GalpaoService = Depends(get_galpao_service),
 ):
-    await repo.toggle_published(UUID(galpao_id), current)
+    await svc.toggle_published(UUID(galpao_id), current)
     return {"ok": True}
 
 
@@ -93,9 +94,9 @@ async def update_coords(
     lat: float,
     lng: float,
     _user: dict = Depends(get_current_user),
-    repo: GalpaoRepository = Depends(get_galpao_repo),
+    svc: GalpaoService = Depends(get_galpao_service),
 ):
-    await repo.update_coords(UUID(galpao_id), lat, lng)
+    await svc.update_coords(UUID(galpao_id), lat, lng)
     return {"ok": True}
 
 
@@ -128,7 +129,7 @@ async def reorder_images(
     galpao_id: str,
     images: list[dict],
     _user: dict = Depends(get_current_user),
-    repo: GalpaoRepository = Depends(get_galpao_repo),
+    svc: GalpaoService = Depends(get_galpao_service),
 ):
-    await repo.reorder_images(images)
+    await svc.reorder_images(images)
     return {"ok": True}
