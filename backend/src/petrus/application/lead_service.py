@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from uuid import UUID
+
 from petrus.domain.entities.lead import Lead
 from petrus.domain.repositories.lead_repo import LeadRepository
 from petrus.domain.services.email_service import EmailService
@@ -28,3 +30,9 @@ class LeadAppService:
         result = await self._repo.create(data)
         await self._email.send_lead_notification(nome, telefone, empresa, galpao_titulo)
         return result
+
+    async def list_all(self) -> list[Lead]:
+        return await self._repo.list_all()
+
+    async def toggle_contactado(self, lead_id: UUID, current: bool) -> None:
+        await self._repo.toggle_contactado(lead_id, current)
