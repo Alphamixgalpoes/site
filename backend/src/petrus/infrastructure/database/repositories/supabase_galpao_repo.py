@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import fields as dc_fields
 from typing import Any
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from supabase import Client
 
@@ -95,17 +95,15 @@ class SupabaseGalpaoRepo(GalpaoRepository):
             "id", str(galpao_id)
         ).execute()
 
-    async def upload_image(
-        self, galpao_id: UUID, file_bytes: bytes, filename: str, ordem: int
+    async def create_image(
+        self, galpao_id: UUID, storage_path: str, ordem: int
     ) -> GalpaoImagem:
-        path = f"{galpao_id}/{uuid4()}_{filename}"
-        self._sb.storage.from_("galpoes").upload(path, file_bytes)
         res = (
             self._sb.table("galpao_imagens")
             .insert(
                 {
                     "galpao_id": str(galpao_id),
-                    "storage_path": path,
+                    "storage_path": storage_path,
                     "ordem": ordem,
                     "visivel_site": True,
                     "is_capa": False,
@@ -115,8 +113,7 @@ class SupabaseGalpaoRepo(GalpaoRepository):
         )
         return GalpaoImagem(**{k: v for k, v in res.data[0].items() if k in {f.name for f in dc_fields(GalpaoImagem)}})
 
-    async def delete_image(self, image_id: UUID, storage_path: str) -> None:
-        self._sb.storage.from_("galpoes").remove([storage_path])
+    async def delete_image_record(self, image_id: UUID) -> None:
         self._sb.table("galpao_imagens").delete().eq("id", str(image_id)).execute()
 
     async def reorder_images(self, images: list[dict[str, Any]]) -> None:
