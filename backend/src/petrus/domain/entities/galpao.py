@@ -3,6 +3,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from uuid import UUID
 
+from petrus.domain.entities.contato import ContatoResumido
+
 
 @dataclass
 class GalpaoImagem:
@@ -11,6 +13,15 @@ class GalpaoImagem:
     ordem: int
     visivel_site: bool
     is_capa: bool
+    galpao_id: UUID | None = None
+
+
+@dataclass
+class GalpaoResumido:
+    id: UUID
+    titulo: str
+    tipo: str
+    area_total_m2: float | None = None
 
 
 @dataclass
@@ -66,5 +77,7 @@ class Galpao:
     latitude: float | None = None
     longitude: float | None = None
     proprietario_id: UUID | None = None
+    created_at: str | None = None
 
+    proprietario: ContatoResumido | None = None
     galpao_imagens: list[GalpaoImagem] = field(default_factory=list)

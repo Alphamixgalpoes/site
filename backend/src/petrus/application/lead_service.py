@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from petrus.domain.entities.lead import Lead
 from petrus.domain.repositories.lead_repo import LeadRepository
 from petrus.domain.services.email_service import EmailService
 
@@ -16,7 +17,7 @@ class LeadAppService:
         empresa: str | None = None,
         galpao_id: str | None = None,
         galpao_titulo: str | None = None,
-    ) -> dict:
+    ) -> Lead:
         data = {
             "nome": nome,
             "telefone": telefone,

@@ -1,22 +1,31 @@
 from __future__ import annotations
 
+from dataclasses import fields as dc_fields
 from typing import Any
 from uuid import UUID
 
 from supabase import Client
 
+from petrus.domain.entities.contato import Contato, ContatoResumido
 from petrus.domain.repositories.contato_repo import ContatoRepository
+
+_CONTATO_FIELDS = {f.name for f in dc_fields(Contato)}
+
+
+def _to_contato(row: dict) -> Contato:
+    known = {k: v for k, v in row.items() if k in _CONTATO_FIELDS}
+    return Contato(**known)
 
 
 class SupabaseContatoRepo(ContatoRepository):
     def __init__(self, client: Client) -> None:
         self._sb = client
 
-    async def list_active(self) -> list[dict[str, Any]]:
+    async def list_active(self) -> list[Contato]:
         res = self._sb.table("contatos").select("*").eq("ativo", True).order("nome").execute()
-        return res.data or []
+        return [_to_contato(row) for row in (res.data or [])]
 
-    async def get_by_id(self, contato_id: UUID) -> dict[str, Any] | None:
+    async def get_by_id(self, contato_id: UUID) -> Contato | None:
         res = (
             self._sb.table("contatos")
             .select("*")
@@ -24,9 +33,9 @@ class SupabaseContatoRepo(ContatoRepository):
             .maybe_single()
             .execute()
         )
-        return res.data
+        return _to_contato(res.data) if res.data else None
 
-    async def search(self, term: str) -> list[dict[str, Any]]:
+    async def search(self, term: str) -> list[ContatoResumido]:
         res = (
             self._sb.table("contatos")
             .select("id, nome, tipo_principal, empresa")
@@ -35,20 +44,20 @@ class SupabaseContatoRepo(ContatoRepository):
             .limit(20)
             .execute()
         )
-        return res.data or []
+        return [ContatoResumido(**row) for row in (res.data or [])]
 
-    async def create(self, data: dict[str, Any]) -> dict[str, Any]:
+    async def create(self, data: dict[str, Any]) -> Contato:
         res = self._sb.table("contatos").insert(data).execute()
-        return res.data[0]
+        return _to_contato(res.data[0])
 
-    async def update(self, contato_id: UUID, data: dict[str, Any]) -> dict[str, Any]:
+    async def update(self, contato_id: UUID, data: dict[str, Any]) -> Contato:
         res = (
             self._sb.table("contatos")
             .update(data)
             .eq("id", str(contato_id))
             .execute()
         )
-        return res.data[0]
+        return _to_contato(res.data[0])
 
     async def soft_delete(self, contato_id: UUID) -> None:
         self._sb.table("contatos").update({"ativo": False}).eq("id", str(contato_id)).execute()
