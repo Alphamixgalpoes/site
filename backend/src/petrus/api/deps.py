@@ -21,6 +21,12 @@ from petrus.domain.services.email_service import EmailService
 from petrus.domain.services.geocoding_service import GeocodingService
 from petrus.domain.services.image_service import ImageService
 
+from petrus.application.galpao_image_service import GalpaoImageService
+from petrus.application.processo_file_service import ProcessoFileService
+
+
+# --- Repositories ---
+
 
 def get_galpao_repo() -> GalpaoRepository:
     return SupabaseGalpaoRepo(get_supabase())
@@ -42,6 +48,9 @@ def get_config_repo() -> ConfigRepository:
     return SupabaseConfigRepo(get_supabase())
 
 
+# --- Infrastructure services ---
+
+
 def get_storage_service() -> StorageService:
     return SupabaseStorageService(get_supabase())
 
@@ -57,3 +66,14 @@ def get_geocoding_service() -> GeocodingService:
 def get_image_service() -> ImageService:
     storage = get_storage_service()
     return PillowImageService(storage)
+
+
+# --- Application services ---
+
+
+def get_galpao_image_service() -> GalpaoImageService:
+    return GalpaoImageService(get_galpao_repo(), get_storage_service())
+
+
+def get_processo_file_service() -> ProcessoFileService:
+    return ProcessoFileService(get_processo_repo(), get_storage_service())

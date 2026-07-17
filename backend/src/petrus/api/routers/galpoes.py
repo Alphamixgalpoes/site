@@ -5,7 +5,8 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 
 from petrus.api.middleware.auth import get_current_user, optional_user
-from petrus.api.deps import get_galpao_repo
+from petrus.api.deps import get_galpao_repo, get_galpao_image_service
+from petrus.application.galpao_image_service import GalpaoImageService
 from petrus.domain.repositories.galpao_repo import GalpaoRepository
 
 router = APIRouter(prefix="/api/v1/galpoes", tags=["galpoes"])
@@ -104,10 +105,10 @@ async def upload_image(
     file: UploadFile = File(...),
     ordem: int = Form(0),
     _user: dict = Depends(get_current_user),
-    repo: GalpaoRepository = Depends(get_galpao_repo),
+    image_svc: GalpaoImageService = Depends(get_galpao_image_service),
 ):
     file_bytes = await file.read()
-    return await repo.upload_image(UUID(galpao_id), file_bytes, file.filename or "image.jpg", ordem)
+    return await image_svc.upload(UUID(galpao_id), file_bytes, file.filename or "image.jpg", ordem)
 
 
 @router.delete("/{galpao_id}/images/{image_id}")
@@ -116,9 +117,9 @@ async def delete_image(
     image_id: str,
     storage_path: str,
     _user: dict = Depends(get_current_user),
-    repo: GalpaoRepository = Depends(get_galpao_repo),
+    image_svc: GalpaoImageService = Depends(get_galpao_image_service),
 ):
-    await repo.delete_image(UUID(image_id), storage_path)
+    await image_svc.delete(UUID(image_id), storage_path)
     return {"ok": True}
 
 

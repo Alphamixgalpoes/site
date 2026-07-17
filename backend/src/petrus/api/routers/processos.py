@@ -13,10 +13,10 @@ from petrus.api.schemas.processo import (
     LinkContact,
     LinkGalpao,
 )
-from petrus.api.deps import get_processo_repo, get_storage_service
+from petrus.api.deps import get_processo_repo, get_processo_file_service
 from petrus.application.processo_service import ProcessoAppService
+from petrus.application.processo_file_service import ProcessoFileService
 from petrus.domain.repositories.processo_repo import ProcessoRepository
-from petrus.domain.services.storage_service import StorageService
 
 router = APIRouter(prefix="/api/v1/processos", tags=["processos"])
 
@@ -141,52 +141,26 @@ async def upload_item_file(
     item_id: str,
     file: UploadFile = File(...),
     _user: dict = Depends(get_current_user),
-    repo: ProcessoRepository = Depends(get_processo_repo),
-    storage: StorageService = Depends(get_storage_service),
+    file_svc: ProcessoFileService = Depends(get_processo_file_service),
 ):
-    # Remove old file if exists
-    items = await repo.list_items(UUID(processo_id))
-    old_item = next((i for i in items if str(i.id) == item_id), None)
-    if old_item and old_item.arquivo_path:
-        try:
-            await storage.remove("processos", [old_item.arquivo_path])
-        except Exception:
-            pass
     file_bytes = await file.read()
     filename = file.filename or "document"
-    path = f"{processo_id}/{item_id}/{filename}"
-    await storage.upload("processos", path, file_bytes, file.content_type or "application/octet-stream")
-    tipo = "pdf" if filename.lower().endswith(".pdf") else "imagem"
-    await repo.update_item(
+    return await file_svc.upload(
+        UUID(processo_id),
         UUID(item_id),
-        {
-            "arquivo_path": path,
-            "arquivo_nome": filename,
-            "arquivo_tipo": tipo,
-            "feito": True,
-        },
+        file_bytes,
+        filename,
+        file.content_type or "application/octet-stream",
     )
-    signed_url = await storage.create_signed_url("processos", path, 3600)
-    return {"path": path, "nome": filename, "tipo": tipo, "signed_url": signed_url}
 
 
 @router.get("/{processo_id}/signed-urls")
 async def get_signed_urls(
     processo_id: str,
     _user: dict = Depends(get_current_user),
-    repo: ProcessoRepository = Depends(get_processo_repo),
-    storage: StorageService = Depends(get_storage_service),
+    file_svc: ProcessoFileService = Depends(get_processo_file_service),
 ):
-    items = await repo.list_items(UUID(processo_id))
-    urls: dict[str, str] = {}
-    for item in items:
-        if item.arquivo_path:
-            try:
-                url = await storage.create_signed_url("processos", item.arquivo_path, 3600)
-                urls[str(item.id)] = url
-            except Exception:
-                pass
-    return urls
+    return await file_svc.get_signed_urls(UUID(processo_id))
 
 
 @router.delete("/{processo_id}/itens/{item_id}/file")
@@ -194,17 +168,9 @@ async def remove_item_file(
     processo_id: str,
     item_id: str,
     _user: dict = Depends(get_current_user),
-    repo: ProcessoRepository = Depends(get_processo_repo),
-    storage: StorageService = Depends(get_storage_service),
+    file_svc: ProcessoFileService = Depends(get_processo_file_service),
 ):
-    items = await repo.list_items(UUID(processo_id))
-    item = next((i for i in items if str(i.id) == item_id), None)
-    if item and item.arquivo_path:
-        await storage.remove("processos", [item.arquivo_path])
-    await repo.update_item(
-        UUID(item_id),
-        {"arquivo_path": None, "arquivo_nome": None, "arquivo_tipo": None},
-    )
+    await file_svc.remove(UUID(processo_id), UUID(item_id))
     return {"ok": True}
 
 
