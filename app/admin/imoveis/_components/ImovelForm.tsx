@@ -29,7 +29,7 @@ const LocationMap = dynamic(() => import("./LocationMap"), {
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
-type Galpao = {
+type ImovelFormData = {
   id?: string;
   titulo: string;
   categoria: string;
@@ -87,7 +87,7 @@ type TabStatus = "empty" | "partial" | "complete";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
-const empty: Galpao = {
+const empty: ImovelFormData = {
   titulo: "", categoria: "galpao", uso_terreno: "", tipo: "locacao", valor: "",
   endereco: "", logradouro: "", numero: "", complemento: "", bairro: "",
   cidade: "Barueri", uf: "SP", cep: "",
@@ -104,15 +104,15 @@ const TABS = ["Identificação", "Localização", "Características", "Mídia", 
 
 // ── Form context (evita re-montagem de campos a cada keystroke) ───────────────
 
-type GalpaoFormCtxType = {
+type ImovelFormCtxType = {
   configCampos: ConfigCampo[];
   visibilidade: OverridesVisibilidade;
   setVis: (campo: string, contexto: "card" | "ficha", valor: boolean) => void;
-  form: Galpao;
-  set: (field: keyof Galpao, value: string | boolean) => void;
+  form: ImovelFormData;
+  set: (field: keyof ImovelFormData, value: string | boolean) => void;
 };
 
-const GalpaoFormCtx = createContext<GalpaoFormCtxType>(null as unknown as GalpaoFormCtxType);
+const ImovelFormCtx = createContext<ImovelFormCtxType>(null as unknown as ImovelFormCtxType);
 
 const inputClass = "w-full border border-gray-300 px-3 py-3 text-sm text-gray-900 focus:outline-none focus:border-gray-900 rounded-none";
 const lockedInputClass = `${inputClass} bg-gray-50 text-gray-500 cursor-not-allowed`;
@@ -131,7 +131,7 @@ function FieldFixo({ label, children }: { label: string; children: React.ReactNo
 }
 
 function FieldVis({ label, campoChave, children }: { label: string; campoChave: string; children: React.ReactNode }) {
-  const { configCampos, visibilidade, setVis } = useContext(GalpaoFormCtx);
+  const { configCampos, visibilidade, setVis } = useContext(ImovelFormCtx);
   const config = configCampos.find((c) => c.campo_chave === campoChave);
   const cardVal = visibilidade[campoChave]?.card ?? config?.visivel_card ?? true;
   const fichaVal = visibilidade[campoChave]?.ficha ?? config?.visivel_ficha ?? true;
@@ -156,8 +156,8 @@ function FieldVis({ label, campoChave, children }: { label: string; campoChave: 
   );
 }
 
-function BoolVis({ label, campoChave, field }: { label: string; campoChave: string; field: keyof Galpao }) {
-  const { configCampos, visibilidade, setVis, form, set } = useContext(GalpaoFormCtx);
+function BoolVis({ label, campoChave, field }: { label: string; campoChave: string; field: keyof ImovelFormData }) {
+  const { configCampos, visibilidade, setVis, form, set } = useContext(ImovelFormCtx);
   const config = configCampos.find((c) => c.campo_chave === campoChave);
   const cardVal = visibilidade[campoChave]?.card ?? config?.visivel_card ?? true;
   const fichaVal = visibilidade[campoChave]?.ficha ?? config?.visivel_ficha ?? true;
@@ -190,12 +190,12 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export default function GalpaoForm({
+export default function ImovelForm({
   initial,
   imagens,
   configCampos = [],
 }: {
-  initial?: Partial<Galpao> & {
+  initial?: Partial<ImovelFormData> & {
     id?: string;
     publicado?: boolean;
     latitude?: number | null;
@@ -210,7 +210,7 @@ export default function GalpaoForm({
   const router = useRouter();
 
   // ── Form state ───────────────────────────────────────────────────────────
-  const [form, setForm] = useState<Galpao>({ ...empty, ...initial });
+  const [form, setForm] = useState<ImovelFormData>({ ...empty, ...initial });
   const [visibilidade, setVisibilidade] = useState<OverridesVisibilidade>(
     (initial?.campos_visibilidade as OverridesVisibilidade) ?? {}
   );
@@ -258,7 +258,7 @@ export default function GalpaoForm({
 
   // ── Helpers ──────────────────────────────────────────────────────────────
 
-  function set(field: keyof Galpao, value: string | boolean) {
+  function set(field: keyof ImovelFormData, value: string | boolean) {
     setForm((f) => ({ ...f, [field]: value }));
   }
 
@@ -437,7 +437,7 @@ export default function GalpaoForm({
   async function ensureDraftSaved(): Promise<boolean> {
     if (draftSaved) return true;
     try {
-      await apiPost("/api/v1/galpoes", {
+      await apiPost("/api/v1/imoveis", {
         id: draftId,
         titulo: form.titulo || "Rascunho",
         categoria: form.categoria,
@@ -468,7 +468,7 @@ export default function GalpaoForm({
       try {
         const ok = await ensureDraftSaved();
         if (ok) {
-          await apiPut(`/api/v1/galpoes/${draftId}`, buildPayload(), { auth: true });
+          await apiPut(`/api/v1/imoveis/${draftId}`, buildPayload(), { auth: true });
         }
       } catch { /* silent */ }
       setAutoSaving(false);
@@ -540,9 +540,9 @@ export default function GalpaoForm({
 
     try {
       if (draftSaved || form.id) {
-        await apiPut(`/api/v1/galpoes/${draftId}`, payload, { auth: true });
+        await apiPut(`/api/v1/imoveis/${draftId}`, payload, { auth: true });
       } else {
-        await apiPost("/api/v1/galpoes", { id: draftId, ...payload }, { auth: true });
+        await apiPost("/api/v1/imoveis", { id: draftId, ...payload }, { auth: true });
         setDraftSaved(true);
       }
     } catch (e: any) {
@@ -565,7 +565,7 @@ export default function GalpaoForm({
           },
         );
         if (gLat && gLng) {
-          await apiPatch(`/api/v1/galpoes/${draftId}/coords?lat=${gLat}&lng=${gLng}`, { auth: true });
+          await apiPatch(`/api/v1/imoveis/${draftId}/coords?lat=${gLat}&lng=${gLng}`, { auth: true });
         }
       } catch { /* optional */ }
     }
@@ -592,7 +592,7 @@ export default function GalpaoForm({
       const file = fileList[i];
       try {
         const data = await apiUpload<ImagemExistente>(
-          `/api/v1/galpoes/${draftId}/images`,
+          `/api/v1/imoveis/${draftId}/images`,
           file,
           { ordem: String(proximaOrdem + i) },
           { auth: true },
@@ -608,7 +608,7 @@ export default function GalpaoForm({
 
   async function removeImagem(imagemId: string, path: string) {
     try {
-      await apiDelete(`/api/v1/galpoes/${draftId}/images/${imagemId}?storage_path=${encodeURIComponent(path)}`, { auth: true });
+      await apiDelete(`/api/v1/imoveis/${draftId}/images/${imagemId}?storage_path=${encodeURIComponent(path)}`, { auth: true });
       setExistingImagens((imgs) => imgs.filter((i) => i.id !== imagemId));
     } catch (e: any) {
       setError(`Erro ao excluir imagem: ${e.message}`);
@@ -652,7 +652,7 @@ export default function GalpaoForm({
 
   const ctxValue = { configCampos, visibilidade, setVis, form, set };
   return (
-    <GalpaoFormCtx.Provider value={ctxValue}>
+    <ImovelFormCtx.Provider value={ctxValue}>
     <>
       {/* Tab bar */}
       <div className="flex overflow-x-auto border-b border-gray-200 mb-8 -mx-4 px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -1234,6 +1234,6 @@ export default function GalpaoForm({
         </div>
       )}
     </>
-    </GalpaoFormCtx.Provider>
+    </ImovelFormCtx.Provider>
   );
 }

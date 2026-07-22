@@ -89,9 +89,9 @@ export function applyDragReorder<T extends ImagemOrdenavel>(
 }
 
 /** Persiste ordem, is_capa e visivel_site de todas as imagens no banco. */
-export async function persistOrder(galpaoId: string, images: ImagemOrdenavel[]): Promise<void> {
+export async function persistOrder(imovelId: string, images: ImagemOrdenavel[]): Promise<void> {
   const { apiPut } = await import("@/lib/api-client");
-  await apiPut(`/api/v1/galpoes/${galpaoId}/images/reorder`, images.map((img) => ({
+  await apiPut(`/api/v1/imoveis/${imovelId}/images/reorder`, images.map((img) => ({
     id: img.id,
     ordem: img.ordem,
     is_capa: img.is_capa,

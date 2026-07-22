@@ -2,17 +2,17 @@
 
 import { campoVisivel } from "@/lib/visibilidade";
 import type { ConfigCampo } from "@/lib/visibilidade";
-import type { Galpao } from "../_hooks/useGalpoes";
+import type { Imovel } from "../_hooks/useImoveis";
 import { SUPABASE_URL } from "@/lib/constants";
-import { tipoLabel } from "@/lib/galpao-utils";
+import { tipoLabel } from "@/lib/imovel-utils";
 
 type Props = {
-  galpao: Galpao;
+  imovel: Imovel;
   configCampos: ConfigCampo[];
 };
 
-export default function GalpaoCardPreview({ galpao: g, configCampos }: Props) {
-  const imgs = [...g.galpao_imagens].sort((a, b) => a.ordem - b.ordem);
+export default function ImovelCardPreview({ imovel: g, configCampos }: Props) {
+  const imgs = [...g.imovel_imagens].sort((a, b) => a.ordem - b.ordem);
   const capa = imgs.find((i) => i.is_capa) ?? imgs[0];
   const overrides = g.campos_visibilidade ?? {};
 

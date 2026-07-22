@@ -12,6 +12,6 @@ class Lead:
     contactado: bool = False
 
     empresa: str | None = None
-    galpao_id: UUID | None = None
-    galpao_titulo: str | None = None
+    imovel_id: UUID | None = None
+    imovel_titulo: str | None = None
     created_at: str | None = None

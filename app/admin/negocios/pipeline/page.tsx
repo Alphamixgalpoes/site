@@ -11,7 +11,7 @@ type Processo = {
   titulo: string;
   tipo: string;
   status: string;
-  galpao_titulo: string | null;
+  imovel_titulo: string | null;
   parte_a: string | null;
   parte_b: string | null;
   valor: number | null;
@@ -199,7 +199,7 @@ export default function ProcessosPage() {
                 <p className="text-sm font-medium text-gray-900 truncate">{p.titulo}</p>
                 <p className="text-xs text-gray-400 mt-0.5 truncate">
                   {[p.parte_a, p.parte_b].filter(Boolean).join(" → ")}
-                  {p.galpao_titulo && ` · ${p.galpao_titulo}`}
+                  {p.imovel_titulo && ` · ${p.imovel_titulo}`}
                 </p>
                 <p className="text-xs text-gray-300 mt-0.5">
                   {[

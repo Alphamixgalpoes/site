@@ -3,14 +3,14 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import ImageGallery from "@/app/components/ImageGallery";
-import type { Galpao } from "../_hooks/useGalpoes";
+import type { Imovel } from "../_hooks/useImoveis";
 
 import { SUPABASE_URL } from "@/lib/constants";
-import { tipoLabel, categoriaLabel, usoTerrenoLabel } from "@/lib/galpao-utils";
+import { tipoLabel, categoriaLabel, usoTerrenoLabel } from "@/lib/imovel-utils";
 import { FichaRow } from "@/app/components/FichaRow";
 
 type Props = {
-  galpao: Galpao;
+  imovel: Imovel;
   onClose: () => void;
   onOpenPreview: () => void;
 };
@@ -19,8 +19,8 @@ type Props = {
 
 
 
-export default function GalpaoDetalheModal({ galpao: g, onClose, onOpenPreview }: Props) {
-  const imgs = [...g.galpao_imagens].sort((a, b) => a.ordem - b.ordem);
+export default function ImovelDetalheModal({ imovel: g, onClose, onOpenPreview }: Props) {
+  const imgs = [...g.imovel_imagens].sort((a, b) => a.ordem - b.ordem);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -165,7 +165,7 @@ export default function GalpaoDetalheModal({ galpao: g, onClose, onOpenPreview }
             Visualizar anúncio
           </button>
           <Link
-            href={`/admin/galpoes/${g.id}`}
+            href={`/admin/imoveis/${g.id}/editar`}
             className="bg-gray-900 text-white px-4 py-2 text-sm font-medium hover:bg-gray-700 transition-colors rounded-sm"
           >
             Editar →

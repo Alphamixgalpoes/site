@@ -1,24 +1,24 @@
 "use client";
 
 import Link from "next/link";
-import { Galpao } from "../_hooks/useGalpoes";
+import { Imovel } from "../_hooks/useImoveis";
 
 import { SUPABASE_URL } from "@/lib/constants";
-import { tipoLabel } from "@/lib/galpao-utils";
+import { tipoLabel } from "@/lib/imovel-utils";
 
 type Props = {
-  galpao: Galpao;
+  imovel: Imovel;
   deletingId: string | null;
   onTogglePublicado: (id: string, atual: boolean) => void;
   onStartDelete: (id: string) => void;
   onConfirmDelete: (id: string) => void;
   onCancelDelete: () => void;
-  onOpenDetalhe: (galpao: Galpao) => void;
-  onOpenPreview: (galpao: Galpao) => void;
+  onOpenDetalhe: (imovel: Imovel) => void;
+  onOpenPreview: (imovel: Imovel) => void;
 };
 
-export default function GalpaoRow({
-  galpao: g,
+export default function ImovelRow({
+  imovel: g,
   deletingId,
   onTogglePublicado,
   onStartDelete,
@@ -27,7 +27,7 @@ export default function GalpaoRow({
   onOpenDetalhe,
   onOpenPreview,
 }: Props) {
-  const imgs = [...g.galpao_imagens].sort((a, b) => a.ordem - b.ordem);
+  const imgs = [...g.imovel_imagens].sort((a, b) => a.ordem - b.ordem);
   const capa = imgs.find((i) => i.is_capa) ?? imgs[0];
 
   const acoes = (

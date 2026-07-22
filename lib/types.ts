@@ -1,4 +1,4 @@
-export type GalpaoImagem = {
+export type ImovelImagem = {
   id: string;
   storage_path: string;
   ordem: number;
@@ -6,7 +6,7 @@ export type GalpaoImagem = {
   is_capa: boolean;
 };
 
-export type Galpao = {
+export type Imovel = {
   id: string;
   titulo: string;
   tipo: string;
@@ -51,7 +51,7 @@ export type Galpao = {
   longitude: number | null;
   proprietario_id: string | null;
   proprietario?: ContatoResumido | null;
-  galpao_imagens: GalpaoImagem[];
+  imovel_imagens: ImovelImagem[];
 };
 
 export type ContatoResumido = {
@@ -62,7 +62,7 @@ export type ContatoResumido = {
 };
 
 // Tipo para a grid pública — subconjunto dos campos exibidos ao visitante
-export type GalpaoPublico = {
+export type ImovelPublico = {
   id: string;
   titulo: string;
   tipo: string;
@@ -82,5 +82,5 @@ export type GalpaoPublico = {
   vagas_estacionamento: number;
   descricao: string | null;
   campos_visibilidade?: Record<string, { card: boolean; ficha: boolean }>;
-  galpao_imagens: { storage_path: string; ordem: number; is_capa?: boolean }[];
+  imovel_imagens: { storage_path: string; ordem: number; is_capa?: boolean }[];
 };

@@ -1,26 +1,26 @@
 "use client";
 
 import { useEffect } from "react";
-import GalpaoCardPreview from "./GalpaoCardPreview";
+import ImovelCardPreview from "./ImovelCardPreview";
 import ImageGallery from "@/app/components/ImageGallery";
 import { campoVisivel } from "@/lib/visibilidade";
 import type { ConfigCampo } from "@/lib/visibilidade";
-import type { Galpao } from "../_hooks/useGalpoes";
+import type { Imovel } from "../_hooks/useImoveis";
 import { SUPABASE_URL } from "@/lib/constants";
-import { tipoLabel, categoriaLabel, usoTerrenoLabel } from "@/lib/galpao-utils";
+import { tipoLabel, categoriaLabel, usoTerrenoLabel } from "@/lib/imovel-utils";
 import { FichaRow } from "@/app/components/FichaRow";
 
 type Props = {
-  galpao: Galpao;
+  imovel: Imovel;
   configCampos: ConfigCampo[];
   onClose: () => void;
 };
 
-export default function GalpaoPreviewModal({ galpao: g, configCampos, onClose }: Props) {
+export default function ImovelPreviewModal({ imovel: g, configCampos, onClose }: Props) {
   const overrides = g.campos_visibilidade ?? {};
   const cv = (chave: string) => campoVisivel(chave, "ficha", configCampos, overrides);
 
-  const imagens = [...g.galpao_imagens]
+  const imagens = [...g.imovel_imagens]
     .filter((i) => i.visivel_site !== false)
     .sort((a, b) => a.ordem - b.ordem);
   const capaIndex = Math.max(0, imagens.findIndex((i) => i.is_capa));
@@ -74,7 +74,7 @@ export default function GalpaoPreviewModal({ galpao: g, configCampos, onClose }:
         {/* Card */}
         <div className="px-5 pt-5">
           <p className="text-xs text-gray-400 mb-2">Card na listagem</p>
-          <GalpaoCardPreview galpao={g} configCampos={configCampos} />
+          <ImovelCardPreview imovel={g} configCampos={configCampos} />
         </div>
 
         {/* Galeria pública — só imagens visíveis no site */}

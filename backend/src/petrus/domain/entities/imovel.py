@@ -7,17 +7,17 @@ from petrus.domain.entities.contato import ContatoResumido
 
 
 @dataclass
-class GalpaoImagem:
+class ImovelImagem:
     id: UUID
     storage_path: str
     ordem: int
     visivel_site: bool
     is_capa: bool
-    galpao_id: UUID | None = None
+    imovel_id: UUID | None = None
 
 
 @dataclass
-class GalpaoResumido:
+class ImovelResumido:
     id: UUID
     titulo: str
     tipo: str
@@ -25,7 +25,7 @@ class GalpaoResumido:
 
 
 @dataclass
-class Galpao:
+class Imovel:
     id: UUID
     titulo: str
     tipo: str
@@ -78,6 +78,19 @@ class Galpao:
     longitude: float | None = None
     proprietario_id: UUID | None = None
     created_at: str | None = None
+    updated_at: str | None = None
+
+    # MDM fields
+    dados_extras: dict = field(default_factory=dict)
+    status: str | None = None
+    qualidade_campos: dict = field(default_factory=dict)
+    qualidade_score: float = 0.0
+    notas: str | None = None
+    visitado: bool = False
+    ultima_revisao: str | None = None
+    motivo_arquivo: str | None = None
+    origem: str | None = None
+    enriquecido_em: str | None = None
 
     proprietario: ContatoResumido | None = None
-    galpao_imagens: list[GalpaoImagem] = field(default_factory=list)
+    imovel_imagens: list[ImovelImagem] = field(default_factory=list)

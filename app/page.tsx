@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase-server";
 import PublicHeader from "./PublicHeader";
-import GalpoesGrid from "./GalpoesGrid";
+import ImoveisGrid from "./ImoveisGrid";
 import type { ConfigCampo } from "@/lib/visibilidade";
 import { SUPABASE_URL } from "@/lib/constants";
 import { CORRETOR, waLink, WA_GENERICO } from "@/lib/corretor";
@@ -8,20 +8,27 @@ import { CORRETOR, waLink, WA_GENERICO } from "@/lib/corretor";
 export default async function Home() {
   const supabase = await createClient();
 
-  const [{ data: galpoes }, { data: configCampos }] = await Promise.all([
+  const [{ data: pubRows }, { data: configCampos }] = await Promise.all([
     supabase
-      .from("galpoes")
+      .from("imovel_publicacao")
       .select(`
-        id, titulo, tipo, categoria, uso_terreno, valor, cidade, bairro,
-        area_construida_m2, area_total_m2, pe_direito_m, numero_docas,
-        acesso_carreta, vagas_estacionamento, potencia_eletrica_kva,
-        capacidade_piso_ton_m2, avcb_validade, descricao, campos_visibilidade,
-        galpao_imagens (storage_path, ordem, is_capa)
+        imovel_id,
+        imoveis (
+          id, titulo, tipo, categoria, uso_terreno, valor, cidade, bairro,
+          area_construida_m2, area_total_m2, pe_direito_m, numero_docas,
+          acesso_carreta, vagas_estacionamento, potencia_eletrica_kva,
+          capacidade_piso_ton_m2, avcb_validade, descricao, campos_visibilidade,
+          imovel_imagens (storage_path, ordem, is_capa)
+        )
       `)
-      .eq("publicado", true)
-      .order("created_at", { ascending: false }),
+      .eq("ativo", true)
+      .order("published_at", { ascending: false }),
     supabase.from("config_campos").select("*"),
   ]);
+
+  const imoveis = (pubRows ?? [])
+    .map((r: any) => r.imoveis)
+    .filter(Boolean);
 
   return (
     <div className="min-h-screen bg-white text-gray-900 font-sans">
@@ -86,13 +93,13 @@ export default async function Home() {
       </section>
 
       {/* Imóveis Publicados */}
-      {galpoes && galpoes.length > 0 && (
+      {imoveis && imoveis.length > 0 && (
         <section id="imoveis" className="py-24 bg-white">
           <div className="max-w-6xl mx-auto px-6">
             <p className="text-xs font-semibold tracking-widest text-gray-400 uppercase mb-3">Disponíveis</p>
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900">Imóveis em carteira</h2>
-            <GalpoesGrid
-              galpoes={galpoes as Parameters<typeof GalpoesGrid>[0]["galpoes"]}
+            <ImoveisGrid
+              imoveis={imoveis as Parameters<typeof ImoveisGrid>[0]["imoveis"]}
               supabaseUrl={SUPABASE_URL}
               configCampos={(configCampos ?? []) as ConfigCampo[]}
             />

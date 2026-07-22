@@ -3,12 +3,12 @@
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
-import { useGalpoes } from "../_hooks/useGalpoes";
-import type { Galpao } from "../_hooks/useGalpoes";
-import GalpaoRow from "../_components/GalpaoRow";
-import GalpaoFiltros from "../_components/GalpaoFiltros";
-import GalpaoDetalheModal from "../_components/GalpaoDetalheModal";
-import GalpaoPreviewModal from "../_components/GalpaoPreviewModal";
+import { useImoveis } from "../_hooks/useImoveis";
+import type { Imovel } from "../_hooks/useImoveis";
+import ImovelRow from "../_components/ImovelRow";
+import ImovelFiltros from "../_components/ImovelFiltros";
+import ImovelDetalheModal from "../_components/ImovelDetalheModal";
+import ImovelPreviewModal from "../_components/ImovelPreviewModal";
 import { PDFRelatorio } from "../_components/PDFRelatorio";
 
 const PDFDownloadLink = dynamic(
@@ -34,10 +34,10 @@ export default function ImoveisListaPage() {
     filtrados, stats, filtrosAtivos, temFiltro,
     limpar, togglePublicado, geocodificarTodos, excluir,
     configCampos,
-  } = useGalpoes();
+  } = useImoveis();
 
-  const [galpaoDetalhe, setGalpaoDetalhe] = useState<Galpao | null>(null);
-  const [galpaoPreview, setGalpaoPreview] = useState<Galpao | null>(null);
+  const [imovelDetalhe, setImovelDetalhe] = useState<Imovel | null>(null);
+  const [imovelPreview, setImovelPreview] = useState<Imovel | null>(null);
 
   return (
     <>
@@ -63,13 +63,13 @@ export default function ImoveisListaPage() {
           <PDFDownloadLink
             document={
               <PDFRelatorio
-                galpoes={filtrados}
+                imoveis={filtrados}
                 filtros={filtrosAtivos}
                 supabaseUrl={supabaseUrl}
                 baseUrl={typeof window !== "undefined" ? window.location.origin : ""}
               />
             }
-            fileName={`alphamix-galpoes-${new Date().toISOString().slice(0, 10)}.pdf`}
+            fileName={`alphamix-imoveis-${new Date().toISOString().slice(0, 10)}.pdf`}
           >
             {({ loading: l }) => (
               <button
@@ -85,13 +85,13 @@ export default function ImoveisListaPage() {
             href="/admin/imoveis/novo"
             className="bg-gray-900 text-white px-4 py-2 text-sm font-medium hover:bg-gray-700 transition-colors"
           >
-            + Novo Galpao
+            + Novo Imóvel
           </Link>
         </div>
       </div>
 
       {/* Filtros */}
-      <GalpaoFiltros
+      <ImovelFiltros
         filtroCategoria={filtroCategoria} setFiltroCategoria={setFiltroCategoria}
         tipo={tipo} setTipo={setTipo}
         cidade={cidade} setCidade={setCidade}
@@ -111,6 +111,7 @@ export default function ImoveisListaPage() {
       />
 
       {/* Contagem filtrada */}
+
       {temFiltro && (
         <p className="text-xs text-gray-400">
           {filtrados.length} resultado{filtrados.length !== 1 ? "s" : ""} com os filtros aplicados
@@ -121,20 +122,20 @@ export default function ImoveisListaPage() {
       {loading ? (
         <div className="text-sm text-gray-400 py-12 text-center">Carregando...</div>
       ) : filtrados.length === 0 ? (
-        <div className="text-sm text-gray-400 py-12 text-center">Nenhum galpao encontrado.</div>
+        <div className="text-sm text-gray-400 py-12 text-center">Nenhum imóvel encontrado.</div>
       ) : (
         <div className="bg-white border border-gray-200 divide-y divide-gray-100">
           {filtrados.map((g) => (
-            <GalpaoRow
+            <ImovelRow
               key={g.id}
-              galpao={g}
+              imovel={g}
               deletingId={deletingId}
               onTogglePublicado={togglePublicado}
               onStartDelete={setDeletingId}
               onConfirmDelete={excluir}
               onCancelDelete={() => setDeletingId(null)}
-              onOpenDetalhe={setGalpaoDetalhe}
-              onOpenPreview={setGalpaoPreview}
+              onOpenDetalhe={setImovelDetalhe}
+              onOpenPreview={setImovelPreview}
             />
           ))}
         </div>
@@ -142,18 +143,18 @@ export default function ImoveisListaPage() {
     </div>
 
     {/* Modais */}
-    {galpaoDetalhe && (
-      <GalpaoDetalheModal
-        galpao={galpaoDetalhe}
-        onClose={() => setGalpaoDetalhe(null)}
-        onOpenPreview={() => setGalpaoPreview(galpaoDetalhe)}
+    {imovelDetalhe && (
+      <ImovelDetalheModal
+        imovel={imovelDetalhe}
+        onClose={() => setImovelDetalhe(null)}
+        onOpenPreview={() => setImovelPreview(imovelDetalhe)}
       />
     )}
-    {galpaoPreview && (
-      <GalpaoPreviewModal
-        galpao={galpaoPreview}
+    {imovelPreview && (
+      <ImovelPreviewModal
+        imovel={imovelPreview}
         configCampos={configCampos}
-        onClose={() => setGalpaoPreview(null)}
+        onClose={() => setImovelPreview(null)}
       />
     )}
     </>

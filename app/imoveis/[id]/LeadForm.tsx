@@ -4,11 +4,11 @@ import { useState } from "react";
 import { apiPost } from "@/lib/api-client";
 
 type Props = {
-  galpaoId: string;
-  galpaoTitulo: string;
+  imovelId: string;
+  imovelTitulo: string;
 };
 
-export default function LeadForm({ galpaoId, galpaoTitulo }: Props) {
+export default function LeadForm({ imovelId, imovelTitulo }: Props) {
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
   const [empresa, setEmpresa] = useState("");
@@ -26,8 +26,8 @@ export default function LeadForm({ galpaoId, galpaoTitulo }: Props) {
         nome,
         telefone,
         empresa,
-        galpao_id: galpaoId,
-        galpao_titulo: galpaoTitulo,
+        imovel_id: imovelId,
+        imovel_titulo: imovelTitulo,
       });
       setEnviado(true);
     } catch {

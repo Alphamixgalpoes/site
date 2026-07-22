@@ -23,7 +23,7 @@ type Props = {
 
 const sel = "border border-gray-300 px-2.5 py-1.5 text-sm text-gray-900 focus:outline-none focus:border-gray-900 bg-white";
 
-export default function GalpaoFiltros({
+export default function ImovelFiltros({
   filtroCategoria, setFiltroCategoria,
   tipo, setTipo, cidade, setCidade, cidades,
   areaMin, setAreaMin, areaMax, setAreaMax,

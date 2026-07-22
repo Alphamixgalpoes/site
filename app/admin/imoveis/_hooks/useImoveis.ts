@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { apiGet, apiPatch, apiDelete } from "@/lib/api-client";
+import { apiGet, apiPatch, apiPost, apiDelete } from "@/lib/api-client";
 import type { ConfigCampo } from "@/lib/visibilidade";
 
-import type { Galpao } from "@/lib/types";
-export type { Galpao };
+import type { Imovel } from "@/lib/types";
+export type { Imovel };
 
-export function useGalpoes() {
-  const [galpoes, setGalpoes] = useState<Galpao[]>([]);
+export function useImoveis() {
+  const [imoveis, setImoveis] = useState<Imovel[]>([]);
   const [configCampos, setConfigCampos] = useState<ConfigCampo[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -34,10 +34,10 @@ export function useGalpoes() {
   async function load() {
     try {
       const [data, cfg] = await Promise.all([
-        apiGet<Galpao[]>("/api/v1/galpoes", { auth: true }),
+        apiGet<Imovel[]>("/api/v1/imoveis", { auth: true }),
         apiGet<ConfigCampo[]>("/api/v1/config/campos", { auth: true }),
       ]);
-      setGalpoes(data);
+      setImoveis(data);
       setConfigCampos(cfg);
     } catch (err) {
       console.error("Erro ao carregar galpões:", err);
@@ -47,12 +47,12 @@ export function useGalpoes() {
   }
 
   const cidades = useMemo(() => {
-    const s = new Set(galpoes.map((g) => g.cidade).filter(Boolean));
+    const s = new Set(imoveis.map((g) => g.cidade).filter(Boolean));
     return Array.from(s).sort();
-  }, [galpoes]);
+  }, [imoveis]);
 
   const filtrados = useMemo(() => {
-    return galpoes.filter((g) => {
+    return imoveis.filter((g) => {
       if (filtroCategoria !== "todos" && g.categoria !== filtroCategoria) return false;
       if (tipo !== "todos" && g.tipo !== tipo) return false;
       if (cidade !== "todas" && g.cidade !== cidade) return false;
@@ -68,13 +68,13 @@ export function useGalpoes() {
       if (filtroProprietarioId && g.proprietario_id !== filtroProprietarioId) return false;
       return true;
     });
-  }, [galpoes, filtroCategoria, tipo, cidade, soPublicados, comCarreta, comSprinkler, comGuarita, areaMin, areaMax, valorMin, valorMax, docasMin, filtroProprietarioId]);
+  }, [imoveis, filtroCategoria, tipo, cidade, soPublicados, comCarreta, comSprinkler, comGuarita, areaMin, areaMax, valorMin, valorMax, docasMin, filtroProprietarioId]);
 
   const stats = useMemo(() => ({
-    total: galpoes.length,
-    publicados: galpoes.filter((g) => g.publicado).length,
-    ocultos: galpoes.filter((g) => !g.publicado).length,
-  }), [galpoes]);
+    total: imoveis.length,
+    publicados: imoveis.filter((g) => g.publicado).length,
+    ocultos: imoveis.filter((g) => !g.publicado).length,
+  }), [imoveis]);
 
   const filtrosAtivos = useMemo(() => {
     const f: Record<string, string> = {};
@@ -103,12 +103,16 @@ export function useGalpoes() {
   }
 
   async function togglePublicado(id: string, atual: boolean) {
-    setGalpoes((prev) => prev.map((g) => g.id === id ? { ...g, publicado: !atual } : g));
-    await apiPatch(`/api/v1/galpoes/${id}/toggle-published?current=${atual}`, { auth: true });
+    setImoveis((prev) => prev.map((g) => g.id === id ? { ...g, publicado: !atual } : g));
+    if (atual) {
+      await apiDelete(`/api/v1/publicacao/${id}`, { auth: true });
+    } else {
+      await apiPost(`/api/v1/publicacao/${id}`, {}, { auth: true });
+    }
   }
 
   async function geocodificarTodos() {
-    const semCoordenadas = galpoes.filter((g) => !g.latitude || !g.longitude);
+    const semCoordenadas = imoveis.filter((g) => !g.latitude || !g.longitude);
     if (semCoordenadas.length === 0) {
       setGeocodingProgress("Todos os imóveis já têm coordenadas.");
       setTimeout(() => setGeocodingProgress(null), 3000);
@@ -125,8 +129,8 @@ export function useGalpoes() {
           { auth: true, params: { endereco: g.endereco ?? "", bairro: g.bairro ?? "", cidade: g.cidade ?? "" } },
         );
         if (lat && lng) {
-          await apiPatch(`/api/v1/galpoes/${g.id}/coords?lat=${lat}&lng=${lng}`, { auth: true });
-          setGalpoes((prev) => prev.map((p) => p.id === g.id ? { ...p, latitude: lat, longitude: lng } : p));
+          await apiPatch(`/api/v1/imoveis/${g.id}/coords?lat=${lat}&lng=${lng}`, { auth: true });
+          setImoveis((prev) => prev.map((p) => p.id === g.id ? { ...p, latitude: lat, longitude: lng } : p));
         }
       } catch {
         // ignora erro individual
@@ -140,13 +144,13 @@ export function useGalpoes() {
   }
 
   async function excluir(id: string) {
-    await apiDelete(`/api/v1/galpoes/${id}`, { auth: true });
-    setGalpoes((prev) => prev.filter((g) => g.id !== id));
+    await apiDelete(`/api/v1/imoveis/${id}`, { auth: true });
+    setImoveis((prev) => prev.filter((g) => g.id !== id));
     setDeletingId(null);
   }
 
   return {
-    galpoes, configCampos, loading, deletingId, setDeletingId, geocodingProgress,
+    imoveis, configCampos, loading, deletingId, setDeletingId, geocodingProgress,
     filtroCategoria, setFiltroCategoria,
     tipo, setTipo, cidade, setCidade, cidades,
     areaMin, setAreaMin, areaMax, setAreaMax,

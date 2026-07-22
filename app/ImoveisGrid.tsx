@@ -3,10 +3,10 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { campoVisivel, type ConfigCampo, type OverridesVisibilidade } from "@/lib/visibilidade";
-import { tipoLabel } from "@/lib/galpao-utils";
+import { tipoLabel } from "@/lib/imovel-utils";
 import { imgUrl } from "@/lib/security/proxy-url";
 
-import type { GalpaoPublico as Galpao } from "@/lib/types";
+import type { ImovelPublico as Imovel } from "@/lib/types";
 
 
 type Categoria = "galpao" | "loja" | "terreno";
@@ -14,7 +14,7 @@ type Negocio = "todos" | "venda" | "locacao";
 type UsoTerreno = "todos" | "galpao" | "loja" | "ambos";
 
 type Props = {
-  galpoes: Galpao[];
+  imoveis: Imovel[];
   supabaseUrl?: string; // mantido para compatibilidade, não mais utilizado
   configCampos?: ConfigCampo[];
   initialCategoria?: Categoria;
@@ -38,8 +38,8 @@ const btnToggle = (active: boolean) =>
 const inputCls =
   "border border-gray-200 px-3 py-2 text-sm text-gray-900 rounded-sm focus:outline-none focus:border-[#2e3092] bg-white w-full transition-colors";
 
-export default function GalpoesGrid({
-  galpoes,
+export default function ImoveisGrid({
+  imoveis,
   configCampos = [],
   initialCategoria,
   initialNegocio,
@@ -76,10 +76,10 @@ export default function GalpoesGrid({
   }
 
   const porCategoria = useMemo(() => ({
-    galpao: galpoes.filter((g) => g.categoria === "galpao" && g.id !== excludeId),
-    loja:   galpoes.filter((g) => g.categoria === "loja"   && g.id !== excludeId),
-    terreno: galpoes.filter((g) => g.categoria === "terreno" && g.id !== excludeId),
-  }), [galpoes, excludeId]);
+    galpao: imoveis.filter((g) => g.categoria === "galpao" && g.id !== excludeId),
+    loja:   imoveis.filter((g) => g.categoria === "loja"   && g.id !== excludeId),
+    terreno: imoveis.filter((g) => g.categoria === "terreno" && g.id !== excludeId),
+  }), [imoveis, excludeId]);
 
   const cidades = useMemo(() => {
     const s = new Set(porCategoria[categoria].map((g) => g.cidade).filter(Boolean));
@@ -303,7 +303,7 @@ export default function GalpoesGrid({
       ) : (
         <div className="mt-6 grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filtrados.map((g) => {
-            const imagens = [...g.galpao_imagens].sort((a, b) => a.ordem - b.ordem);
+            const imagens = [...g.imovel_imagens].sort((a, b) => a.ordem - b.ordem);
             const capa = imagens.find((i) => i.is_capa) ?? imagens[0];
             const tipoBg = g.tipo === "venda"
               ? "bg-[#2e3092] text-white"
@@ -316,7 +316,7 @@ export default function GalpoesGrid({
               ...(negocio   !== "todos"  ? { negocio }   : {}),
               ...(cidade    !== "todas"  ? { cidade }     : {}),
             }).toString();
-            const href = `/galpoes/${g.id}${qs ? `?${qs}` : ""}`;
+            const href = `/imoveis/${g.id}${qs ? `?${qs}` : ""}`;
 
             return (
               <Link

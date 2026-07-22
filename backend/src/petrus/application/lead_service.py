@@ -17,18 +17,18 @@ class LeadAppService:
         nome: str,
         telefone: str,
         empresa: str | None = None,
-        galpao_id: str | None = None,
-        galpao_titulo: str | None = None,
+        imovel_id: str | None = None,
+        imovel_titulo: str | None = None,
     ) -> Lead:
         data = {
             "nome": nome,
             "telefone": telefone,
             "empresa": empresa,
-            "galpao_id": galpao_id,
-            "galpao_titulo": galpao_titulo,
+            "imovel_id": imovel_id,
+            "imovel_titulo": imovel_titulo,
         }
         result = await self._repo.create(data)
-        await self._email.send_lead_notification(nome, telefone, empresa, galpao_titulo)
+        await self._email.send_lead_notification(nome, telefone, empresa, imovel_titulo)
         return result
 
     async def list_all(self) -> list[Lead]:

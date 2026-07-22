@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from petrus.config import settings
 from petrus.api.routers import health, leads, geocode, images, staticmap
-from petrus.api.routers import galpoes, contatos, processos, config, storage
+from petrus.api.routers import imoveis, contatos, processos, config, storage, publicacao, mdm
 from petrus.infrastructure.database.supabase_client import init_supabase, get_supabase
 
 
@@ -41,8 +41,10 @@ app.include_router(images.router)
 app.include_router(staticmap.router)
 
 # Phase 4: CRUD
-app.include_router(galpoes.router)
+app.include_router(imoveis.router)
 app.include_router(contatos.router)
 app.include_router(processos.router)
 app.include_router(config.router)
 app.include_router(storage.router)
+app.include_router(publicacao.router)
+app.include_router(mdm.router)

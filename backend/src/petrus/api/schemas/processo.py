@@ -43,5 +43,5 @@ class LinkContact(BaseModel):
     papel: str
 
 
-class LinkGalpao(BaseModel):
-    galpao_id: str
+class LinkImovel(BaseModel):
+    imovel_id: str

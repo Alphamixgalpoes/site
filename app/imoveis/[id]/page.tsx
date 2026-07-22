@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import LeadForm from "./LeadForm";
-import GalpoesGrid from "@/app/GalpoesGrid";
+import ImoveisGrid from "@/app/ImoveisGrid";
 import ImageGallery from "@/app/components/ImageGallery";
 import { campoVisivel } from "@/lib/visibilidade";
 import type { ConfigCampo, OverridesVisibilidade } from "@/lib/visibilidade";
@@ -38,14 +38,18 @@ export async function generateMetadata(
   const { id } = await params;
   const supabase = await createClient();
 
-  const { data: g } = await supabase
-    .from("galpoes")
-    .select("id, titulo, categoria, tipo, cidade, bairro, area_construida_m2, area_total_m2, valor, descricao, galpao_imagens (storage_path, ordem, visivel_site, is_capa)")
-    .eq("id", id)
-    .eq("publicado", true)
+  const { data: pubRow } = await supabase
+    .from("imovel_publicacao")
+    .select(`
+      imovel_id, titulo, seo_title, seo_description,
+      imoveis (id, titulo, categoria, tipo, cidade, bairro, area_construida_m2, area_total_m2, valor, descricao, imovel_imagens (storage_path, ordem, visivel_site, is_capa))
+    `)
+    .eq("imovel_id", id)
+    .eq("ativo", true)
     .single();
 
-  if (!g) return {};
+  if (!pubRow?.imoveis) return {};
+  const g = pubRow.imoveis as any;
 
   const tipoLabel = g.tipo === "venda" ? "Venda" : g.tipo === "locacao" ? "Locação" : "Venda/Locação";
   const categoriaLabel = g.categoria === "loja" ? "Loja" : g.categoria === "terreno" ? "Terreno" : "Galpão";
@@ -57,15 +61,15 @@ export async function generateMetadata(
     ? g.descricao.slice(0, 155)
     : `${categoriaLabel} para ${tipoLabel.toLowerCase()} em ${localLabel}. ${g.area_construida_m2 ? `Área construída: ${g.area_construida_m2} m².` : ""} Atendimento direto com corretor especializado — Alphamix Galpões.`;
 
-  const todasMetaImagens = (g.galpao_imagens ?? []).sort(
+  const todasMetaImagens = (g.imovel_imagens ?? []).sort(
     (a: { ordem: number }, b: { ordem: number }) => a.ordem - b.ordem
   ).filter((img: { visivel_site?: boolean }) => img.visivel_site !== false);
   const capaMetaImg = todasMetaImagens.find((img: { is_capa?: boolean }) => img.is_capa) ?? todasMetaImagens[0];
   const ogImage = capaMetaImg
-    ? `${SUPABASE_URL}/storage/v1/object/public/galpoes/${capaMetaImg.storage_path}`
+    ? `${SUPABASE_URL}/storage/v1/object/public/imoveis/${capaMetaImg.storage_path}`
     : `${siteUrl}/og-image.png`;
 
-  const pageUrl = `${siteUrl}/galpoes/${id}`;
+  const pageUrl = `${siteUrl}/imoveis/${id}`;
 
   return {
     title,
@@ -89,7 +93,7 @@ export async function generateMetadata(
   };
 }
 
-export default async function GalpaoPage({
+export default async function ImovelPage({
   params,
   searchParams,
 }: {
@@ -100,31 +104,40 @@ export default async function GalpaoPage({
   const sp = await searchParams;
   const supabase = await createClient();
 
-  const [{ data: g }, { data: configCampos }] = await Promise.all([
+  const [{ data: pubRowMain }, { data: configCampos }] = await Promise.all([
     supabase
-      .from("galpoes")
-      .select(`*, galpao_imagens (id, storage_path, ordem, visivel_site, is_capa)`)
-      .eq("id", id)
-      .eq("publicado", true)
+      .from("imovel_publicacao")
+      .select(`
+        imovel_id,
+        imoveis (*, imovel_imagens (id, storage_path, ordem, visivel_site, is_capa))
+      `)
+      .eq("imovel_id", id)
+      .eq("ativo", true)
       .single(),
     supabase.from("config_campos").select("*").order("label"),
   ]);
 
-  if (!g) notFound();
+  if (!pubRowMain?.imoveis) notFound();
+  const g = pubRowMain.imoveis as any;
 
-  const { data: todosGalpoes } = await supabase
-    .from("galpoes")
+  const { data: pubRowsAll } = await supabase
+    .from("imovel_publicacao")
     .select(`
-      id, titulo, tipo, categoria, uso_terreno, valor, cidade, bairro,
-      area_construida_m2, area_total_m2, pe_direito_m, numero_docas,
-      acesso_carreta, vagas_estacionamento, potencia_eletrica_kva,
-      capacidade_piso_ton_m2, avcb_validade, descricao, campos_visibilidade,
-      galpao_imagens(storage_path, ordem)
+      imovel_id,
+      imoveis (
+        id, titulo, tipo, categoria, uso_terreno, valor, cidade, bairro,
+        area_construida_m2, area_total_m2, pe_direito_m, numero_docas,
+        acesso_carreta, vagas_estacionamento, potencia_eletrica_kva,
+        capacidade_piso_ton_m2, avcb_validade, descricao, campos_visibilidade,
+        imovel_imagens(storage_path, ordem)
+      )
     `)
-    .eq("publicado", true)
-    .order("updated_at", { ascending: false });
+    .eq("ativo", true)
+    .order("published_at", { ascending: false });
 
-  const todasImagens = ([...(g.galpao_imagens ?? [])]).sort((a: { ordem: number }, b: { ordem: number }) => a.ordem - b.ordem);
+  const todosImoveis = (pubRowsAll ?? []).map((r: any) => r.imoveis).filter(Boolean);
+
+  const todasImagens = ([...(g.imovel_imagens ?? [])]).sort((a: { ordem: number }, b: { ordem: number }) => a.ordem - b.ordem);
   const imagens = todasImagens.filter((img: { visivel_site?: boolean }) => img.visivel_site !== false);
   const capaIndex = Math.max(0, imagens.findIndex((img: { is_capa?: boolean }) => img.is_capa));
   const tipoLabel = g.tipo === "venda" ? "Venda" : g.tipo === "locacao" ? "Locação" : "Venda / Locação";
@@ -168,7 +181,7 @@ export default async function GalpaoPage({
 
   const capaImg = imagens.find((img: { is_capa?: boolean }) => img.is_capa) ?? imagens[0];
   const primeiraImagem = capaImg
-    ? `${SUPABASE_URL}/storage/v1/object/public/galpoes/${capaImg.storage_path}`
+    ? `${SUPABASE_URL}/storage/v1/object/public/imoveis/${capaImg.storage_path}`
     : null;
 
   const jsonLd = {
@@ -176,7 +189,7 @@ export default async function GalpaoPage({
     "@type": "RealEstateListing",
     name: g.titulo,
     description: g.descricao ?? undefined,
-    url: `${siteUrl}/galpoes/${id}`,
+    url: `${siteUrl}/imoveis/${id}`,
     ...(primeiraImagem && { image: primeiraImagem }),
     ...(g.valor && {
       offers: {
@@ -281,7 +294,7 @@ export default async function GalpaoPage({
                 Atendimento direto com o corretor
               </p>
 
-              <LeadForm galpaoId={g.id} galpaoTitulo={g.titulo} />
+              <LeadForm imovelId={g.id} imovelTitulo={g.titulo} />
             </div>
           </div>
 
@@ -368,8 +381,8 @@ export default async function GalpaoPage({
         {/* Continue sua busca */}
         <div className="mt-16 pt-10 border-t border-gray-200">
           <h2 className="text-xl font-bold text-gray-900 mb-2">Continue sua busca</h2>
-          <GalpoesGrid
-            galpoes={(todosGalpoes ?? []) as Parameters<typeof GalpoesGrid>[0]["galpoes"]}
+          <ImoveisGrid
+            imoveis={(todosImoveis ?? []) as Parameters<typeof ImoveisGrid>[0]["imoveis"]}
             supabaseUrl={SUPABASE_URL}
             initialCategoria={sp.categoria as "galpao" | "loja" | "terreno" | undefined}
             initialNegocio={sp.negocio as "todos" | "venda" | "locacao" | undefined}

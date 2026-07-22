@@ -10,5 +10,5 @@ class EmailService(ABC):
         nome: str,
         telefone: str,
         empresa: str | None,
-        galpao_titulo: str | None,
+        imovel_titulo: str | None,
     ) -> None: ...

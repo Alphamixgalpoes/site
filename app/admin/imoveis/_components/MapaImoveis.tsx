@@ -5,9 +5,9 @@ import { MapContainer, TileLayer, Marker, Popup, GeoJSON, LayersControl, useMap,
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import Link from "next/link";
-import { tipoLabel } from "@/lib/galpao-utils";
+import { tipoLabel } from "@/lib/imovel-utils";
 
-export type GalpaoPin = {
+export type ImovelPin = {
   id: string;
   titulo: string;
   tipo: string;
@@ -22,7 +22,7 @@ export type GalpaoPin = {
 };
 
 type Props = {
-  galpoes: GalpaoPin[];
+  imoveis: ImovelPin[];
   editMode?: boolean;
   onPinDrag?: (id: string, lat: number, lng: number) => void;
   selecionadoId?: string | null;
@@ -54,16 +54,16 @@ function makeIcon(publicado: boolean, selecionado?: boolean) {
   });
 }
 
-function FitBounds({ galpoes }: { galpoes: GalpaoPin[] }) {
+function FitBounds({ imoveis }: { imoveis: ImovelPin[] }) {
   const map = useMap();
   useEffect(() => {
-    if (galpoes.length === 0) {
+    if (imoveis.length === 0) {
       map.setView(DEFAULT_CENTER, DEFAULT_ZOOM);
       return;
     }
-    const bounds = L.latLngBounds(galpoes.map((g) => [g.latitude, g.longitude]));
+    const bounds = L.latLngBounds(imoveis.map((g) => [g.latitude, g.longitude]));
     map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
-  }, [map, galpoes]);
+  }, [map, imoveis]);
   return null;
 }
 
@@ -84,7 +84,7 @@ function MapClickHandler({ onClick }: { onClick: (lat: number, lng: number) => v
   return null;
 }
 
-function PopupContent({ g }: { g: GalpaoPin }) {
+function PopupContent({ g }: { g: ImovelPin }) {
   return (
     <div className="space-y-1.5 py-1">
       <p className="font-semibold text-gray-900 text-sm leading-tight">{g.titulo}</p>
@@ -110,8 +110,8 @@ function PopupContent({ g }: { g: GalpaoPin }) {
   );
 }
 
-export default function MapaGalpoes({
-  galpoes,
+export default function MapaImoveis({
+  imoveis,
   editMode = false,
   onPinDrag,
   selecionadoId,
@@ -121,7 +121,7 @@ export default function MapaGalpoes({
   flyToCoord,
   height = "520px",
 }: Props) {
-  const comCoordenadas = galpoes.filter((g) => g.latitude && g.longitude);
+  const comCoordenadas = imoveis.filter((g) => g.latitude && g.longitude);
   const markerRefs = useRef<Record<string, L.Marker>>({});
 
   const selecionado = comCoordenadas.find((g) => g.id === selecionadoId);
@@ -158,7 +158,7 @@ export default function MapaGalpoes({
             />
           </LayersControl.BaseLayer>
         </LayersControl>
-        <FitBounds galpoes={comCoordenadas} />
+        <FitBounds imoveis={comCoordenadas} />
         {selecionado && <FlyTo lat={selecionado.latitude} lng={selecionado.longitude} />}
         {flyToCoord && !selecionado && <FlyTo lat={flyToCoord.lat} lng={flyToCoord.lng} />}
         {criarMode && onMapClick && <MapClickHandler onClick={onMapClick} />}
@@ -187,7 +187,7 @@ export default function MapaGalpoes({
             </Marker>
           ))}
 
-        {/* Polígonos: clique seleciona o galpão (revela pin + popup) */}
+        {/* Polígonos: clique seleciona o imóvel (revela pin + popup) */}
         {comCoordenadas
           .filter((g) => g.geojson)
           .map((g) => (

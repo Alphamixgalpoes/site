@@ -15,7 +15,7 @@ class ResendEmailService(EmailService):
         nome: str,
         telefone: str,
         empresa: str | None,
-        galpao_titulo: str | None,
+        imovel_titulo: str | None,
     ) -> None:
         if not settings.resend_api_key or not settings.resend_to_email:
             return
@@ -25,7 +25,7 @@ class ResendEmailService(EmailService):
         nome_esc = html.escape(nome)
         telefone_esc = html.escape(telefone)
         empresa_esc = html.escape(empresa) if empresa else None
-        titulo_esc = html.escape(galpao_titulo) if galpao_titulo else None
+        titulo_esc = html.escape(imovel_titulo) if imovel_titulo else None
         tel_digits = re.sub(r"\D", "", telefone)
 
         empresa_row = ""
