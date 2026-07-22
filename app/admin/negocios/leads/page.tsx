@@ -8,8 +8,8 @@ type Lead = {
   nome: string;
   telefone: string;
   empresa: string | null;
-  galpao_titulo: string | null;
-  galpao_id: string | null;
+  imovel_titulo: string | null;
+  imovel_id: string | null;
   contactado: boolean;
   created_at: string;
 };
@@ -84,7 +84,7 @@ export default function LeadsPage() {
                 </div>
                 <p className="text-xs text-gray-300 mt-0.5 truncate">
                   {[
-                    lead.galpao_titulo,
+                    lead.imovel_titulo,
                     new Date(lead.created_at).toLocaleDateString("pt-BR", {
                       day: "2-digit", month: "2-digit", year: "2-digit",
                       hour: "2-digit", minute: "2-digit",

@@ -196,14 +196,14 @@ class SupabaseProcessoRepo(ProcessoRepository):
     async def unlink_contact(self, link_id: UUID) -> None:
         self._sb.table("processo_contatos").delete().eq("id", str(link_id)).execute()
 
-    # Galpao
-    async def link_galpao(self, processo_id: UUID, galpao_id: UUID) -> None:
-        self._sb.table("processos").update({"galpao_id": str(galpao_id)}).eq(
+    # Imovel
+    async def link_imovel(self, processo_id: UUID, imovel_id: UUID) -> None:
+        self._sb.table("processos").update({"imovel_id": str(imovel_id)}).eq(
             "id", str(processo_id)
         ).execute()
 
-    async def unlink_galpao(self, processo_id: UUID) -> None:
-        self._sb.table("processos").update({"galpao_id": None}).eq(
+    async def unlink_imovel(self, processo_id: UUID) -> None:
+        self._sb.table("processos").update({"imovel_id": None}).eq(
             "id", str(processo_id)
         ).execute()
 

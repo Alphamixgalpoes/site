@@ -3,10 +3,10 @@
 import { useEffect, useState } from "react";
 import { useParams, notFound } from "next/navigation";
 import { apiGet } from "@/lib/api-client";
-import GalpaoForm from "../../_components/GalpaoForm";
+import ImovelForm from "../../_components/ImovelForm";
 import type { ConfigCampo } from "@/lib/visibilidade";
 
-export default function EditarGalpaoPage() {
+export default function EditarImovelPage() {
   const { id } = useParams<{ id: string }>();
   const [initial, setInitial] = useState<any>(null);
   const [imagens, setImagens] = useState<any[]>([]);
@@ -16,37 +16,37 @@ export default function EditarGalpaoPage() {
 
   useEffect(() => {
     Promise.all([
-      apiGet<any>(`/api/v1/galpoes/${id}`, { auth: true }),
+      apiGet<any>(`/api/v1/imoveis/${id}`, { auth: true }),
       apiGet<ConfigCampo[]>("/api/v1/config/campos", { auth: true }),
-    ]).then(([galpao, cfg]) => {
-      if (!galpao) { setNotFoundState(true); return; }
+    ]).then(([imovel, cfg]) => {
+      if (!imovel) { setNotFoundState(true); return; }
 
-      const imgs = (galpao.galpao_imagens ?? [])
+      const imgs = (imovel.imovel_imagens ?? [])
         .sort((a: any, b: any) => a.ordem - b.ordem);
 
       setInitial({
-        ...galpao,
-        valor: galpao.valor?.toString() ?? "",
-        area_total_m2: galpao.area_total_m2?.toString() ?? "",
-        area_construida_m2: galpao.area_construida_m2?.toString() ?? "",
-        area_piso_m2: galpao.area_piso_m2?.toString() ?? "",
-        pe_direito_m: galpao.pe_direito_m?.toString() ?? "",
-        numero_docas: galpao.numero_docas?.toString() ?? "0",
-        potencia_eletrica_kva: galpao.potencia_eletrica_kva?.toString() ?? "",
-        capacidade_piso_ton_m2: galpao.capacidade_piso_ton_m2?.toString() ?? "",
-        area_escritorio_m2: galpao.area_escritorio_m2?.toString() ?? "",
-        truck_court_m: galpao.truck_court_m?.toString() ?? "",
-        logradouro: galpao.logradouro ?? "",
-        numero: galpao.numero ?? "",
-        complemento: galpao.complemento ?? "",
-        uf: galpao.uf ?? "",
-        vagas_estacionamento: galpao.vagas_estacionamento?.toString() ?? "0",
-        valor_condominio: galpao.valor_condominio?.toString() ?? "",
+        ...imovel,
+        valor: imovel.valor?.toString() ?? "",
+        area_total_m2: imovel.area_total_m2?.toString() ?? "",
+        area_construida_m2: imovel.area_construida_m2?.toString() ?? "",
+        area_piso_m2: imovel.area_piso_m2?.toString() ?? "",
+        pe_direito_m: imovel.pe_direito_m?.toString() ?? "",
+        numero_docas: imovel.numero_docas?.toString() ?? "0",
+        potencia_eletrica_kva: imovel.potencia_eletrica_kva?.toString() ?? "",
+        capacidade_piso_ton_m2: imovel.capacidade_piso_ton_m2?.toString() ?? "",
+        area_escritorio_m2: imovel.area_escritorio_m2?.toString() ?? "",
+        truck_court_m: imovel.truck_court_m?.toString() ?? "",
+        logradouro: imovel.logradouro ?? "",
+        numero: imovel.numero ?? "",
+        complemento: imovel.complemento ?? "",
+        uf: imovel.uf ?? "",
+        vagas_estacionamento: imovel.vagas_estacionamento?.toString() ?? "0",
+        valor_condominio: imovel.valor_condominio?.toString() ?? "",
       });
       setImagens(imgs);
       setConfigCampos(cfg);
     }).catch((err) => {
-      console.error("Erro ao carregar galpão:", err);
+      console.error("Erro ao carregar imóvel:", err);
       setNotFoundState(true);
     }).finally(() => setLoading(false));
   }, [id]);
@@ -59,8 +59,8 @@ export default function EditarGalpaoPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-gray-900 mb-8">Editar Galpao</h1>
-      <GalpaoForm
+      <h1 className="text-xl font-semibold text-gray-900 mb-8">Editar Imóvel</h1>
+      <ImovelForm
         initial={initial}
         imagens={imagens}
         configCampos={configCampos}

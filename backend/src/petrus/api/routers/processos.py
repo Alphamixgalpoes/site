@@ -11,7 +11,7 @@ from petrus.api.schemas.processo import (
     ItemCreate,
     ItemUpdate,
     LinkContact,
-    LinkGalpao,
+    LinkImovel,
 )
 from petrus.api.deps import get_processo_service, get_processo_file_service
 from petrus.application.processo_service import ProcessoAppService
@@ -227,25 +227,25 @@ async def unlink_contact(
     return {"ok": True}
 
 
-# --- Galpao link ---
+# --- Imovel link ---
 
 
-@router.put("/{processo_id}/galpao")
-async def link_galpao(
+@router.put("/{processo_id}/imovel")
+async def link_imovel(
     processo_id: str,
-    body: LinkGalpao,
+    body: LinkImovel,
     _user: dict = Depends(get_current_user),
     svc: ProcessoAppService = Depends(get_processo_service),
 ):
-    await svc.link_galpao(UUID(processo_id), UUID(body.galpao_id))
+    await svc.link_imovel(UUID(processo_id), UUID(body.imovel_id))
     return {"ok": True}
 
 
-@router.delete("/{processo_id}/galpao")
-async def unlink_galpao(
+@router.delete("/{processo_id}/imovel")
+async def unlink_imovel(
     processo_id: str,
     _user: dict = Depends(get_current_user),
     svc: ProcessoAppService = Depends(get_processo_service),
 ):
-    await svc.unlink_galpao(UUID(processo_id))
+    await svc.unlink_imovel(UUID(processo_id))
     return {"ok": True}

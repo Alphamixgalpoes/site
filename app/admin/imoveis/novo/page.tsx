@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { apiGet } from "@/lib/api-client";
-import GalpaoForm from "../_components/GalpaoForm";
+import ImovelForm from "../_components/ImovelForm";
 import type { ConfigCampo } from "@/lib/visibilidade";
 
-export default function NovoGalpaoPage() {
+export default function NovoImovelPage() {
   const [configCampos, setConfigCampos] = useState<ConfigCampo[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -23,8 +23,8 @@ export default function NovoGalpaoPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-semibold text-gray-900 mb-8">Novo Galpao</h1>
-      <GalpaoForm configCampos={configCampos} />
+      <h1 className="text-xl font-semibold text-gray-900 mb-8">Novo Imóvel</h1>
+      <ImovelForm configCampos={configCampos} />
     </div>
   );
 }

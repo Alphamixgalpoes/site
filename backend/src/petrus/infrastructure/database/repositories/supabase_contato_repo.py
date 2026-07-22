@@ -65,12 +65,12 @@ class SupabaseContatoRepo(ContatoRepository):
     async def get_relationships(self, contato_id: UUID) -> dict[str, Any]:
         cid = str(contato_id)
         pc = self._sb.table("processo_contatos").select("id, processo_id, papel, processos(id, titulo, tipo, status)").eq("contato_id", cid).execute()
-        prop_galpoes = self._sb.table("galpoes").select("id, titulo, tipo, categoria, cidade, publicado, area_construida_m2").eq("proprietario_id", cid).order("created_at", desc=True).execute()
+        prop_imoveis = self._sb.table("imoveis").select("id, titulo, tipo, categoria, cidade, publicado, area_construida_m2").eq("proprietario_id", cid).order("created_at", desc=True).execute()
         prop_procs = self._sb.table("processos").select("id, titulo, tipo, status, valor").eq("proprietario_id", cid).order("created_at", desc=True).execute()
         cli_procs = self._sb.table("processos").select("id, titulo, tipo, status, valor").eq("cliente_id", cid).order("created_at", desc=True).execute()
         return {
             "processo_contatos": pc.data or [],
-            "imoveis_proprietario": prop_galpoes.data or [],
+            "imoveis_proprietario": prop_imoveis.data or [],
             "processos_proprietario": prop_procs.data or [],
             "processos_cliente": cli_procs.data or [],
         }

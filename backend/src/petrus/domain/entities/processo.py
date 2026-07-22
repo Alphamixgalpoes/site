@@ -50,7 +50,8 @@ class Processo:
     parte_b: str | None = None
     proprietario_id: UUID | None = None
     cliente_id: UUID | None = None
-    galpao_id: UUID | None = None
+    imovel_id: UUID | None = None
+    imovel_titulo: str | None = None
     valor: float | None = None
     notas: str | None = None
     created_at: str | None = None

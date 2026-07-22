@@ -1,4 +1,4 @@
-import { tipoLabel } from "@/lib/galpao-utils";
+import { tipoLabel } from "@/lib/imovel-utils";
 import {
   Document,
   Page,
@@ -7,7 +7,7 @@ import {
   Image,
   StyleSheet,
 } from "@react-pdf/renderer";
-import type { Galpao, GalpaoImagem } from "@/lib/types";
+import type { Imovel, ImovelImagem } from "@/lib/types";
 import { API_BASE_URL } from "@/lib/api-client";
 import type { ConfigCampo } from "@/lib/visibilidade";
 
@@ -214,17 +214,17 @@ const styles = StyleSheet.create({
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-type GalpaoComNum = Galpao & { num: number };
+type ImovelComNum = Imovel & { num: number };
 
 function isCampoConfidencial(campoChave: string, configCampos: ConfigCampo[]): boolean {
   return configCampos.find((c) => c.campo_chave === campoChave)?.confidencial ?? false;
 }
 
-function fotosSite(imagens: GalpaoImagem[]): GalpaoImagem[] {
+function fotosSite(imagens: ImovelImagem[]): ImovelImagem[] {
   return [...imagens].filter((i) => i.visivel_site).sort((a, b) => a.ordem - b.ordem);
 }
 
-function imgUrl(supabaseUrl: string, img: GalpaoImagem): string {
+function imgUrl(supabaseUrl: string, img: ImovelImagem): string {
   return `${supabaseUrl}/storage/v1/object/public/galpoes/${img.storage_path}`;
 }
 
@@ -264,14 +264,14 @@ function PdfFooter() {
 }
 
 function SecaoSumario({
-  galpoes,
+  imoveis,
   filtros,
   supabaseUrl,
   baseUrl,
   incluirConfidenciais,
   configCampos,
 }: {
-  galpoes: GalpaoComNum[];
+  imoveis: ImovelComNum[];
   filtros: Record<string, string>;
   supabaseUrl: string;
   baseUrl: string;
@@ -279,7 +279,7 @@ function SecaoSumario({
   configCampos: ConfigCampo[];
 }) {
   const filtrosAtivos = Object.entries(filtros).filter(([, v]) => v && v !== "todos" && v !== "");
-  const comCoordenadas = galpoes.filter((g) => g.latitude && g.longitude);
+  const comCoordenadas = imoveis.filter((g) => g.latitude && g.longitude);
 
   let mapaUrl: string | null = null;
   if (comCoordenadas.length > 0) {
@@ -315,18 +315,18 @@ function SecaoSumario({
         </View>
       )}
 
-      {galpoes.length === 0 ? (
+      {imoveis.length === 0 ? (
         <Text style={styles.semResultados}>
           Nenhum galpão encontrado com os filtros selecionados.
         </Text>
       ) : (
         <>
           <Text style={styles.listaTitle}>
-            {galpoes.length} imóvel{galpoes.length !== 1 ? "s" : ""} encontrado
-            {galpoes.length !== 1 ? "s" : ""}
+            {imoveis.length} imóvel{imoveis.length !== 1 ? "s" : ""} encontrado
+            {imoveis.length !== 1 ? "s" : ""}
           </Text>
-          {galpoes.map((g) => {
-            const fotos = fotosSite(g.galpao_imagens);
+          {imoveis.map((g) => {
+            const fotos = fotosSite(g.imovel_imagens);
             const capa = fotos[0];
 
             const subParts = [
@@ -360,18 +360,18 @@ function SecaoSumario({
   );
 }
 
-function FichaGalpao({
+function FichaImovel({
   g,
   supabaseUrl,
   opcoes,
   configCampos,
 }: {
-  g: GalpaoComNum;
+  g: ImovelComNum;
   supabaseUrl: string;
   opcoes: OpcoesPDF;
   configCampos: ConfigCampo[];
 }) {
-  const visibleFotos = fotosSite(g.galpao_imagens).slice(0, opcoes.fotosNaFicha);
+  const visibleFotos = fotosSite(g.imovel_imagens).slice(0, opcoes.fotosNaFicha);
   const hero = visibleFotos[0];
   const secondary = visibleFotos.slice(1);
 
@@ -382,7 +382,7 @@ function FichaGalpao({
     opcoes.incluirConfidenciais || !isCampoConfidencial(key, configCampos);
 
   // Secondary photos in pairs (for 2-col layout)
-  const secPairs: GalpaoImagem[][] = [];
+  const secPairs: ImovelImagem[][] = [];
   for (let i = 0; i < secondary.length; i += 2) {
     secPairs.push(secondary.slice(i, i + 2));
   }
@@ -491,16 +491,16 @@ function FichaGalpao({
   );
 }
 
-function GaleriaGalpao({
+function GaleriaImovel({
   g,
   supabaseUrl,
 }: {
-  g: GalpaoComNum;
+  g: ImovelComNum;
   supabaseUrl: string;
 }) {
-  const fotos = fotosSite(g.galpao_imagens);
+  const fotos = fotosSite(g.imovel_imagens);
 
-  const rows: GalpaoImagem[][] = [];
+  const rows: ImovelImagem[][] = [];
   for (let i = 0; i < fotos.length; i += 3) {
     rows.push(fotos.slice(i, i + 3));
   }
@@ -534,14 +534,14 @@ function GaleriaGalpao({
 // ── Main export ───────────────────────────────────────────────────────────────
 
 export function PDFRelatorio({
-  galpoes,
+  imoveis,
   filtros,
   supabaseUrl,
   baseUrl,
   opcoes = { sumario: true, fichas: true, fotosNaFicha: 3, galeria: false, incluirConfidenciais: false },
   configCampos = [],
 }: {
-  galpoes: Galpao[];
+  imoveis: Imovel[];
   filtros: Record<string, string>;
   supabaseUrl: string;
   baseUrl: string;
@@ -554,10 +554,10 @@ export function PDFRelatorio({
     year: "numeric",
   });
 
-  const galpoesComNum: GalpaoComNum[] = galpoes.map((g, i) => ({ ...g, num: i + 1 }));
+  const imoveisComNum: ImovelComNum[] = imoveis.map((g, i) => ({ ...g, num: i + 1 }));
 
-  const galpoesComGaleria = opcoes.galeria
-    ? galpoesComNum.filter((g) => fotosSite(g.galpao_imagens).length >= 2)
+  const imoveisComGaleria = opcoes.galeria
+    ? imoveisComNum.filter((g) => fotosSite(g.imovel_imagens).length >= 2)
     : [];
 
   const nenhumaSelecionada = !opcoes.sumario && !opcoes.fichas && !opcoes.galeria;
@@ -569,7 +569,7 @@ export function PDFRelatorio({
         <Page size="A4" style={styles.page}>
           <PdfHeader baseUrl={baseUrl} agora={agora} />
           <SecaoSumario
-            galpoes={galpoesComNum}
+            imoveis={imoveisComNum}
             filtros={filtros}
             supabaseUrl={supabaseUrl}
             baseUrl={baseUrl}
@@ -582,10 +582,10 @@ export function PDFRelatorio({
 
       {/* ── Fichas detalhadas — 1 página por imóvel ── */}
       {opcoes.fichas &&
-        galpoesComNum.map((g) => (
+        imoveisComNum.map((g) => (
           <Page key={`ficha-${g.id}`} size="A4" style={styles.page}>
             <PdfHeader baseUrl={baseUrl} agora={agora} />
-            <FichaGalpao
+            <FichaImovel
               g={g}
               supabaseUrl={supabaseUrl}
               opcoes={opcoes}
@@ -596,10 +596,10 @@ export function PDFRelatorio({
         ))}
 
       {/* ── Galeria completa ── */}
-      {galpoesComGaleria.map((g) => (
+      {imoveisComGaleria.map((g) => (
         <Page key={`galeria-${g.id}`} size="A4" style={styles.page}>
           <PdfHeader baseUrl={baseUrl} agora={agora} />
-          <GaleriaGalpao g={g} supabaseUrl={supabaseUrl} />
+          <GaleriaImovel g={g} supabaseUrl={supabaseUrl} />
           <PdfFooter />
         </Page>
       ))}

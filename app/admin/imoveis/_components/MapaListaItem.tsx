@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { tipoLabel } from "@/lib/galpao-utils";
+import { tipoLabel } from "@/lib/imovel-utils";
 
 type Props = {
-  galpao: {
+  imovel: {
     id: string;
     titulo: string;
     tipo: string;
@@ -20,7 +20,7 @@ type Props = {
   onTogglePublicado: (id: string, valor: boolean) => void;
 };
 
-export default function MapaListaItem({ galpao: g, selecionado, onCentralizar, onTogglePublicado }: Props) {
+export default function MapaListaItem({ imovel: g, selecionado, onCentralizar, onTogglePublicado }: Props) {
   const temCoordenadas = g.latitude !== null && g.longitude !== null;
 
   return (

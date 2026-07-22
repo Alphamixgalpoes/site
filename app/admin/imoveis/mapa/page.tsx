@@ -3,12 +3,12 @@
 import { useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
-import { useGalpoes } from "../_hooks/useGalpoes";
+import { useImoveis } from "../_hooks/useImoveis";
 import { apiGet, apiPost, apiPatch } from "@/lib/api-client";
-import GalpaoFiltros from "../_components/GalpaoFiltros";
+import ImovelFiltros from "../_components/ImovelFiltros";
 import MapaListaItem from "../_components/MapaListaItem";
 
-const MapaGalpoes = dynamic(() => import("../_components/MapaGalpoes"), {
+const MapaImoveis = dynamic(() => import("../_components/MapaImoveis"), {
   ssr: false,
   loading: () => (
     <div className="h-[45vh] md:h-[60vh] flex items-center justify-center text-sm text-gray-400 border border-gray-200 bg-gray-50">
@@ -20,7 +20,7 @@ const MapaGalpoes = dynamic(() => import("../_components/MapaGalpoes"), {
 export default function MapaHubPage() {
   const router = useRouter();
   const {
-    loading, galpoes,
+    loading, imoveis,
     filtroCategoria, setFiltroCategoria,
     tipo, setTipo, cidade, setCidade, cidades,
     areaMin, setAreaMin, areaMax, setAreaMax,
@@ -32,7 +32,7 @@ export default function MapaHubPage() {
     comGuarita, setComGuarita,
     filtrados, filtrosAtivos, temFiltro, limpar,
     togglePublicado, geocodificarTodos, geocodingProgress,
-  } = useGalpoes();
+  } = useImoveis();
 
   const [selecionadoId, setSelecionadoId] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false);
@@ -62,7 +62,7 @@ export default function MapaHubPage() {
 
   async function handlePinDrag(id: string, lat: number, lng: number) {
     setSalvando(id);
-    await apiPatch(`/api/v1/galpoes/${id}/coords?lat=${lat}&lng=${lng}`, { auth: true });
+    await apiPatch(`/api/v1/imoveis/${id}/coords?lat=${lat}&lng=${lng}`, { auth: true });
     setSalvando(null);
   }
 
@@ -80,7 +80,7 @@ export default function MapaHubPage() {
       );
     } catch { /* silent */ }
 
-    const data = await apiPost<{ id: string }>("/api/v1/galpoes", {
+    const data = await apiPost<{ id: string }>("/api/v1/imoveis", {
       titulo: "Novo imovel",
       tipo: "locacao",
       categoria: "galpao",
@@ -99,7 +99,7 @@ export default function MapaHubPage() {
   }
 
   function handleTogglePublicado(id: string, valor: boolean) {
-    const g = galpoes.find((g) => g.id === id);
+    const g = imoveis.find((g) => g.id === id);
     if (g) togglePublicado(id, g.publicado);
   }
 
@@ -139,7 +139,7 @@ export default function MapaHubPage() {
         </div>
 
         {/* Filtros */}
-        <GalpaoFiltros
+        <ImovelFiltros
           filtroCategoria={filtroCategoria} setFiltroCategoria={setFiltroCategoria}
           tipo={tipo} setTipo={setTipo}
           cidade={cidade} setCidade={setCidade}
@@ -253,8 +253,8 @@ export default function MapaHubPage() {
           Carregando...
         </div>
       ) : (
-        <MapaGalpoes
-          galpoes={comCoordenadas}
+        <MapaImoveis
+          imoveis={comCoordenadas}
           editMode={editMode}
           onPinDrag={handlePinDrag}
           selecionadoId={selecionadoId}
@@ -284,7 +284,7 @@ export default function MapaHubPage() {
             {visiveis.map((g) => (
               <MapaListaItem
                 key={g.id}
-                galpao={g}
+                imovel={g}
                 selecionado={g.id === selecionadoId}
                 onCentralizar={setSelecionadoId}
                 onTogglePublicado={handleTogglePublicado}

@@ -62,12 +62,18 @@ export async function apiPost<T = unknown>(
 
 export async function apiPatch<T = unknown>(
   path: string,
+  bodyOrOpts?: unknown | { auth?: boolean },
   opts?: { auth?: boolean },
 ): Promise<T> {
-  const auth = opts?.auth ?? false;
+  const hasBody = opts !== undefined;
+  const auth = hasBody ? (opts?.auth ?? false) : ((bodyOrOpts as { auth?: boolean })?.auth ?? false);
+  const body = hasBody ? bodyOrOpts : undefined;
   const res = await fetch(`${API_URL}${path}`, {
     method: "PATCH",
-    headers: await headers(auth),
+    headers: body != null
+      ? { "Content-Type": "application/json", ...(await headers(auth)) }
+      : await headers(auth),
+    ...(body != null && { body: JSON.stringify(body) }),
   });
   if (!res.ok) throw new ApiError(res.status, await res.text());
   return res.json();

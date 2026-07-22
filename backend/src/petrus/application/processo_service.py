@@ -112,10 +112,10 @@ class ProcessoAppService:
     async def unlink_contact(self, link_id: UUID) -> None:
         await self._repo.unlink_contact(link_id)
 
-    # --- Galpao link ---
+    # --- Imovel link ---
 
-    async def link_galpao(self, processo_id: UUID, galpao_id: UUID) -> None:
-        await self._repo.link_galpao(processo_id, galpao_id)
+    async def link_imovel(self, processo_id: UUID, imovel_id: UUID) -> None:
+        await self._repo.link_imovel(processo_id, imovel_id)
 
-    async def unlink_galpao(self, processo_id: UUID) -> None:
-        await self._repo.unlink_galpao(processo_id)
+    async def unlink_imovel(self, processo_id: UUID) -> None:
+        await self._repo.unlink_imovel(processo_id)

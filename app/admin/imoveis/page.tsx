@@ -9,7 +9,7 @@ export default function ImoveisCentral() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    apiGet<{ publicado: boolean }[]>("/api/v1/galpoes", { auth: true }).then((data) => {
+    apiGet<{ publicado: boolean }[]>("/api/v1/imoveis", { auth: true }).then((data) => {
       const t = data.length;
       const p = data.filter((g) => g.publicado).length;
       setStats({ total: t, publicados: p, ocultos: t - p });

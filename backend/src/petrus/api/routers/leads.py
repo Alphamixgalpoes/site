@@ -21,8 +21,8 @@ async def submit_lead(
         nome=body.nome,
         telefone=body.telefone,
         empresa=body.empresa,
-        galpao_id=body.galpao_id,
-        galpao_titulo=body.galpao_titulo,
+        imovel_id=body.imovel_id,
+        imovel_titulo=body.imovel_titulo,
     )
 
 

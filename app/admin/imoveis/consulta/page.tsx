@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import { apiGet } from "@/lib/api-client";
 import { PDFRelatorio, type OpcoesPDF } from "../_components/PDFRelatorio";
-import type { Galpao } from "@/lib/types";
+import type { Imovel } from "@/lib/types";
 import type { ConfigCampo } from "@/lib/visibilidade";
 import { SUPABASE_URL } from "@/lib/constants";
 
@@ -18,7 +18,7 @@ const OPCOES_DEFAULT: OpcoesPDF = {
 };
 
 export default function ConsultaPage() {
-  const [galpoes, setGalpoes] = useState<Galpao[]>([]);
+  const [imoveis, setImoveis] = useState<Imovel[]>([]);
   const [configCampos, setConfigCampos] = useState<ConfigCampo[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalPDF, setModalPDF] = useState(false);
@@ -40,10 +40,10 @@ export default function ConsultaPage() {
 
   useEffect(() => {
     Promise.all([
-      apiGet<Galpao[]>("/api/v1/galpoes", { auth: true }),
+      apiGet<Imovel[]>("/api/v1/imoveis", { auth: true }),
       apiGet<ConfigCampo[]>("/api/v1/config/campos", { auth: true }),
     ]).then(([data, cfg]) => {
-      setGalpoes(data);
+      setImoveis(data);
       setConfigCampos(cfg);
     }).catch((err) => {
       console.error("Erro ao carregar consulta:", err);
@@ -56,7 +56,7 @@ export default function ConsultaPage() {
       const { pdf } = await import("@react-pdf/renderer");
       const blob = await pdf(
         <PDFRelatorio
-          galpoes={filtrados}
+          imoveis={filtrados}
           filtros={filtrosParaPDF}
           supabaseUrl={supabaseUrl}
           baseUrl={window.location.origin}
@@ -67,7 +67,7 @@ export default function ConsultaPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `alphamix-galpoes-consulta-${new Date().toISOString().slice(0, 10)}.pdf`;
+      a.download = `alphamix-imoveis-consulta-${new Date().toISOString().slice(0, 10)}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
     } finally {
@@ -77,12 +77,12 @@ export default function ConsultaPage() {
   }
 
   const cidades = useMemo(() => {
-    const s = new Set(galpoes.map((g) => g.cidade).filter(Boolean));
+    const s = new Set(imoveis.map((g) => g.cidade).filter(Boolean));
     return Array.from(s).sort();
-  }, [galpoes]);
+  }, [imoveis]);
 
   const filtrados = useMemo(() => {
-    return galpoes.filter((g) => {
+    return imoveis.filter((g) => {
       if (tipo !== "todos" && g.tipo !== tipo) return false;
       if (cidade !== "todas" && g.cidade !== cidade) return false;
       if (soPublicados && !g.publicado) return false;
@@ -96,7 +96,7 @@ export default function ConsultaPage() {
       if (docasMin && (g.numero_docas ?? 0) < Number(docasMin)) return false;
       return true;
     });
-  }, [galpoes, tipo, cidade, soPublicados, comCarreta, comSprinkler, comGuarita, areaMin, areaMax, valorMin, valorMax, docasMin]);
+  }, [imoveis, tipo, cidade, soPublicados, comCarreta, comSprinkler, comGuarita, areaMin, areaMax, valorMin, valorMax, docasMin]);
 
   const filtrosParaPDF: Record<string, string> = {
     ...(tipo !== "todos" && { Tipo: tipo === "venda" ? "Venda" : tipo === "locacao" ? "Locação" : "Venda / Locação" }),
@@ -207,7 +207,7 @@ export default function ConsultaPage() {
           ) : (
             <div className="space-y-3">
               {filtrados.map((g) => {
-                const imgs = [...g.galpao_imagens].sort((a, b) => a.ordem - b.ordem);
+                const imgs = [...g.imovel_imagens].sort((a, b) => a.ordem - b.ordem);
                 const capa = imgs.find((i) => i.is_capa) ?? imgs[0];
                 return (
                   <div key={g.id} className="bg-white border border-gray-200 flex overflow-hidden">

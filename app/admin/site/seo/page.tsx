@@ -12,13 +12,13 @@ type CheckItem = {
 export default async function SeoPage() {
   const supabase = await createClient();
 
-  const { data: galpoes } = await supabase
-    .from("galpoes")
+  const { data: imoveis } = await supabase
+    .from("imoveis")
     .select("id, titulo, descricao, publicado")
     .eq("publicado", true);
 
-  const totalPublicados = galpoes?.length ?? 0;
-  const semDescricao = galpoes?.filter((g) => !g.descricao || g.descricao.trim().length < 50).length ?? 0;
+  const totalPublicados = imoveis?.length ?? 0;
+  const semDescricao = imoveis?.filter((g) => !g.descricao || g.descricao.trim().length < 50).length ?? 0;
 
   const siteUrlDefinida = !!process.env.NEXT_PUBLIC_SITE_URL;
 

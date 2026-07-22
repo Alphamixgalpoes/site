@@ -16,7 +16,7 @@ import { apiGet, apiPut, apiPost, apiDelete, apiUpload } from "@/lib/api-client"
 import ContatoPicker from "@/app/admin/_components/ContatoPicker";
 import type { ContatoResumido } from "@/lib/types";
 
-type GalpaoVinculado = {
+type ImovelVinculado = {
   id: string;
   titulo: string;
   tipo: string | null;
@@ -34,8 +34,8 @@ type Processo = {
   cliente_id: string | null;
   valor: number | null;
   notas: string | null;
-  galpao_id: string | null;
-  galpao: GalpaoVinculado | null;
+  imovel_id: string | null;
+  imovel: ImovelVinculado | null;
 };
 
 type Item = {
@@ -71,7 +71,7 @@ type ContatoBusca = {
   tipo_principal: string;
 };
 
-type GalpaoBusca = {
+type ImovelBusca = {
   id: string;
   titulo: string;
   tipo: string | null;
@@ -224,10 +224,10 @@ export default function ProcessoDetalhePage() {
   const [papelContato, setPapelContato] = useState("");
   const [vinculandoContato, setVinculandoContato] = useState(false);
 
-  // ── vincular galpão ──
-  const [mostrarFormGalpao, setMostrarFormGalpao] = useState(false);
-  const [buscaGalpao, setBuscaGalpao] = useState("");
-  const [resultadosGalpao, setResultadosGalpao] = useState<GalpaoBusca[]>([]);
+  // ── vincular imovel ──
+  const [mostrarFormImovel, setMostrarFormImovel] = useState(false);
+  const [buscaImovel, setBuscaImovel] = useState("");
+  const [resultadosImovel, setResultadosImovel] = useState<ImovelBusca[]>([]);
 
   // novo item
   const [novoTitulo, setNovoTitulo] = useState("");
@@ -252,14 +252,14 @@ export default function ProcessoDetalhePage() {
       ]);
 
       if (proc) {
-        let galpaoVinculado: GalpaoVinculado | null = null;
-        if (proc.galpao_id) {
+        let imovelVinculado: ImovelVinculado | null = null;
+        if (proc.imovel_id) {
           try {
-            const g = await apiGet<any>(`/api/v1/galpoes/${proc.galpao_id}`, { auth: true });
-            galpaoVinculado = g ? { id: g.id, titulo: g.titulo, tipo: g.tipo, area_total_m2: g.area_total_m2 } : null;
-          } catch { /* galpao not found */ }
+            const g = await apiGet<any>(`/api/v1/imoveis/${proc.imovel_id}`, { auth: true });
+            imovelVinculado = g ? { id: g.id, titulo: g.titulo, tipo: g.tipo, area_total_m2: g.area_total_m2 } : null;
+          } catch { /* imovel not found */ }
         }
-        setProcesso({ ...proc, galpao: galpaoVinculado } as Processo);
+        setProcesso({ ...proc, imovel: imovelVinculado } as Processo);
         if (proc.proprietario) setProprietarioContato(proc.proprietario as ContatoResumido);
         if (proc.cliente) setClienteContato(proc.cliente as ContatoResumido);
         setEditTitulo(proc.titulo);
@@ -470,25 +470,25 @@ export default function ProcessoDetalhePage() {
     setContatosVinculados((prev) => prev.filter((c) => c.id !== pcId));
   }
 
-  // ── galpão ────────────────────────────────────────────────────────────────
+  // ── imovel ────────────────────────────────────────────────────────────────
 
-  async function buscarGalpoes(termo: string) {
-    if (termo.length < 2) { setResultadosGalpao([]); return; }
-    const data = await apiGet<GalpaoBusca[]>(`/api/v1/galpoes/search?q=${encodeURIComponent(termo)}`, { auth: true });
-    setResultadosGalpao(data ?? []);
+  async function buscarImoveis(termo: string) {
+    if (termo.length < 2) { setResultadosImovel([]); return; }
+    const data = await apiGet<ImovelBusca[]>(`/api/v1/imoveis/search?q=${encodeURIComponent(termo)}`, { auth: true });
+    setResultadosImovel(data ?? []);
   }
 
-  async function vincularGalpao(galpao: GalpaoBusca) {
-    await apiPut(`/api/v1/processos/${id}/galpao`, { galpao_id: galpao.id }, { auth: true });
-    setProcesso((p) => p ? { ...p, galpao_id: galpao.id, galpao: galpao } : p);
-    setBuscaGalpao("");
-    setResultadosGalpao([]);
-    setMostrarFormGalpao(false);
+  async function vincularImovel(imovel: ImovelBusca) {
+    await apiPut(`/api/v1/processos/${id}/imovel`, { imovel_id: imovel.id }, { auth: true });
+    setProcesso((p) => p ? { ...p, imovel_id: imovel.id, imovel: imovel } : p);
+    setBuscaImovel("");
+    setResultadosImovel([]);
+    setMostrarFormImovel(false);
   }
 
-  async function desvincularGalpao() {
-    await apiDelete(`/api/v1/processos/${id}/galpao`, { auth: true });
-    setProcesso((p) => p ? { ...p, galpao_id: null, galpao: null } : p);
+  async function desvincularImovel() {
+    await apiDelete(`/api/v1/processos/${id}/imovel`, { auth: true });
+    setProcesso((p) => p ? { ...p, imovel_id: null, imovel: null } : p);
   }
 
   // ── render ────────────────────────────────────────────────────────────────
@@ -636,39 +636,39 @@ export default function ProcessoDetalhePage() {
 
             {/* Imóvel vinculado */}
             <div className="flex items-center gap-2">
-              {processo.galpao ? (
+              {processo.imovel ? (
                 <div className="flex items-center gap-1.5">
                   <Link
-                    href={`/admin/imoveis/${processo.galpao.id}/editar`}
+                    href={`/admin/imoveis/${processo.imovel.id}/editar`}
                     target="_blank"
                     className="text-xs text-gray-500 bg-gray-50 border border-gray-200 px-2 py-0.5 hover:border-gray-400 transition-colors"
                   >
-                    {processo.galpao.titulo} ↗
+                    {processo.imovel.titulo} ↗
                   </Link>
                   <button
-                    onClick={desvincularGalpao}
+                    onClick={desvincularImovel}
                     className="text-xs text-gray-400 hover:text-red-500 transition-colors"
                     title="Desvincular imóvel"
                   >
                     ✕
                   </button>
                 </div>
-              ) : mostrarFormGalpao ? (
+              ) : mostrarFormImovel ? (
                 <div className="relative">
                   <input
                     autoFocus
                     className="text-sm border-b border-gray-300 focus:outline-none focus:border-gray-900 bg-transparent text-gray-700 w-64"
                     placeholder="Buscar imóvel pelo título..."
-                    value={buscaGalpao}
-                    onChange={(e) => { setBuscaGalpao(e.target.value); buscarGalpoes(e.target.value); }}
-                    onKeyDown={(e) => { if (e.key === "Escape") { setMostrarFormGalpao(false); setBuscaGalpao(""); setResultadosGalpao([]); } }}
+                    value={buscaImovel}
+                    onChange={(e) => { setBuscaImovel(e.target.value); buscarImoveis(e.target.value); }}
+                    onKeyDown={(e) => { if (e.key === "Escape") { setMostrarFormImovel(false); setBuscaImovel(""); setResultadosImovel([]); } }}
                   />
-                  {resultadosGalpao.length > 0 && (
+                  {resultadosImovel.length > 0 && (
                     <div className="absolute top-full left-0 mt-1 w-80 bg-white border border-gray-200 shadow-sm z-20">
-                      {resultadosGalpao.map((g) => (
+                      {resultadosImovel.map((g) => (
                         <button
                           key={g.id}
-                          onClick={() => vincularGalpao(g)}
+                          onClick={() => vincularImovel(g)}
                           className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors border-b border-gray-100 last:border-0"
                         >
                           <span className="font-medium">{g.titulo}</span>
@@ -680,7 +680,7 @@ export default function ProcessoDetalhePage() {
                 </div>
               ) : (
                 <button
-                  onClick={() => setMostrarFormGalpao(true)}
+                  onClick={() => setMostrarFormImovel(true)}
                   className="text-xs text-gray-400 hover:text-gray-700 transition-colors"
                 >
                   + Vincular imóvel
