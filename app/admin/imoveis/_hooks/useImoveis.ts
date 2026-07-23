@@ -33,14 +33,14 @@ export function useImoveis() {
 
   async function load() {
     try {
-      const [data, cfg] = await Promise.all([
+      const [data, cfg] = await Promise.allSettled([
         apiGet<Imovel[]>("/api/v1/imoveis", { auth: true }),
         apiGet<ConfigCampo[]>("/api/v1/config/campos", { auth: true }),
       ]);
-      setImoveis(data);
-      setConfigCampos(cfg);
+      if (data.status === "fulfilled") setImoveis(data.value);
+      if (cfg.status === "fulfilled") setConfigCampos(cfg.value);
     } catch (err) {
-      console.error("Erro ao carregar galpões:", err);
+      console.error("Erro ao carregar imoveis:", err);
     } finally {
       setLoading(false);
     }
