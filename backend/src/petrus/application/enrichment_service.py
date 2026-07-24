@@ -17,9 +17,14 @@ from petrus.domain.repositories.enrichment_repo import (
 )
 from petrus.domain.repositories.imovel_repo import ImovelRepository
 from petrus.domain.repositories.mdm_repo import (
-    FonteRepository, FonteRegistroRepository, ImovelFonteRepository,
+    FonteRegistroRepository,
+    FonteRepository,
+    ImovelFonteRepository,
 )
 from petrus.infrastructure.mdm.ranker import SimilarityRanker
+
+# Below this score, registros are auto-created as new imóveis (no card needed)
+AUTO_CREATE_THRESHOLD = 0.50
 
 
 class EnrichmentService:
@@ -45,10 +50,14 @@ class EnrichmentService:
     # ------------------------------------------------------------------
 
     async def generate_cards(self, fonte_id: UUID) -> dict[str, Any]:
-        """Generate enrichment cards for all clean registros of a fonte.
+        """Generate enrichment cards for clean registros of a fonte.
 
         Always recalculates: deletes existing pending/in-progress cards
         for this fonte, then generates fresh ones via batch insert.
+
+        Registros with score_max < AUTO_CREATE_THRESHOLD are auto-created
+        as new imóveis directly (no card — they're clearly new properties).
+        Only registros with meaningful matches get enrichment cards.
         """
         fonte = await self._fonte_repo.get_by_id(fonte_id)
         if not fonte:
@@ -74,25 +83,37 @@ class EnrichmentService:
 
         rankings = self._ranker.rank_batch(registros, golden)
 
-        # Build batch of cards
-        batch: list[dict[str, Any]] = []
-        for reg_data, reg_id, similares in zip(registros, reg_ids, rankings):
-            card = {
-                "fonte_id": str(fonte_id),
-                "fonte_registro_id": reg_id,
-                "registro_snapshot": reg_data,
-                "similares": similares,
-                "cidade": reg_data.get("cidade"),
-                "bairro": reg_data.get("bairro"),
-                "logradouro": reg_data.get("logradouro"),
-                "area": reg_data.get("area_construida_m2") or reg_data.get("area_total_m2"),
-                "score_max": similares[0]["score"] if similares else 0.0,
-                "status": "pendente",
-            }
-            batch.append(card)
+        # Split: auto-create vs card
+        cards_batch: list[dict[str, Any]] = []
+        auto_created: list[str] = []
 
-        # Batch insert
-        inserted = await self._card_repo.create_batch(batch)
+        for reg_data, reg_id, similares in zip(registros, reg_ids, rankings):
+            score_max = similares[0]["score"] if similares else 0.0
+
+            if score_max >= AUTO_CREATE_THRESHOLD:
+                # Has meaningful matches — create card for human review
+                cards_batch.append({
+                    "fonte_id": str(fonte_id),
+                    "fonte_registro_id": reg_id,
+                    "registro_snapshot": reg_data,
+                    "similares": similares,
+                    "cidade": reg_data.get("cidade"),
+                    "bairro": reg_data.get("bairro"),
+                    "logradouro": reg_data.get("logradouro"),
+                    "area": reg_data.get("area_construida_m2") or reg_data.get("area_total_m2"),
+                    "score_max": score_max,
+                    "status": "pendente",
+                })
+            else:
+                # No meaningful match — auto-create as new imóvel
+                imovel_id = await self._auto_create_imovel(
+                    reg_data, reg_id, fonte_id,
+                )
+                if imovel_id:
+                    auto_created.append(imovel_id)
+
+        # Batch insert cards
+        inserted = await self._card_repo.create_batch(cards_batch)
 
         await self._fonte_repo.update(fonte_id, {
             "processing_status": "enrichment_gerado",
@@ -101,10 +122,33 @@ class EnrichmentService:
         return {
             "deleted_previous": deleted,
             "cards_gerados": inserted,
+            "auto_criados": len(auto_created),
             "total_registros": len(registros),
-            "com_similares": sum(1 for r in rankings if r),
-            "sem_similares": sum(1 for r in rankings if not r),
+            "threshold": AUTO_CREATE_THRESHOLD,
         }
+
+    async def _auto_create_imovel(
+        self, reg_data: dict, reg_id: str, fonte_id: UUID,
+    ) -> str | None:
+        """Create an imóvel directly from a registro with no significant match."""
+        try:
+            imovel_data = _to_imovel_dict(reg_data)
+            imovel_data["origem"] = "enrichment_auto"
+            imovel = await self._imovel_repo.create(imovel_data)
+            imovel_id = str(imovel.id)
+
+            # Lineage
+            await self._imovel_fonte_repo.create({
+                "imovel_id": imovel_id,
+                "fonte_registro_id": reg_id,
+                "campos_usados": [k for k, v in reg_data.items() if v is not None],
+                "tipo_match": "auto_criar",
+            })
+
+            return imovel_id
+        except Exception:
+            # Don't fail the whole batch for one bad registro
+            return None
 
     # ------------------------------------------------------------------
     # Card state (read)
@@ -414,6 +458,10 @@ def _to_imovel_dict(data: dict) -> dict:
     result.setdefault("tipo", "galpao")
     result.setdefault("categoria", "Galpão")
     result.setdefault("publicado", False)
+    # Generate titulo from address if missing
+    if "titulo" not in result:
+        parts = [result.get("logradouro"), result.get("numero")]
+        result["titulo"] = ", ".join(filter(None, (str(p) for p in parts))) or "Sem título"
 
     return result
 
