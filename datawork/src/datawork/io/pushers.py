@@ -55,8 +55,10 @@ def push_clean_to_api(
     """
     import httpx
 
-    url = base_url or os.environ.get("NEXT_PUBLIC_API_URL", "http://localhost:8000")
-    auth_token = token or os.environ.get("SUPABASE_SERVICE_KEY", "")
+    url = base_url or os.environ.get(
+        "NEXT_PUBLIC_API_URL", "https://api.alphamixgalpoes.com.br",
+    )
+    auth_token = token or os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
     headers = {"Authorization": f"Bearer {auth_token}"}
 
     records = to_canonical_records(df)
@@ -74,16 +76,16 @@ def push_clean_to_api(
     push_result = resp.json()
     print(f"  Push: {push_result}")
 
-    # Step 2: Generate cards
-    cards_endpoint = f"{url}/api/v1/mdm/processar"
+    # Step 2: Generate enrichment cards
+    enrich_endpoint = f"{url}/api/v1/mdm/enrichment/generate"
     resp = httpx.post(
-        cards_endpoint,
-        json={"fonte_id": fonte_id, "step": "clean_to_cards"},
+        enrich_endpoint,
+        json={"fonte_id": fonte_id},
         headers=headers,
         timeout=300,
     )
     resp.raise_for_status()
     cards_result = resp.json()
-    print(f"  Cards: {cards_result}")
+    print(f"  Enrichment: {cards_result}")
 
     return {**push_result, **cards_result}
