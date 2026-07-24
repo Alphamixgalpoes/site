@@ -6,6 +6,7 @@ from uuid import UUID, uuid4
 
 from petrus.domain.entities.config_campo import ConfigCampo
 from petrus.domain.entities.contato import Contato, ContatoResumido
+from petrus.domain.entities.enrichment import EnrichmentCard, EnrichmentEvent
 from petrus.domain.entities.imovel import Imovel, ImovelImagem, ImovelResumido
 from petrus.domain.entities.lead import Lead
 from petrus.domain.entities.mdm import Fonte, FonteRegistro, ImovelFonte, ScrapingRun
@@ -23,6 +24,10 @@ from petrus.domain.entities.publicacao import ImovelPublicacao
 from petrus.domain.entities.recomendacao import Recomendacao
 from petrus.domain.repositories.config_repo import ConfigRepository
 from petrus.domain.repositories.contato_repo import ContatoRepository
+from petrus.domain.repositories.enrichment_repo import (
+    EnrichmentCardRepository,
+    EnrichmentEventRepository,
+)
 from petrus.domain.repositories.imovel_repo import ImovelRepository
 from petrus.domain.repositories.lead_repo import LeadRepository
 from petrus.domain.repositories.mdm_repo import (
@@ -75,7 +80,8 @@ class InMemoryImovelRepo(ImovelRepository):
 
     async def create(self, data: dict[str, Any]) -> Imovel:
         iid = uuid4()
-        imovel = _safe_build(Imovel, id=iid, publicado=False, **data)
+        merged = {"publicado": False, **data, "id": iid}
+        imovel = _safe_build(Imovel, **merged)
         self._store[iid] = imovel
         return imovel
 
@@ -527,7 +533,8 @@ class InMemoryImovelFonteRepo(ImovelFonteRepository):
         return ifonte
 
     async def get_by_imovel(self, imovel_id: UUID) -> list[ImovelFonte]:
-        return [i for i in self._store.values() if i.imovel_id == imovel_id]
+        sid = str(imovel_id)
+        return [i for i in self._store.values() if str(i.imovel_id) == sid]
 
 
 class InMemoryScrapingRunRepo(ScrapingRunRepository):
@@ -551,3 +558,69 @@ class InMemoryScrapingRunRepo(ScrapingRunRepository):
 
     async def list_pending(self) -> list[ScrapingRun]:
         return [sr for sr in self._store.values() if sr.status == "pendente"]
+
+
+class InMemoryEnrichmentCardRepo(EnrichmentCardRepository):
+    def __init__(self) -> None:
+        self._store: dict[UUID, EnrichmentCard] = {}
+
+    async def create_batch(self, cards: list[dict[str, Any]]) -> int:
+        for d in cards:
+            cid = uuid4()
+            card = _safe_build(EnrichmentCard, id=cid, **d)
+            self._store[cid] = card
+        return len(cards)
+
+    async def delete_by_fonte(self, fonte_id: UUID) -> int:
+        to_del = [
+            cid for cid, c in self._store.items()
+            if c.fonte_id == fonte_id and c.status in ("pendente", "em_andamento")
+        ]
+        for cid in to_del:
+            del self._store[cid]
+        return len(to_del)
+
+    async def get_by_id(self, card_id: UUID) -> EnrichmentCard | None:
+        return self._store.get(card_id)
+
+    async def list_by_status(
+        self, status: str = "pendente", filters: dict | None = None,
+        limit: int = 50, offset: int = 0,
+    ) -> list[EnrichmentCard]:
+        results = [c for c in self._store.values() if c.status == status]
+        return results[offset:offset + limit]
+
+    async def count_by_status(self) -> dict[str, int]:
+        counts: dict[str, int] = {}
+        for c in self._store.values():
+            counts[c.status] = counts.get(c.status, 0) + 1
+        return counts
+
+    async def update_status(self, card_id: UUID, status: str) -> EnrichmentCard:
+        card = self._store[card_id]
+        card.status = status
+        return card
+
+
+class InMemoryEnrichmentEventRepo(EnrichmentEventRepository):
+    def __init__(self) -> None:
+        self._store: dict[UUID, EnrichmentEvent] = {}
+
+    async def create(self, data: dict[str, Any]) -> EnrichmentEvent:
+        eid = uuid4()
+        event = _safe_build(EnrichmentEvent, id=eid, **data)
+        self._store[eid] = event
+        return event
+
+    async def get_by_card(self, card_id: UUID) -> list[EnrichmentEvent]:
+        return [e for e in self._store.values() if e.card_id == card_id]
+
+    async def mark_undone(self, event_id: UUID) -> None:
+        if event_id in self._store:
+            self._store[event_id].undone = True
+
+    async def delete_by_card(self, card_id: UUID) -> int:
+        to_del = [eid for eid, e in self._store.items() if e.card_id == card_id]
+        for eid in to_del:
+            del self._store[eid]
+        return len(to_del)
