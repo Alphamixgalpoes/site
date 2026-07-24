@@ -6,6 +6,7 @@ from typing import Any
 
 from petrus.domain.entities.mdm_types import CanonicalRecord
 from petrus.domain.services.source_adapter import SourceAdapter
+from petrus.infrastructure.mdm.transforms.numbers import parse_br_number
 
 
 # Mapping from common CSV column names to CanonicalRecord fields
@@ -61,28 +62,6 @@ _FLOAT_FIELDS = {
 _INT_FIELDS = {"numero_docas", "vagas_estacionamento", "potencia_eletrica_kva"}
 
 
-def _parse_br_number(s: str) -> float | None:
-    """Parse Brazilian-formatted number: 125.000,00 -> 125000.0"""
-    import re
-    s = re.sub(r"[R$\s]", "", s.strip())
-    if not s or not re.search(r"\d", s):
-        return None
-    if "," in s and "." in s:
-        s = s.replace(".", "").replace(",", ".")
-    elif "," in s:
-        s = s.replace(",", ".")
-    else:
-        # Dots could be thousands separators if no comma present
-        # "5.000" -> 5000, but "5.5" -> 5.5
-        parts = s.split(".")
-        if len(parts) == 2 and len(parts[1]) == 3:
-            s = s.replace(".", "")
-    try:
-        return float(s)
-    except ValueError:
-        return None
-
-
 class GenericCsvAdapter(SourceAdapter):
     """Adapter for clean CSV/XLSX files with direct column mapping.
 
@@ -128,11 +107,11 @@ class GenericCsvAdapter(SourceAdapter):
 
             # Type coercion
             if target in _FLOAT_FIELDS:
-                val = _parse_br_number(s)
+                val = parse_br_number(s)
                 if val is not None:
                     mapped[target] = val
             elif target in _INT_FIELDS:
-                val = _parse_br_number(s)
+                val = parse_br_number(s)
                 if val is not None:
                     mapped[target] = int(val)
             else:
