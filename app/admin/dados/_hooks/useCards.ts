@@ -31,17 +31,13 @@ export type Card = {
   created_at: string | null;
 };
 
-type Filtros = {
-  tipo: string;
-  cidade: string;
-};
-
 export function useCards() {
   const [cards, setCards] = useState<Card[]>([]);
   const [resumo, setResumo] = useState<CardResumo>({ criar: 0, atualizar: 0, mesclar: 0, enriquecer: 0, alertar: 0, total: 0 });
   const [loading, setLoading] = useState(true);
   const [filtroTipo, setFiltroTipo] = useState("todos");
   const [filtroCidade, setFiltroCidade] = useState("todas");
+  const [filtroFonte, setFiltroFonte] = useState("todas");
   const [selecionados, setSelecionados] = useState<Set<string>>(new Set());
 
   useEffect(() => { load(); }, []);
@@ -66,13 +62,19 @@ export function useCards() {
     return Array.from(s).sort();
   }, [cards]);
 
+  const fontesIds = useMemo(() => {
+    const s = new Set(cards.map((c) => c.fonte_id).filter(Boolean) as string[]);
+    return Array.from(s).sort();
+  }, [cards]);
+
   const filtrados = useMemo(() => {
     return cards.filter((c) => {
       if (filtroTipo !== "todos" && c.tipo !== filtroTipo) return false;
       if (filtroCidade !== "todas" && c.cidade !== filtroCidade) return false;
+      if (filtroFonte !== "todas" && c.fonte_id !== filtroFonte) return false;
       return true;
     });
-  }, [cards, filtroTipo, filtroCidade]);
+  }, [cards, filtroTipo, filtroCidade, filtroFonte]);
 
   function toggleSelecionado(id: string) {
     setSelecionados((prev) => {
@@ -124,8 +126,9 @@ export function useCards() {
   }
 
   return {
-    cards: filtrados, resumo, loading, cidades,
+    cards: filtrados, resumo, loading, cidades, fontesIds,
     filtroTipo, setFiltroTipo, filtroCidade, setFiltroCidade,
+    filtroFonte, setFiltroFonte,
     selecionados, toggleSelecionado, selecionarTodos, limparSelecao,
     aprovar, rejeitar, aprovarLote, rejeitarLote,
     reload: load,
