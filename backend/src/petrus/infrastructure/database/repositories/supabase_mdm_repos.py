@@ -27,11 +27,14 @@ def _to_fonte(row: dict) -> Fonte:
 
 
 def _to_fonte_registro(row: dict) -> FonteRegistro:
-    return FonteRegistro(**{k: v for k, v in row.items() if k in {
+    mapped = {k: v for k, v in row.items() if k in {
         "id", "fonte_id", "importacao_id", "dados_brutos",
-        "dados_normalizados", "hash_dedup", "valid_from",
-        "stage", "raw_registro_id", "created_at",
-    }})
+        "dados_normalizados", "stage", "raw_registro_id", "created_at",
+    }}
+    # DB column is "hash", dataclass field is "hash_dedup"
+    if "hash" in row:
+        mapped["hash_dedup"] = row["hash"]
+    return FonteRegistro(**mapped)
 
 
 def _to_imovel_fonte(row: dict) -> ImovelFonte:
@@ -84,7 +87,14 @@ class SupabaseFonteRegistroRepo(FonteRegistroRepository):
     async def create_batch(self, registros: list[dict[str, Any]]) -> int:
         if not registros:
             return 0
-        res = self._sb.table("fonte_registros").insert(registros).execute()
+        # DB column is "hash", code uses "hash_dedup"
+        rows = []
+        for r in registros:
+            row = {k: v for k, v in r.items() if k != "hash_dedup"}
+            if "hash_dedup" in r:
+                row["hash"] = r["hash_dedup"]
+            rows.append(row)
+        res = self._sb.table("fonte_registros").insert(rows).execute()
         return len(res.data or [])
 
     async def get_by_importacao(self, importacao_id: UUID) -> list[FonteRegistro]:
@@ -116,7 +126,7 @@ class SupabaseFonteRegistroRepo(FonteRegistroRepository):
         return len(res.data or [])
 
     async def get_by_hash(self, hash_dedup: str) -> FonteRegistro | None:
-        res = self._sb.table("fonte_registros").select("*").eq("hash_dedup", hash_dedup).maybe_single().execute()
+        res = self._sb.table("fonte_registros").select("*").eq("hash", hash_dedup).maybe_single().execute()
         return _to_fonte_registro(res.data) if res.data else None
 
 
