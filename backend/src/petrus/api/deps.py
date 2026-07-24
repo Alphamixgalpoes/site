@@ -12,6 +12,8 @@ from petrus.infrastructure.database.repositories.supabase_mdm_repos import (
     SupabaseFonteRepo, SupabaseFonteRegistroRepo,
     SupabaseImovelFonteRepo, SupabaseScrapingRunRepo,
 )
+from petrus.infrastructure.database.repositories.supabase_enrichment_card_repo import SupabaseEnrichmentCardRepo
+from petrus.infrastructure.database.repositories.supabase_enrichment_event_repo import SupabaseEnrichmentEventRepo
 from petrus.infrastructure.storage.supabase_storage import SupabaseStorageService
 from petrus.infrastructure.email.resend_email import ResendEmailService
 from petrus.infrastructure.geocoding.nominatim_geocoder import NominatimGeocoder
@@ -46,6 +48,7 @@ from petrus.application.mdm_fonte_service import MdmFonteService
 from petrus.application.mdm_submission_service import MdmSubmissionService
 from petrus.application.mdm_processing_service import MdmProcessingService
 from petrus.application.mdm_quality_service import MdmQualityService
+from petrus.application.enrichment_service import EnrichmentService
 from petrus.infrastructure.mdm.quality import DefaultQualityService
 
 
@@ -176,3 +179,22 @@ def get_mdm_processing_service() -> MdmProcessingService:
 
 def get_mdm_quality_service() -> MdmQualityService:
     return MdmQualityService(get_imovel_repo(), DefaultQualityService())
+
+
+def get_enrichment_card_repo():
+    return SupabaseEnrichmentCardRepo(get_supabase())
+
+
+def get_enrichment_event_repo():
+    return SupabaseEnrichmentEventRepo(get_supabase())
+
+
+def get_enrichment_service() -> EnrichmentService:
+    return EnrichmentService(
+        card_repo=get_enrichment_card_repo(),
+        event_repo=get_enrichment_event_repo(),
+        imovel_repo=get_imovel_repo(),
+        imovel_fonte_repo=get_imovel_fonte_repo(),
+        registro_repo=get_fonte_registro_repo(),
+        fonte_repo=get_fonte_repo(),
+    )

@@ -28,10 +28,14 @@ def to_canonical_records(df: pd.DataFrame) -> list[dict]:
     records = []
     for _, row in df.iterrows():
         record = {k: v for k, v in row.to_dict().items() if pd.notna(v) and v != ""}
-        # Remove internal columns
-        record.pop("_registro_id", None)
-        record.pop("_created_at", None)
-        records.append(record)
+        # Convert numpy types to native Python types for JSON serialization
+        clean = {}
+        for k, v in record.items():
+            if hasattr(v, "item"):  # numpy scalar
+                clean[k] = v.item()
+            else:
+                clean[k] = v
+        records.append(clean)
     return records
 
 
@@ -41,10 +45,13 @@ def push_clean_to_api(
     base_url: str | None = None,
     token: str | None = None,
 ) -> dict:
-    """Push clean DataFrame rows as clean registros via the MDM API.
+    """Push clean DataFrame rows directly as clean registros via MDM API.
 
-    Each row is sent as a clean registro with dados_normalizados.
-    Returns API response summary.
+    Two-step process:
+    1. POST /fontes/{id}/clean — inserts clean records (replaces existing)
+    2. POST /processar step=clean_to_cards — generates recommendation cards
+
+    Returns combined result from both steps.
     """
     import httpx
 
@@ -55,16 +62,28 @@ def push_clean_to_api(
     records = to_canonical_records(df)
     print(f"Pushing {len(records)} clean records for fonte {fonte_id}...")
 
-    # Use the process endpoint
-    endpoint = f"{url}/api/v1/mdm/processar"
+    # Step 1: Push clean records
+    push_endpoint = f"{url}/api/v1/mdm/fontes/{fonte_id}/clean"
     resp = httpx.post(
-        endpoint,
-        json={"fonte_id": fonte_id, "step": "full"},
+        push_endpoint,
+        json={"registros": records},
         headers=headers,
         timeout=120,
     )
     resp.raise_for_status()
+    push_result = resp.json()
+    print(f"  Push: {push_result}")
 
-    result = resp.json()
-    print(f"Done: {result}")
-    return result
+    # Step 2: Generate cards
+    cards_endpoint = f"{url}/api/v1/mdm/processar"
+    resp = httpx.post(
+        cards_endpoint,
+        json={"fonte_id": fonte_id, "step": "clean_to_cards"},
+        headers=headers,
+        timeout=300,
+    )
+    resp.raise_for_status()
+    cards_result = resp.json()
+    print(f"  Cards: {cards_result}")
+
+    return {**push_result, **cards_result}

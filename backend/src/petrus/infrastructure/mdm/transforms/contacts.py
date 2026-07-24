@@ -9,6 +9,14 @@ from petrus.infrastructure.mdm.transforms.phones import PHONE_RE, normalize_phon
 # Email regex
 EMAIL_RE = re.compile(r"[\w.+-]+@[\w.-]+\.\w{2,}", re.IGNORECASE)
 
+# URL-like patterns (not emails): www.site.com, site.com.br
+URL_RE = re.compile(r"(?:www\.\S+|[\w-]+\.com\.br)\b", re.IGNORECASE)
+
+# Non-phone noise in the telefones field: "COND 3,20", "COND R$5,00"
+COND_NOISE_RE = re.compile(
+    r"COND\.?\s*(?:R\$\s*)?\d+[.,]\d*", re.IGNORECASE
+)
+
 
 def extract_contact(
     proprietario_raw: str, telefones_raw: str
@@ -24,12 +32,18 @@ def extract_contact(
     # --- From proprietario field ---
     remaining = proprietario_raw
 
-    # Extract emails
+    # Extract emails FIRST (before URL removal, which can strip email domains)
     emails = EMAIL_RE.findall(remaining)
     if emails:
         result["email"] = "; ".join(emails)
         for email in emails:
             remaining = remaining.replace(email, "")
+
+    # Extract URLs (www.site.com.br) — not a name
+    urls = URL_RE.findall(remaining)
+    if urls:
+        for url in urls:
+            remaining = remaining.replace(url, "")
 
     # Remove phone numbers from proprietario
     for ph in PHONE_RE.findall(remaining):
@@ -46,8 +60,13 @@ def extract_contact(
         result["nome"] = remaining
 
     # --- From telefones field ---
+    # Pre-clean: remove COND values that pollute phone parsing
+    tel_clean = telefones_raw
+    if tel_clean:
+        tel_clean = COND_NOISE_RE.sub("", tel_clean)
+
     phones: list[str] = []
-    segments = telefones_raw.split("/") if telefones_raw else []
+    segments = tel_clean.split("/") if tel_clean else []
     for seg in segments:
         seg = seg.strip()
         if not seg:

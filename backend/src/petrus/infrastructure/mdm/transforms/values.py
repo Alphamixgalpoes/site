@@ -11,10 +11,19 @@ from petrus.infrastructure.mdm.transforms.numbers import parse_br_number
 # Patterns
 # ---------------------------------------------------------------------------
 
-MILHOES_RE = re.compile(r"(\d+[.,]?\d*)\s*milh[oõô]", re.IGNORECASE)
+# "18milhões", "9,5milhões", "16milh", "13M", "9 mihões" (common typo)
+MILHOES_RE = re.compile(
+    r"(\d+[.,]?\d*)\s*(?:milh[oõôã]|milh\b|mihõ|mih[oô])", re.IGNORECASE
+)
+# "350mil", "40mil" — thousands, not millions
+MIL_RE = re.compile(r"(\d+[.,]?\d*)\s*mil\b", re.IGNORECASE)
+# "13M" — abbreviation for millions (uppercase M after digits)
+M_ABBREV_RE = re.compile(r"(\d+[.,]?\d*)\s*M\b")
 PM2_RE = re.compile(
     r"([\d.,]+)\s*(?:p/?m²|por\s*m²|p/\s*m²)", re.IGNORECASE
 )
+# Non-value text patterns — skip these entirely
+SKIP_RE = re.compile(r"(?:ALUG\w*\s+\w+/|LOCAD|ALUGAD)", re.IGNORECASE)
 
 
 def classify_value(valor_raw: str, obs: str = "") -> dict[str, Any]:
@@ -22,7 +31,9 @@ def classify_value(valor_raw: str, obs: str = "") -> dict[str, Any]:
 
     Logic:
     - "VENDIDO" -> status vendido
-    - "X milhões" -> sale price * 1_000_000
+    - Skip notes like "ALUG FEV/22" (not a value)
+    - "X milhões/milh/M" -> sale price * 1_000_000
+    - "X mil" -> value * 1_000
     - "X p/m²" -> price per square meter
     - Numeric > 1_000_000 -> sale
     - Numeric <= 1_000_000 -> rent
@@ -50,15 +61,46 @@ def classify_value(valor_raw: str, obs: str = "") -> dict[str, Any]:
         result["status"] = "vendido"
         return result
 
-    # Millions in text
-    m_milh = re.search(r"([\d.,]+)\s*MILH", upper)
+    # Skip non-value notes like "ALUG FEV/22", "LOCADO", "ALUGADO"
+    if SKIP_RE.search(valor_raw):
+        return result
+
+    # Millions in text: "18milhões", "9,5milhões", "16milh", "9 mihões"
+    # In the milhões context the number is always a small multiplier (1-100),
+    # so treat both dot and comma as decimal separators (not thousands).
+    m_milh = MILHOES_RE.search(upper)
     if m_milh:
         try:
-            val = float(
-                m_milh.group(1).replace(".", "").replace(",", ".")
-            )
+            val = float(m_milh.group(1).replace(",", "."))
             result["valor_venda"] = val * 1_000_000
             result["tipo_operacao"] = "venda"
+        except ValueError:
+            pass
+        return result
+
+    # "13M" — uppercase M abbreviation for millions
+    m_abbrev = M_ABBREV_RE.search(valor_raw)
+    if m_abbrev:
+        try:
+            val = float(m_abbrev.group(1).replace(",", "."))
+            result["valor_venda"] = val * 1_000_000
+            result["tipo_operacao"] = "venda"
+        except ValueError:
+            pass
+        return result
+
+    # Thousands: "350mil", "40mil"
+    m_mil = MIL_RE.search(upper)
+    if m_mil:
+        try:
+            val = float(m_mil.group(1).replace(",", "."))
+            parsed = val * 1_000
+            if parsed > 1_000_000:
+                result["valor_venda"] = parsed
+                result["tipo_operacao"] = "venda"
+            else:
+                result["valor_locacao"] = parsed
+                result["tipo_operacao"] = "locacao"
         except ValueError:
             pass
         return result

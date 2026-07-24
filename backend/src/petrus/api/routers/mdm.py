@@ -13,7 +13,7 @@ from petrus.api.deps import (
 )
 from petrus.api.schemas.mdm import (
     FonteSubmitUrl, FonteUpdate, ProcessRequest,
-    CardAprovar, CardRejeitar, BatchIds,
+    CardAprovar, CardRejeitar, BatchIds, PushCleanRequest,
 )
 from petrus.application.mdm_fonte_service import MdmFonteService
 from petrus.application.mdm_submission_service import MdmSubmissionService
@@ -154,6 +154,50 @@ async def get_fonte_clean(
 ):
     registros = await reg_repo.get_by_fonte_and_stage(UUID(fonte_id), "clean")
     return {"total": len(registros), "registros": registros}
+
+
+# --- Push clean (developer API — from notebook) ---
+
+@router.post("/fontes/{fonte_id}/clean")
+async def push_clean_registros(
+    fonte_id: str,
+    body: PushCleanRequest,
+    _user: dict = Depends(get_current_user),
+    reg_repo=Depends(get_fonte_registro_repo),
+    fonte_svc: MdmFonteService = Depends(get_mdm_fonte_service),
+):
+    """Replace clean registros for a fonte with notebook-processed data."""
+    fid = UUID(fonte_id)
+    fonte = await fonte_svc.get(fid)
+    if not fonte:
+        raise HTTPException(status_code=404, detail="Fonte not found")
+
+    # Delete existing clean registros
+    deleted = await reg_repo.delete_by_fonte_and_stage(fid, "clean")
+
+    # Insert new clean registros
+    from petrus.infrastructure.mdm.normalizer import DefaultNormalizer
+    normalizer = DefaultNormalizer()
+
+    batch = []
+    for reg in body.registros:
+        batch.append({
+            "fonte_id": str(fid),
+            "dados_brutos": reg,
+            "dados_normalizados": reg,
+            "hash_dedup": reg.get("hash_dedup") or normalizer.compute_hash(reg),
+            "stage": "clean",
+        })
+
+    inserted = await reg_repo.create_batch(batch)
+
+    await fonte_svc.update(fid, {"processing_status": "tem_clean"})
+
+    return {
+        "deleted_previous": deleted,
+        "inserted": inserted,
+        "total": len(body.registros),
+    }
 
 
 # --- Processar (developer API) ---
