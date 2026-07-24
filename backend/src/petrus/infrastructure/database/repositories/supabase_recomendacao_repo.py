@@ -11,14 +11,19 @@ from petrus.domain.repositories.recomendacao_repo import RecomendacaoRepository
 
 
 def _to_rec(row: dict) -> Recomendacao:
-    return Recomendacao(**{k: v for k, v in row.items() if k in {
-        "id", "tipo", "status", "imovel_id", "imovel_secundario_id",
+    mapped = {k: v for k, v in row.items() if k in {
+        "id", "tipo", "status", "imovel_id",
         "dados_propostos", "dados_atuais", "campos_alterados", "mensagem",
-        "fonte_id", "fonte_registro_id", "importacao_id",
+        "fonte_id", "importacao_id",
         "confianca", "score_match", "cidade", "bairro", "area", "valor",
-        "dados_aprovados", "resolvido_em", "notas_resolucao", "regra_auto_id",
         "created_at",
-    }})
+    }}
+    # DB column → dataclass field name translations
+    if "registro_id" in row:
+        mapped["fonte_registro_id"] = row["registro_id"]
+    if "resolved_at" in row:
+        mapped["resolvido_em"] = row["resolved_at"]
+    return Recomendacao(**mapped)
 
 
 class SupabaseRecomendacaoRepo(RecomendacaoRepository):
@@ -26,7 +31,11 @@ class SupabaseRecomendacaoRepo(RecomendacaoRepository):
         self._sb = client
 
     async def create(self, data: dict[str, Any]) -> Recomendacao:
-        res = self._sb.table("recomendacoes").insert(data).execute()
+        # Translate code field names → DB column names
+        row = {k: v for k, v in data.items() if k != "fonte_registro_id"}
+        if "fonte_registro_id" in data:
+            row["registro_id"] = data["fonte_registro_id"]
+        res = self._sb.table("recomendacoes").insert(row).execute()
         return _to_rec(res.data[0])
 
     async def get_by_id(self, rec_id: UUID) -> Recomendacao | None:
@@ -42,11 +51,9 @@ class SupabaseRecomendacaoRepo(RecomendacaoRepository):
     async def update_status(
         self, rec_id: UUID, status: str, dados_aprovados: dict | None = None, notas: str | None = None
     ) -> Recomendacao:
-        update: dict[str, Any] = {"status": status, "resolvido_em": "now()"}
-        if dados_aprovados is not None:
-            update["dados_aprovados"] = dados_aprovados
+        update: dict[str, Any] = {"status": status, "resolved_at": "now()"}
         if notas is not None:
-            update["notas_resolucao"] = notas
+            update["notas"] = notas
         res = (
             self._sb.table("recomendacoes")
             .update(update)
