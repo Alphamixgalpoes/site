@@ -9,8 +9,8 @@ from petrus.infrastructure.database.repositories.supabase_config_repo import Sup
 from petrus.infrastructure.database.repositories.supabase_publicacao_repo import SupabasePublicacaoRepo
 from petrus.infrastructure.database.repositories.supabase_recomendacao_repo import SupabaseRecomendacaoRepo
 from petrus.infrastructure.database.repositories.supabase_mdm_repos import (
-    SupabaseFonteRepo, SupabaseImportacaoRepo, SupabaseFonteRegistroRepo,
-    SupabaseImovelFonteRepo, SupabaseRegraEnriquecimentoRepo,
+    SupabaseFonteRepo, SupabaseFonteRegistroRepo,
+    SupabaseImovelFonteRepo, SupabaseScrapingRunRepo,
 )
 from petrus.infrastructure.storage.supabase_storage import SupabaseStorageService
 from petrus.infrastructure.email.resend_email import ResendEmailService
@@ -25,8 +25,8 @@ from petrus.domain.repositories.config_repo import ConfigRepository
 from petrus.domain.repositories.publicacao_repo import PublicacaoRepository
 from petrus.domain.repositories.recomendacao_repo import RecomendacaoRepository
 from petrus.domain.repositories.mdm_repo import (
-    FonteRepository, ImportacaoRepository, FonteRegistroRepository,
-    ImovelFonteRepository, RegraEnriquecimentoRepository,
+    FonteRepository, FonteRegistroRepository,
+    ImovelFonteRepository, ScrapingRunRepository,
 )
 from petrus.domain.services.storage_service import StorageService
 from petrus.domain.services.email_service import EmailService
@@ -43,7 +43,8 @@ from petrus.application.config_service import ConfigService
 from petrus.application.publicacao_service import PublicacaoService
 from petrus.application.recomendacao_service import RecomendacaoService
 from petrus.application.mdm_fonte_service import MdmFonteService
-from petrus.application.mdm_import_service import MdmImportService
+from petrus.application.mdm_submission_service import MdmSubmissionService
+from petrus.application.mdm_processing_service import MdmProcessingService
 from petrus.application.mdm_quality_service import MdmQualityService
 from petrus.infrastructure.mdm.quality import DefaultQualityService
 
@@ -83,10 +84,6 @@ def get_fonte_repo() -> FonteRepository:
     return SupabaseFonteRepo(get_supabase())
 
 
-def get_importacao_repo() -> ImportacaoRepository:
-    return SupabaseImportacaoRepo(get_supabase())
-
-
 def get_fonte_registro_repo() -> FonteRegistroRepository:
     return SupabaseFonteRegistroRepo(get_supabase())
 
@@ -95,8 +92,8 @@ def get_imovel_fonte_repo() -> ImovelFonteRepository:
     return SupabaseImovelFonteRepo(get_supabase())
 
 
-def get_regra_enriquecimento_repo() -> RegraEnriquecimentoRepository:
-    return SupabaseRegraEnriquecimentoRepo(get_supabase())
+def get_scraping_run_repo() -> ScrapingRunRepository:
+    return SupabaseScrapingRunRepo(get_supabase())
 
 
 # --- Infrastructure services ---
@@ -163,9 +160,16 @@ def get_mdm_fonte_service() -> MdmFonteService:
     return MdmFonteService(get_fonte_repo())
 
 
-def get_mdm_import_service() -> MdmImportService:
-    return MdmImportService(
-        get_fonte_repo(), get_importacao_repo(), get_fonte_registro_repo(),
+def get_mdm_submission_service() -> MdmSubmissionService:
+    return MdmSubmissionService(
+        get_fonte_repo(), get_fonte_registro_repo(),
+        get_scraping_run_repo(), get_storage_service(),
+    )
+
+
+def get_mdm_processing_service() -> MdmProcessingService:
+    return MdmProcessingService(
+        get_fonte_repo(), get_fonte_registro_repo(),
         get_recomendacao_repo(), get_imovel_repo(),
     )
 

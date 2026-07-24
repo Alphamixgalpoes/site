@@ -6,17 +6,18 @@ from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Q
 
 from petrus.api.middleware.auth import get_current_user
 from petrus.api.deps import (
-    get_mdm_fonte_service, get_mdm_import_service,
-    get_recomendacao_service, get_mdm_quality_service,
-    get_regra_enriquecimento_repo,
+    get_mdm_fonte_service, get_mdm_submission_service,
+    get_mdm_processing_service, get_recomendacao_service,
+    get_mdm_quality_service, get_scraping_run_repo,
+    get_fonte_registro_repo,
 )
 from petrus.api.schemas.mdm import (
-    FonteCreate, FonteUpdate, ImportRequest,
+    FonteSubmitUrl, FonteUpdate, ProcessRequest,
     CardAprovar, CardRejeitar, BatchIds,
-    RegraEnriquecimentoCreate, RegraEnriquecimentoUpdate,
 )
 from petrus.application.mdm_fonte_service import MdmFonteService
-from petrus.application.mdm_import_service import MdmImportService
+from petrus.application.mdm_submission_service import MdmSubmissionService
+from petrus.application.mdm_processing_service import MdmProcessingService
 from petrus.application.recomendacao_service import RecomendacaoService
 from petrus.application.mdm_quality_service import MdmQualityService
 
@@ -33,8 +34,14 @@ async def mdm_stats(
 ):
     fontes = await fonte_svc.list_all()
     resumo = await rec_svc.resumo()
+
+    pendentes_processamento = sum(
+        1 for f in fontes if f.processing_status in ("pendente_raw", "tem_raw")
+    )
+
     return {
         "fontes": len(fontes),
+        "pendentes_processamento": pendentes_processamento,
         "cards_pendentes": resumo.total,
         "cards_por_tipo": {
             "criar": resumo.criar,
@@ -44,6 +51,46 @@ async def mdm_stats(
             "alertar": resumo.alertar,
         },
     }
+
+
+# --- Submeter ---
+
+@router.post("/submeter/planilha")
+async def submit_spreadsheet(
+    file: UploadFile = File(...),
+    nome: str = Form(...),
+    config: str = Form("{}"),
+    _user: dict = Depends(get_current_user),
+    svc: MdmSubmissionService = Depends(get_mdm_submission_service),
+):
+    import json
+    content = await file.read()
+    fonte_config = json.loads(config)
+    return await svc.submit_spreadsheet(
+        nome, content, file.filename or "file.csv", fonte_config,
+    )
+
+
+@router.post("/submeter/url")
+async def submit_url(
+    body: FonteSubmitUrl,
+    _user: dict = Depends(get_current_user),
+    svc: MdmSubmissionService = Depends(get_mdm_submission_service),
+):
+    return await svc.submit_url(body.nome, body.url, body.notas)
+
+
+@router.post("/submeter/{fonte_id}/reenviar")
+async def resubmit_spreadsheet(
+    fonte_id: str,
+    file: UploadFile = File(...),
+    _user: dict = Depends(get_current_user),
+    svc: MdmSubmissionService = Depends(get_mdm_submission_service),
+):
+    content = await file.read()
+    return await svc.resubmit_spreadsheet(
+        UUID(fonte_id), content, file.filename or "file.csv",
+    )
 
 
 # --- Fontes ---
@@ -56,13 +103,16 @@ async def list_fontes(
     return await svc.list_all()
 
 
-@router.post("/fontes")
-async def create_fonte(
-    body: FonteCreate,
+@router.get("/fontes/{fonte_id}")
+async def get_fonte(
+    fonte_id: str,
     _user: dict = Depends(get_current_user),
     svc: MdmFonteService = Depends(get_mdm_fonte_service),
 ):
-    return await svc.create(body.model_dump())
+    fonte = await svc.get(UUID(fonte_id))
+    if not fonte:
+        raise HTTPException(status_code=404, detail="Fonte not found")
+    return fonte
 
 
 @router.put("/fontes/{fonte_id}")
@@ -86,42 +136,51 @@ async def delete_fonte(
     return {"ok": True}
 
 
-# --- Import ---
-
-@router.post("/parse")
-async def parse_file(
-    file: UploadFile = File(...),
-    _user: dict = Depends(get_current_user),
-    svc: MdmImportService = Depends(get_mdm_import_service),
-):
-    content = await file.read()
-    return await svc.parse(content, file.filename or "file.csv")
-
-
-@router.post("/import")
-async def import_file(
-    file: UploadFile = File(...),
-    fonte_id: str = Form(...),
-    schema_map: str = Form(...),
-    valid_from: str | None = Form(None),
-    _user: dict = Depends(get_current_user),
-    svc: MdmImportService = Depends(get_mdm_import_service),
-):
-    import json
-    content = await file.read()
-    mapping = json.loads(schema_map)
-    return await svc.importar(
-        UUID(fonte_id), content, file.filename or "file.csv", mapping, valid_from
-    )
-
-
-@router.get("/importacoes/{fonte_id}")
-async def get_importacoes(
+@router.get("/fontes/{fonte_id}/raw")
+async def get_fonte_raw(
     fonte_id: str,
     _user: dict = Depends(get_current_user),
-    svc: MdmImportService = Depends(get_mdm_import_service),
+    reg_repo=Depends(get_fonte_registro_repo),
 ):
-    return await svc.get_importacoes(UUID(fonte_id))
+    registros = await reg_repo.get_by_fonte_and_stage(UUID(fonte_id), "raw")
+    return {"total": len(registros), "registros": registros}
+
+
+@router.get("/fontes/{fonte_id}/clean")
+async def get_fonte_clean(
+    fonte_id: str,
+    _user: dict = Depends(get_current_user),
+    reg_repo=Depends(get_fonte_registro_repo),
+):
+    registros = await reg_repo.get_by_fonte_and_stage(UUID(fonte_id), "clean")
+    return {"total": len(registros), "registros": registros}
+
+
+# --- Processar (developer API) ---
+
+@router.post("/processar")
+async def processar(
+    body: ProcessRequest,
+    _user: dict = Depends(get_current_user),
+    svc: MdmProcessingService = Depends(get_mdm_processing_service),
+):
+    fonte_id = UUID(body.fonte_id)
+    if body.step == "raw_to_clean":
+        return await svc.process_raw_to_clean(fonte_id)
+    elif body.step == "clean_to_cards":
+        return await svc.generate_cards_for_fonte(fonte_id)
+    else:
+        return await svc.process_full(fonte_id)
+
+
+# --- Scraping ---
+
+@router.get("/scraping/fila")
+async def scraping_queue(
+    _user: dict = Depends(get_current_user),
+    repo=Depends(get_scraping_run_repo),
+):
+    return await repo.list_pending()
 
 
 # --- Cards ---
@@ -239,32 +298,3 @@ async def recalcular_qualidade(
 ):
     count = await svc.recalcular_todos()
     return {"recalculados": count}
-
-
-# --- Enriquecimento ---
-
-@router.get("/enriquecimento/regras")
-async def list_regras(
-    _user: dict = Depends(get_current_user),
-    repo=Depends(get_regra_enriquecimento_repo),
-):
-    return await repo.list_all()
-
-
-@router.post("/enriquecimento/regras")
-async def create_regra(
-    body: RegraEnriquecimentoCreate,
-    _user: dict = Depends(get_current_user),
-    repo=Depends(get_regra_enriquecimento_repo),
-):
-    return await repo.create(body.model_dump())
-
-
-@router.patch("/enriquecimento/regras/{regra_id}")
-async def update_regra(
-    regra_id: str,
-    body: RegraEnriquecimentoUpdate,
-    _user: dict = Depends(get_current_user),
-    repo=Depends(get_regra_enriquecimento_repo),
-):
-    return await repo.update(UUID(regra_id), body.model_dump(exclude_none=True))
