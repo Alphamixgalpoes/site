@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import re
 
 from petrus.domain.services.normalizer_service import NormalizerService
+from petrus.infrastructure.mdm.transforms.numbers import parse_br_number
+from petrus.infrastructure.mdm.transforms.text import is_empty
 
 
 class DefaultNormalizer(NormalizerService):
@@ -31,7 +32,7 @@ class DefaultNormalizer(NormalizerService):
         if value is None:
             return None
         s = str(value).strip()
-        if not s or s.lower() in ("nan", "none", "null", "-", "n/a", "sob consulta"):
+        if is_empty(s):
             return None
 
         # Numeric fields
@@ -41,11 +42,11 @@ class DefaultNormalizer(NormalizerService):
             "potencia_eletrica_kva", "capacidade_piso_ton_m2", "valor_condominio",
         }
         if field in numeric_fields:
-            return self._parse_number(s)
+            return parse_br_number(s)
 
         int_fields = {"numero_docas", "vagas_estacionamento"}
         if field in int_fields:
-            n = self._parse_number(s)
+            n = parse_br_number(s)
             return int(n) if n is not None else None
 
         bool_fields = {"acesso_carreta", "sprinklers", "guarita", "condominio"}
@@ -57,15 +58,3 @@ class DefaultNormalizer(NormalizerService):
             return s.upper()[:2]
 
         return s
-
-    def _parse_number(self, s: str) -> float | None:
-        # Handle BR format: "1.200,50" → 1200.50
-        s = re.sub(r"[R$\s]", "", s)
-        if "," in s and "." in s:
-            s = s.replace(".", "").replace(",", ".")
-        elif "," in s:
-            s = s.replace(",", ".")
-        try:
-            return float(s)
-        except ValueError:
-            return None

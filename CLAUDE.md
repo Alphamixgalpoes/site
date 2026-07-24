@@ -103,3 +103,31 @@ Exemplos:
 - `chore: atualiza telefone no rodapé`
 
 Commits pequenos e frequentes — um commit por mudança lógica, não por sessão de trabalho.
+
+# Testing & CI
+
+## Rodar testes localmente
+```bash
+cd backend
+pip install -e ".[dev]"
+pytest                    # todos os testes
+pytest -m unit            # somente unitarios
+pytest -m integration     # somente integracao
+pytest --tb=short -q      # saida concisa
+ruff check src/ tests/    # lint
+ruff format --check src/  # formato
+```
+
+## Regras de teste
+- Todo endpoint novo DEVE ter pelo menos um teste de integracao
+- Toda funcao pura nova (transforms, normalizers, etc.) DEVE ter testes unitarios
+- Todo bug fix DEVE ter um teste que reproduz o bug antes da correcao
+- Testes NUNCA tocam o Supabase real — usam fakes in-memory de tests/fakes/
+- Usar os fakes de repositorio — NUNCA usar unittest.mock para repos
+- Rodar pytest antes de fazer push em qualquer branch
+
+## CI
+- CI roda em todo push e PR para main (GitHub Actions)
+- 4 checks: Backend Lint, Backend Tests, Frontend Build, Frontend Lint
+- Branch protection impede merge se algum check falhar
+- Se o CI falhar: ler o log, corrigir, fazer novo push. NUNCA fazer bypass.
