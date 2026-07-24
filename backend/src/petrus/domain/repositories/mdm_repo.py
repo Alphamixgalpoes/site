@@ -5,9 +5,7 @@ from typing import Any
 from uuid import UUID
 
 from petrus.domain.entities.mdm import (
-    Fonte, Importacao, FonteRegistro, ImovelFonte,
-    ConsolidacaoLog, RegraEnriquecimento, RegraAprovacao,
-    MercadoSnapshot, CacheConsulta,
+    Fonte, FonteRegistro, ImovelFonte, ScrapingRun,
 )
 
 
@@ -28,20 +26,6 @@ class FonteRepository(ABC):
     async def delete(self, fonte_id: UUID) -> None: ...
 
 
-class ImportacaoRepository(ABC):
-    @abstractmethod
-    async def create(self, data: dict[str, Any]) -> Importacao: ...
-
-    @abstractmethod
-    async def update(self, imp_id: UUID, data: dict[str, Any]) -> Importacao: ...
-
-    @abstractmethod
-    async def get_by_fonte(self, fonte_id: UUID) -> list[Importacao]: ...
-
-    @abstractmethod
-    async def get_by_id(self, imp_id: UUID) -> Importacao | None: ...
-
-
 class FonteRegistroRepository(ABC):
     @abstractmethod
     async def create_batch(self, registros: list[dict[str, Any]]) -> int: ...
@@ -51,6 +35,12 @@ class FonteRegistroRepository(ABC):
 
     @abstractmethod
     async def get_by_fonte(self, fonte_id: UUID) -> list[FonteRegistro]: ...
+
+    @abstractmethod
+    async def get_by_fonte_and_stage(self, fonte_id: UUID, stage: str) -> list[FonteRegistro]: ...
+
+    @abstractmethod
+    async def delete_by_fonte_and_stage(self, fonte_id: UUID, stage: str) -> int: ...
 
     @abstractmethod
     async def get_by_hash(self, hash_dedup: str) -> FonteRegistro | None: ...
@@ -64,47 +54,15 @@ class ImovelFonteRepository(ABC):
     async def get_by_imovel(self, imovel_id: UUID) -> list[ImovelFonte]: ...
 
 
-class ConsolidacaoLogRepository(ABC):
+class ScrapingRunRepository(ABC):
     @abstractmethod
-    async def create(self, data: dict[str, Any]) -> ConsolidacaoLog: ...
-
-    @abstractmethod
-    async def update(self, log_id: UUID, data: dict[str, Any]) -> ConsolidacaoLog: ...
+    async def create(self, data: dict[str, Any]) -> ScrapingRun: ...
 
     @abstractmethod
-    async def list_all(self) -> list[ConsolidacaoLog]: ...
-
-
-class RegraEnriquecimentoRepository(ABC):
-    @abstractmethod
-    async def list_all(self) -> list[RegraEnriquecimento]: ...
+    async def update(self, run_id: UUID, data: dict[str, Any]) -> ScrapingRun: ...
 
     @abstractmethod
-    async def create(self, data: dict[str, Any]) -> RegraEnriquecimento: ...
+    async def get_by_fonte(self, fonte_id: UUID) -> list[ScrapingRun]: ...
 
     @abstractmethod
-    async def update(self, regra_id: UUID, data: dict[str, Any]) -> RegraEnriquecimento: ...
-
-
-class RegraAprovacaoRepository(ABC):
-    @abstractmethod
-    async def list_all(self) -> list[RegraAprovacao]: ...
-
-    @abstractmethod
-    async def create(self, data: dict[str, Any]) -> RegraAprovacao: ...
-
-
-class MercadoSnapshotRepository(ABC):
-    @abstractmethod
-    async def create(self, data: dict[str, Any]) -> MercadoSnapshot: ...
-
-    @abstractmethod
-    async def list_all(self, limit: int = 100) -> list[MercadoSnapshot]: ...
-
-
-class CacheConsultaRepository(ABC):
-    @abstractmethod
-    async def get(self, tipo: str, chave: str) -> CacheConsulta | None: ...
-
-    @abstractmethod
-    async def set(self, tipo: str, chave: str, dados: dict, expires_at: str) -> CacheConsulta: ...
+    async def list_pending(self) -> list[ScrapingRun]: ...

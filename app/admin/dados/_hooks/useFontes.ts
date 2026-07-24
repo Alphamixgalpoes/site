@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { apiGet, apiPost, apiPut, apiDelete } from "@/lib/api-client";
+import { apiGet, apiPut, apiDelete } from "@/lib/api-client";
 
 export type Fonte = {
   id: string;
@@ -10,8 +10,16 @@ export type Fonte = {
   prioridade: number;
   ativo: boolean;
   config: Record<string, unknown>;
-  schema_map: Record<string, string>;
+  submission_type: string;
+  url: string | null;
+  scraping_status: string;
+  processing_status: string;
+  storage_path: string | null;
+  notas: string | null;
+  last_processed_at: string | null;
+  last_scraped_at: string | null;
   created_at: string | null;
+  updated_at: string | null;
 };
 
 export function useFontes() {
@@ -31,12 +39,6 @@ export function useFontes() {
     }
   }
 
-  async function criar(data: { nome: string; tipo: string; prioridade?: number }) {
-    const nova = await apiPost<Fonte>("/api/v1/mdm/fontes", data, { auth: true });
-    setFontes((prev) => [nova, ...prev]);
-    return nova;
-  }
-
   async function atualizar(id: string, data: Partial<Fonte>) {
     const updated = await apiPut<Fonte>(`/api/v1/mdm/fontes/${id}`, data, { auth: true });
     setFontes((prev) => prev.map((f) => f.id === id ? updated : f));
@@ -48,5 +50,5 @@ export function useFontes() {
     setFontes((prev) => prev.filter((f) => f.id !== id));
   }
 
-  return { fontes, loading, criar, atualizar, excluir, reload: load };
+  return { fontes, loading, atualizar, excluir, reload: load };
 }

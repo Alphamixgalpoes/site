@@ -1,12 +1,10 @@
 from pydantic import BaseModel
 
 
-class FonteCreate(BaseModel):
+class FonteSubmitUrl(BaseModel):
     nome: str
-    tipo: str
-    prioridade: int = 50
-    config: dict = {}
-    schema_map: dict = {}
+    url: str
+    notas: str | None = None
 
 
 class FonteUpdate(BaseModel):
@@ -14,14 +12,13 @@ class FonteUpdate(BaseModel):
     tipo: str | None = None
     prioridade: int | None = None
     config: dict | None = None
-    schema_map: dict | None = None
     ativo: bool | None = None
+    notas: str | None = None
 
 
-class ImportRequest(BaseModel):
+class ProcessRequest(BaseModel):
     fonte_id: str
-    schema_map: dict[str, str]
-    valid_from: str | None = None
+    step: str = "full"  # 'raw_to_clean' | 'clean_to_cards' | 'full'
 
 
 class CardAprovar(BaseModel):
@@ -35,20 +32,3 @@ class CardRejeitar(BaseModel):
 class BatchIds(BaseModel):
     ids: list[str]
     notas: str | None = None
-
-
-class RegraEnriquecimentoCreate(BaseModel):
-    nome: str
-    condicao: dict
-    acao: str
-    config: dict = {}
-    ordem: int = 0
-
-
-class RegraEnriquecimentoUpdate(BaseModel):
-    nome: str | None = None
-    condicao: dict | None = None
-    acao: str | None = None
-    config: dict | None = None
-    ativo: bool | None = None
-    ordem: int | None = None

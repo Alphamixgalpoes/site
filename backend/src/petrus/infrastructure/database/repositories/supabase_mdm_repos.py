@@ -6,15 +6,11 @@ from uuid import UUID
 from supabase import Client
 
 from petrus.domain.entities.mdm import (
-    Fonte, Importacao, FonteRegistro, ImovelFonte,
-    ConsolidacaoLog, RegraEnriquecimento, RegraAprovacao,
-    MercadoSnapshot, CacheConsulta,
+    Fonte, FonteRegistro, ImovelFonte, ScrapingRun,
 )
 from petrus.domain.repositories.mdm_repo import (
-    FonteRepository, ImportacaoRepository, FonteRegistroRepository,
-    ImovelFonteRepository, ConsolidacaoLogRepository,
-    RegraEnriquecimentoRepository, RegraAprovacaoRepository,
-    MercadoSnapshotRepository, CacheConsultaRepository,
+    FonteRepository, FonteRegistroRepository,
+    ImovelFonteRepository, ScrapingRunRepository,
 )
 
 
@@ -23,23 +19,18 @@ from petrus.domain.repositories.mdm_repo import (
 def _to_fonte(row: dict) -> Fonte:
     return Fonte(**{k: v for k, v in row.items() if k in {
         "id", "nome", "tipo", "prioridade", "ativo", "config", "schema_map",
-        "baseline_registros", "baseline_preenchimento", "created_at", "updated_at",
-    }})
-
-
-def _to_importacao(row: dict) -> Importacao:
-    return Importacao(**{k: v for k, v in row.items() if k in {
-        "id", "fonte_id", "status", "arquivo_nome",
-        "registros_total", "registros_importados", "registros_erro",
-        "erros", "stats", "alertas", "cards_gerados",
-        "started_at", "finished_at", "created_at",
+        "baseline_registros", "baseline_preenchimento",
+        "submission_type", "url", "scraping_status", "processing_status",
+        "storage_path", "last_processed_at", "last_scraped_at", "notas",
+        "created_at", "updated_at",
     }})
 
 
 def _to_fonte_registro(row: dict) -> FonteRegistro:
     return FonteRegistro(**{k: v for k, v in row.items() if k in {
         "id", "fonte_id", "importacao_id", "dados_brutos",
-        "dados_normalizados", "hash_dedup", "valid_from", "created_at",
+        "dados_normalizados", "hash_dedup", "valid_from",
+        "stage", "raw_registro_id", "created_at",
     }})
 
 
@@ -50,36 +41,12 @@ def _to_imovel_fonte(row: dict) -> ImovelFonte:
     }})
 
 
-def _to_consolidacao_log(row: dict) -> ConsolidacaoLog:
-    return ConsolidacaoLog(**{k: v for k, v in row.items() if k in {
-        "id", "status", "fontes_processadas", "registros_entrada",
-        "cards_criar", "cards_atualizar", "cards_mesclar", "cards_total",
-        "started_at", "finished_at",
-    }})
-
-
-def _to_regra_enriq(row: dict) -> RegraEnriquecimento:
-    return RegraEnriquecimento(**{k: v for k, v in row.items() if k in {
-        "id", "nome", "condicao", "acao", "config", "ativo", "ordem", "created_at",
-    }})
-
-
-def _to_regra_aprov(row: dict) -> RegraAprovacao:
-    return RegraAprovacao(**{k: v for k, v in row.items() if k in {
-        "id", "nome", "condicao", "ativo", "ordem", "aprovacoes_total", "created_at",
-    }})
-
-
-def _to_mercado(row: dict) -> MercadoSnapshot:
-    return MercadoSnapshot(**{k: v for k, v in row.items() if k in {
-        "id", "fonte", "data_coleta", "endereco", "bairro", "cidade",
-        "area", "valor_venda", "valor_locacao", "url_anuncio", "dados_raw", "created_at",
-    }})
-
-
-def _to_cache(row: dict) -> CacheConsulta:
-    return CacheConsulta(**{k: v for k, v in row.items() if k in {
-        "id", "tipo", "chave", "dados", "created_at", "expires_at",
+def _to_scraping_run(row: dict) -> ScrapingRun:
+    return ScrapingRun(**{k: v for k, v in row.items() if k in {
+        "id", "fonte_id", "url", "status",
+        "registros_scraped", "registros_novos", "registros_duplicados",
+        "erro_mensagem", "notas_dev",
+        "started_at", "finished_at", "created_at",
     }})
 
 
@@ -110,27 +77,6 @@ class SupabaseFonteRepo(FonteRepository):
         self._sb.table("fontes").delete().eq("id", str(fonte_id)).execute()
 
 
-class SupabaseImportacaoRepo(ImportacaoRepository):
-    def __init__(self, client: Client) -> None:
-        self._sb = client
-
-    async def create(self, data: dict[str, Any]) -> Importacao:
-        res = self._sb.table("importacoes").insert(data).execute()
-        return _to_importacao(res.data[0])
-
-    async def update(self, imp_id: UUID, data: dict[str, Any]) -> Importacao:
-        res = self._sb.table("importacoes").update(data).eq("id", str(imp_id)).execute()
-        return _to_importacao(res.data[0])
-
-    async def get_by_fonte(self, fonte_id: UUID) -> list[Importacao]:
-        res = self._sb.table("importacoes").select("*").eq("fonte_id", str(fonte_id)).order("created_at", desc=True).execute()
-        return [_to_importacao(r) for r in (res.data or [])]
-
-    async def get_by_id(self, imp_id: UUID) -> Importacao | None:
-        res = self._sb.table("importacoes").select("*").eq("id", str(imp_id)).maybe_single().execute()
-        return _to_importacao(res.data) if res.data else None
-
-
 class SupabaseFonteRegistroRepo(FonteRegistroRepository):
     def __init__(self, client: Client) -> None:
         self._sb = client
@@ -148,6 +94,26 @@ class SupabaseFonteRegistroRepo(FonteRegistroRepository):
     async def get_by_fonte(self, fonte_id: UUID) -> list[FonteRegistro]:
         res = self._sb.table("fonte_registros").select("*").eq("fonte_id", str(fonte_id)).execute()
         return [_to_fonte_registro(r) for r in (res.data or [])]
+
+    async def get_by_fonte_and_stage(self, fonte_id: UUID, stage: str) -> list[FonteRegistro]:
+        res = (
+            self._sb.table("fonte_registros")
+            .select("*")
+            .eq("fonte_id", str(fonte_id))
+            .eq("stage", stage)
+            .execute()
+        )
+        return [_to_fonte_registro(r) for r in (res.data or [])]
+
+    async def delete_by_fonte_and_stage(self, fonte_id: UUID, stage: str) -> int:
+        res = (
+            self._sb.table("fonte_registros")
+            .delete()
+            .eq("fonte_id", str(fonte_id))
+            .eq("stage", stage)
+            .execute()
+        )
+        return len(res.data or [])
 
     async def get_by_hash(self, hash_dedup: str) -> FonteRegistro | None:
         res = self._sb.table("fonte_registros").select("*").eq("hash_dedup", hash_dedup).maybe_single().execute()
@@ -167,85 +133,34 @@ class SupabaseImovelFonteRepo(ImovelFonteRepository):
         return [_to_imovel_fonte(r) for r in (res.data or [])]
 
 
-class SupabaseConsolidacaoLogRepo(ConsolidacaoLogRepository):
+class SupabaseScrapingRunRepo(ScrapingRunRepository):
     def __init__(self, client: Client) -> None:
         self._sb = client
 
-    async def create(self, data: dict[str, Any]) -> ConsolidacaoLog:
-        res = self._sb.table("consolidacao_log").insert(data).execute()
-        return _to_consolidacao_log(res.data[0])
+    async def create(self, data: dict[str, Any]) -> ScrapingRun:
+        res = self._sb.table("scraping_queue").insert(data).execute()
+        return _to_scraping_run(res.data[0])
 
-    async def update(self, log_id: UUID, data: dict[str, Any]) -> ConsolidacaoLog:
-        res = self._sb.table("consolidacao_log").update(data).eq("id", str(log_id)).execute()
-        return _to_consolidacao_log(res.data[0])
+    async def update(self, run_id: UUID, data: dict[str, Any]) -> ScrapingRun:
+        res = self._sb.table("scraping_queue").update(data).eq("id", str(run_id)).execute()
+        return _to_scraping_run(res.data[0])
 
-    async def list_all(self) -> list[ConsolidacaoLog]:
-        res = self._sb.table("consolidacao_log").select("*").order("started_at", desc=True).execute()
-        return [_to_consolidacao_log(r) for r in (res.data or [])]
-
-
-class SupabaseRegraEnriquecimentoRepo(RegraEnriquecimentoRepository):
-    def __init__(self, client: Client) -> None:
-        self._sb = client
-
-    async def list_all(self) -> list[RegraEnriquecimento]:
-        res = self._sb.table("regras_enriquecimento").select("*").order("ordem").execute()
-        return [_to_regra_enriq(r) for r in (res.data or [])]
-
-    async def create(self, data: dict[str, Any]) -> RegraEnriquecimento:
-        res = self._sb.table("regras_enriquecimento").insert(data).execute()
-        return _to_regra_enriq(res.data[0])
-
-    async def update(self, regra_id: UUID, data: dict[str, Any]) -> RegraEnriquecimento:
-        res = self._sb.table("regras_enriquecimento").update(data).eq("id", str(regra_id)).execute()
-        return _to_regra_enriq(res.data[0])
-
-
-class SupabaseRegraAprovacaoRepo(RegraAprovacaoRepository):
-    def __init__(self, client: Client) -> None:
-        self._sb = client
-
-    async def list_all(self) -> list[RegraAprovacao]:
-        res = self._sb.table("regras_aprovacao").select("*").order("ordem").execute()
-        return [_to_regra_aprov(r) for r in (res.data or [])]
-
-    async def create(self, data: dict[str, Any]) -> RegraAprovacao:
-        res = self._sb.table("regras_aprovacao").insert(data).execute()
-        return _to_regra_aprov(res.data[0])
-
-
-class SupabaseMercadoSnapshotRepo(MercadoSnapshotRepository):
-    def __init__(self, client: Client) -> None:
-        self._sb = client
-
-    async def create(self, data: dict[str, Any]) -> MercadoSnapshot:
-        res = self._sb.table("mercado_snapshots").insert(data).execute()
-        return _to_mercado(res.data[0])
-
-    async def list_all(self, limit: int = 100) -> list[MercadoSnapshot]:
-        res = self._sb.table("mercado_snapshots").select("*").order("data_coleta", desc=True).limit(limit).execute()
-        return [_to_mercado(r) for r in (res.data or [])]
-
-
-class SupabaseCacheConsultaRepo(CacheConsultaRepository):
-    def __init__(self, client: Client) -> None:
-        self._sb = client
-
-    async def get(self, tipo: str, chave: str) -> CacheConsulta | None:
+    async def get_by_fonte(self, fonte_id: UUID) -> list[ScrapingRun]:
         res = (
-            self._sb.table("cache_consultas")
+            self._sb.table("scraping_queue")
             .select("*")
-            .eq("tipo", tipo)
-            .eq("chave", chave)
-            .maybe_single()
+            .eq("fonte_id", str(fonte_id))
+            .order("created_at", desc=True)
             .execute()
         )
-        return _to_cache(res.data) if res.data else None
+        return [_to_scraping_run(r) for r in (res.data or [])]
 
-    async def set(self, tipo: str, chave: str, dados: dict, expires_at: str) -> CacheConsulta:
+    async def list_pending(self) -> list[ScrapingRun]:
         res = (
-            self._sb.table("cache_consultas")
-            .upsert({"tipo": tipo, "chave": chave, "dados": dados, "expires_at": expires_at})
+            self._sb.table("scraping_queue")
+            .select("*")
+            .eq("status", "pendente")
+            .order("created_at")
             .execute()
         )
-        return _to_cache(res.data[0])
+        return [_to_scraping_run(r) for r in (res.data or [])]

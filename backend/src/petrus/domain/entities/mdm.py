@@ -15,26 +15,16 @@ class Fonte:
     schema_map: dict = field(default_factory=dict)
     baseline_registros: int | None = None
     baseline_preenchimento: dict = field(default_factory=dict)
+    submission_type: str = "spreadsheet"
+    url: str | None = None
+    scraping_status: str = "pendente"
+    processing_status: str = "pendente_raw"
+    storage_path: str | None = None
+    last_processed_at: str | None = None
+    last_scraped_at: str | None = None
+    notas: str | None = None
     created_at: str | None = None
     updated_at: str | None = None
-
-
-@dataclass
-class Importacao:
-    id: UUID
-    fonte_id: UUID
-    status: str = "pendente"
-    arquivo_nome: str | None = None
-    registros_total: int = 0
-    registros_importados: int = 0
-    registros_erro: int = 0
-    erros: list = field(default_factory=list)
-    stats: dict = field(default_factory=dict)
-    alertas: list = field(default_factory=list)
-    cards_gerados: int = 0
-    started_at: str | None = None
-    finished_at: str | None = None
-    created_at: str | None = None
 
 
 @dataclass
@@ -46,6 +36,8 @@ class FonteRegistro:
     dados_normalizados: dict | None = None
     hash_dedup: str | None = None
     valid_from: str | None = None
+    stage: str = "raw"
+    raw_registro_id: UUID | None = None
     created_at: str | None = None
 
 
@@ -62,63 +54,16 @@ class ImovelFonte:
 
 
 @dataclass
-class ConsolidacaoLog:
+class ScrapingRun:
     id: UUID
-    status: str = "rodando"
-    fontes_processadas: list[str] = field(default_factory=list)
-    registros_entrada: int = 0
-    cards_criar: int = 0
-    cards_atualizar: int = 0
-    cards_mesclar: int = 0
-    cards_total: int = 0
+    fonte_id: UUID
+    url: str
+    status: str = "pendente"
+    registros_scraped: int = 0
+    registros_novos: int = 0
+    registros_duplicados: int = 0
+    erro_mensagem: str | None = None
+    notas_dev: str | None = None
     started_at: str | None = None
     finished_at: str | None = None
-
-
-@dataclass
-class RegraEnriquecimento:
-    id: UUID
-    nome: str
-    condicao: dict
-    acao: str
-    config: dict = field(default_factory=dict)
-    ativo: bool = True
-    ordem: int = 0
     created_at: str | None = None
-
-
-@dataclass
-class RegraAprovacao:
-    id: UUID
-    nome: str
-    condicao: dict
-    ativo: bool = False
-    ordem: int = 0
-    aprovacoes_total: int = 0
-    created_at: str | None = None
-
-
-@dataclass
-class MercadoSnapshot:
-    id: UUID
-    fonte: str
-    data_coleta: str | None = None
-    endereco: str | None = None
-    bairro: str | None = None
-    cidade: str | None = None
-    area: float | None = None
-    valor_venda: float | None = None
-    valor_locacao: float | None = None
-    url_anuncio: str | None = None
-    dados_raw: dict = field(default_factory=dict)
-    created_at: str | None = None
-
-
-@dataclass
-class CacheConsulta:
-    id: UUID
-    tipo: str
-    chave: str
-    dados: dict
-    created_at: str | None = None
-    expires_at: str | None = None

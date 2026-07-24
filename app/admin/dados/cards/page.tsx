@@ -23,8 +23,9 @@ function fmtMoney(v: number | null) {
 
 export default function CardsPage() {
   const {
-    cards, resumo, loading, cidades,
+    cards, resumo, loading, cidades, fontesIds,
     filtroTipo, setFiltroTipo, filtroCidade, setFiltroCidade,
+    filtroFonte, setFiltroFonte,
     selecionados, toggleSelecionado, selecionarTodos, limparSelecao,
     aprovar, rejeitar, aprovarLote, rejeitarLote,
   } = useCards();
@@ -65,6 +66,19 @@ export default function CardsPage() {
           ))}
         </select>
 
+        {fontesIds.length > 1 && (
+          <select
+            value={filtroFonte}
+            onChange={(e) => setFiltroFonte(e.target.value)}
+            className="text-sm border border-gray-200 px-3 py-1.5 bg-white text-gray-700"
+          >
+            <option value="todas">Todas as fontes</option>
+            {fontesIds.map((f) => (
+              <option key={f} value={f}>{f.slice(0, 8)}...</option>
+            ))}
+          </select>
+        )}
+
         {selecionados.size > 0 && (
           <div className="flex gap-2 ml-auto">
             <span className="text-xs text-gray-500 self-center">{selecionados.size} selecionado{selecionados.size !== 1 ? "s" : ""}</span>
@@ -95,7 +109,7 @@ export default function CardsPage() {
         <div className="text-sm text-gray-400 py-12 text-center">Carregando...</div>
       ) : cards.length === 0 ? (
         <div className="text-sm text-gray-400 py-12 text-center">
-          Nenhum card pendente{filtroTipo !== "todos" || filtroCidade !== "todas" ? " com esses filtros" : ""}.
+          Nenhum card pendente{filtroTipo !== "todos" || filtroCidade !== "todas" || filtroFonte !== "todas" ? " com esses filtros" : ""}.
         </div>
       ) : (
         <div className="bg-white border border-gray-200 divide-y divide-gray-100">
