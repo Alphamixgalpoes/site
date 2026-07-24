@@ -32,3 +32,7 @@ class CardRejeitar(BaseModel):
 class BatchIds(BaseModel):
     ids: list[str]
     notas: str | None = None
+
+
+class PushCleanRequest(BaseModel):
+    registros: list[dict]

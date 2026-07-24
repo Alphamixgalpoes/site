@@ -58,6 +58,12 @@ export default function DadosPage() {
           icon: iconSvg("M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375"),
         },
         {
+          label: "Enriquecimento",
+          href: "/admin/dados/enrichment",
+          description: "Comparar e enriquecer imoveis",
+          icon: iconSvg("M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"),
+        },
+        {
           label: "Cards",
           href: "/admin/dados/cards",
           description: "Fila de recomendacoes para revisar",

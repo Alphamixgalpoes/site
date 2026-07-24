@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from petrus.config import settings
 from petrus.api.routers import health, leads, geocode, images, staticmap
 from petrus.api.routers import imoveis, contatos, processos, config, storage, publicacao, mdm
+from petrus.api.routers import enrichment
 from petrus.infrastructure.database.supabase_client import init_supabase, get_supabase
 
 
@@ -48,3 +49,4 @@ app.include_router(config.router)
 app.include_router(storage.router)
 app.include_router(publicacao.router)
 app.include_router(mdm.router)
+app.include_router(enrichment.router)

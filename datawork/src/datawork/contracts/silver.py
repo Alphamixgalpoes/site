@@ -28,7 +28,12 @@ CleanRecordSchema = DataFrameSchema(
         "complemento": Column(str, nullable=True, required=False),
         "unidade": Column(str, nullable=True, required=False),
         "bairro": Column(str, nullable=True, required=False),
-        "cidade": Column(str, Check.isin(CIDADES_VALIDAS), nullable=True, required=False),
+        "cidade": Column(
+            str,
+            Check.isin(CIDADES_VALIDAS + [""]),
+            nullable=True,
+            required=False,
+        ),
         "uf": Column(str, Check.str_length(max_value=2), nullable=True, required=False),
         "cep": Column(str, nullable=True, required=False),
         "endereco": Column(str, nullable=True, required=False),
@@ -42,9 +47,9 @@ CleanRecordSchema = DataFrameSchema(
         "area_mezanino_m2": Column(float, Check.gt(0), nullable=True, required=False),
         # Physical
         "pe_direito_m": Column(float, Check.in_range(2.0, 30.0), nullable=True, required=False),
-        "numero_docas": Column(int, Check.ge(0), nullable=True, required=False),
-        "vagas_estacionamento": Column(int, Check.ge(0), nullable=True, required=False),
-        "potencia_eletrica_kva": Column(int, Check.gt(0), nullable=True, required=False),
+        "numero_docas": Column(float, Check.ge(0), nullable=True, required=False),
+        "vagas_estacionamento": Column(float, Check.ge(0), nullable=True, required=False),
+        "potencia_eletrica_kva": Column(float, Check.gt(0), nullable=True, required=False),
         # Boolean features
         "elevador": Column(bool, nullable=True, required=False),
         "gerador": Column(bool, nullable=True, required=False),
@@ -61,6 +66,8 @@ CleanRecordSchema = DataFrameSchema(
         "proprietario_nome": Column(str, nullable=True, required=False),
         "proprietario_telefone": Column(str, nullable=True, required=False),
         "proprietario_email": Column(str, nullable=True, required=False),
+        # Identity
+        "titulo": Column(str, nullable=True, required=False),
         # Metadata
         "observacoes": Column(str, nullable=True, required=False),
         "regiao": Column(str, nullable=True, required=False),
