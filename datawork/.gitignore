@@ -1,0 +1,23 @@
+# Data files
+data/
+!data/.gitkeep
+output/
+!output/.gitkeep
+
+# Working notebooks (only templates are versioned)
+notebooks/*.ipynb
+!notebooks/.gitkeep
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Profiling reports
+*.html
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
