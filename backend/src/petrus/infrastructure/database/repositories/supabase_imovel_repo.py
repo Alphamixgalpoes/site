@@ -74,7 +74,7 @@ class SupabaseImovelRepo(ImovelRepository):
             .maybe_single()
             .execute()
         )
-        if res.data and res.data.get("imoveis"):
+        if res and res.data and res.data.get("imoveis"):
             return _to_imovel(res.data["imoveis"])
         return None
 
@@ -86,7 +86,7 @@ class SupabaseImovelRepo(ImovelRepository):
             .maybe_single()
             .execute()
         )
-        return _to_imovel(res.data) if res.data else None
+        return _to_imovel(res.data) if res and res.data else None
 
     async def create(self, data: dict[str, Any]) -> Imovel:
         res = self._sb.table("imoveis").insert(data).execute()

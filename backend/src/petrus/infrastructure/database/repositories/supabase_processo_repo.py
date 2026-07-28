@@ -86,7 +86,7 @@ class SupabaseProcessoRepo(ProcessoRepository):
             .maybe_single()
             .execute()
         )
-        return _to_processo(res.data, with_joins=True) if res.data else None
+        return _to_processo(res.data, with_joins=True) if res and res.data else None
 
     async def create(self, data: dict[str, Any]) -> Processo:
         res = self._sb.table("processos").insert(data).execute()
@@ -191,7 +191,7 @@ class SupabaseProcessoRepo(ProcessoRepository):
             .maybe_single()
             .execute()
         )
-        return _to_contato(full.data or link)
+        return _to_contato((full.data if full else None) or link)
 
     async def unlink_contact(self, link_id: UUID) -> None:
         self._sb.table("processo_contatos").delete().eq("id", str(link_id)).execute()
@@ -216,4 +216,4 @@ class SupabaseProcessoRepo(ProcessoRepository):
             .maybe_single()
             .execute()
         )
-        return _to_tipo(res.data) if res.data else None
+        return _to_tipo(res.data) if res and res.data else None

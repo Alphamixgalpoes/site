@@ -43,7 +43,7 @@ class SupabasePublicacaoRepo(PublicacaoRepository):
             .maybe_single()
             .execute()
         )
-        return _to_pub(res.data) if res.data else None
+        return _to_pub(res.data) if res and res.data else None
 
     async def update(self, imovel_id: UUID, data: dict[str, Any]) -> ImovelPublicacao:
         res = (
@@ -76,4 +76,4 @@ class SupabasePublicacaoRepo(PublicacaoRepository):
             .maybe_single()
             .execute()
         )
-        return _to_pub(res.data) if res.data else None
+        return _to_pub(res.data) if res and res.data else None
