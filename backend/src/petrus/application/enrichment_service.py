@@ -5,8 +5,10 @@ Designed for:
 - Stateless ranking (can be offloaded to cloud worker)
 - Event sourcing for full lineage reconstruction
 """
+
 from __future__ import annotations
 
+import logging
 from typing import Any
 from uuid import UUID
 
@@ -22,6 +24,8 @@ from petrus.domain.repositories.mdm_repo import (
     ImovelFonteRepository,
 )
 from petrus.infrastructure.mdm.ranker import SimilarityRanker
+
+logger = logging.getLogger(__name__)
 
 # Below this score, registros are auto-created as new imóveis (no card needed)
 AUTO_CREATE_THRESHOLD = 0.50
@@ -92,22 +96,26 @@ class EnrichmentService:
 
             if score_max >= AUTO_CREATE_THRESHOLD:
                 # Has meaningful matches — create card for human review
-                cards_batch.append({
-                    "fonte_id": str(fonte_id),
-                    "fonte_registro_id": reg_id,
-                    "registro_snapshot": reg_data,
-                    "similares": similares,
-                    "cidade": reg_data.get("cidade"),
-                    "bairro": reg_data.get("bairro"),
-                    "logradouro": reg_data.get("logradouro"),
-                    "area": reg_data.get("area_construida_m2") or reg_data.get("area_total_m2"),
-                    "score_max": score_max,
-                    "status": "pendente",
-                })
+                cards_batch.append(
+                    {
+                        "fonte_id": str(fonte_id),
+                        "fonte_registro_id": reg_id,
+                        "registro_snapshot": reg_data,
+                        "similares": similares,
+                        "cidade": reg_data.get("cidade"),
+                        "bairro": reg_data.get("bairro"),
+                        "logradouro": reg_data.get("logradouro"),
+                        "area": reg_data.get("area_construida_m2") or reg_data.get("area_total_m2"),
+                        "score_max": score_max,
+                        "status": "pendente",
+                    }
+                )
             else:
                 # No meaningful match — auto-create as new imóvel
                 imovel_id = await self._auto_create_imovel(
-                    reg_data, reg_id, fonte_id,
+                    reg_data,
+                    reg_id,
+                    fonte_id,
                 )
                 if imovel_id:
                     auto_created.append(imovel_id)
@@ -115,9 +123,12 @@ class EnrichmentService:
         # Batch insert cards
         inserted = await self._card_repo.create_batch(cards_batch)
 
-        await self._fonte_repo.update(fonte_id, {
-            "processing_status": "enrichment_gerado",
-        })
+        await self._fonte_repo.update(
+            fonte_id,
+            {
+                "processing_status": "enrichment_gerado",
+            },
+        )
 
         return {
             "deleted_previous": deleted,
@@ -128,7 +139,10 @@ class EnrichmentService:
         }
 
     async def _auto_create_imovel(
-        self, reg_data: dict, reg_id: str, fonte_id: UUID,
+        self,
+        reg_data: dict,
+        reg_id: str,
+        fonte_id: UUID,
     ) -> str | None:
         """Create an imóvel directly from a registro with no significant match."""
         try:
@@ -138,16 +152,18 @@ class EnrichmentService:
             imovel_id = str(imovel.id)
 
             # Lineage
-            await self._imovel_fonte_repo.create({
-                "imovel_id": imovel_id,
-                "fonte_registro_id": reg_id,
-                "campos_usados": [k for k, v in reg_data.items() if v is not None],
-                "tipo_match": "auto_criar",
-            })
+            await self._imovel_fonte_repo.create(
+                {
+                    "imovel_id": imovel_id,
+                    "fonte_registro_id": reg_id,
+                    "campos_usados": [k for k, v in reg_data.items() if v is not None],
+                    "tipo_match": "auto_criar",
+                }
+            )
 
             return imovel_id
         except Exception:
-            # Don't fail the whole batch for one bad registro
+            logger.exception("auto_create_imovel failed for registro %s", reg_id)
             return None
 
     # ------------------------------------------------------------------
@@ -171,7 +187,10 @@ class EnrichmentService:
         reg_original = dict(card.registro_snapshot)
         reg_id = str(card.fonte_registro_id)
         reg_current, reg_changes = _apply_events(
-            reg_original, active_events, "registro", reg_id,
+            reg_original,
+            active_events,
+            "registro",
+            reg_id,
         )
 
         # Compute current state of each similar
@@ -180,19 +199,24 @@ class EnrichmentService:
             sim_original = dict(sim.get("snapshot", {}))
             sim_id = sim["imovel_id"]
             sim_current, sim_changes = _apply_events(
-                sim_original, active_events, "imovel", sim_id,
+                sim_original,
+                active_events,
+                "imovel",
+                sim_id,
             )
             # Load images for this imovel
             images = await self._load_imovel_images(sim_id)
-            similares_state.append({
-                "imovel_id": sim_id,
-                "score": sim["score"],
-                "rank": sim["rank"],
-                "original": sim_original,
-                "atual": sim_current,
-                "changes": sim_changes,
-                "imagens": images,
-            })
+            similares_state.append(
+                {
+                    "imovel_id": sim_id,
+                    "score": sim["score"],
+                    "rank": sim["rank"],
+                    "original": sim_original,
+                    "atual": sim_current,
+                    "changes": sim_changes,
+                    "imagens": images,
+                }
+            )
 
         return {
             "card": {
@@ -237,7 +261,9 @@ class EnrichmentService:
     # ------------------------------------------------------------------
 
     async def create_event(
-        self, card_id: UUID, data: dict[str, Any],
+        self,
+        card_id: UUID,
+        data: dict[str, Any],
     ) -> EnrichmentEvent:
         """Record an enrichment event. Does NOT apply to real data."""
         card = await self._card_repo.get_by_id(card_id)
@@ -274,7 +300,9 @@ class EnrichmentService:
     # ------------------------------------------------------------------
 
     async def finalize(
-        self, card_id: UUID, criar_imovel: bool = True,
+        self,
+        card_id: UUID,
+        criar_imovel: bool = True,
     ) -> dict[str, Any]:
         """Apply all pending events to real data.
 
@@ -303,7 +331,10 @@ class EnrichmentService:
         if criar_imovel:
             reg_original = dict(card.registro_snapshot)
             reg_final, _ = _apply_events(
-                reg_original, active_events, "registro", reg_id,
+                reg_original,
+                active_events,
+                "registro",
+                reg_id,
             )
             imovel_data = _to_imovel_dict(reg_final)
             imovel_data["origem"] = "enrichment"
@@ -311,12 +342,14 @@ class EnrichmentService:
             result["imovel_criado"] = str(imovel.id)
 
             # Lineage
-            await self._imovel_fonte_repo.create({
-                "imovel_id": str(imovel.id),
-                "fonte_registro_id": reg_id,
-                "campos_usados": list(reg_final.keys()),
-                "tipo_match": "enrichment_criar",
-            })
+            await self._imovel_fonte_repo.create(
+                {
+                    "imovel_id": str(imovel.id),
+                    "fonte_registro_id": reg_id,
+                    "campos_usados": list(reg_final.keys()),
+                    "tipo_match": "enrichment_criar",
+                }
+            )
             result["lineage_records"] += 1
 
         # 2. Apply changes to existing imoveis
@@ -324,7 +357,10 @@ class EnrichmentService:
             sim_id = sim["imovel_id"]
             sim_original = dict(sim.get("snapshot", {}))
             _, sim_changes = _apply_events(
-                sim_original, active_events, "imovel", sim_id,
+                sim_original,
+                active_events,
+                "imovel",
+                sim_id,
             )
             if not sim_changes:
                 continue
@@ -338,12 +374,14 @@ class EnrichmentService:
                 result["imoveis_atualizados"].append(sim_id)
 
                 # Lineage
-                await self._imovel_fonte_repo.create({
-                    "imovel_id": sim_id,
-                    "fonte_registro_id": reg_id,
-                    "campos_usados": list(safe_update.keys()),
-                    "tipo_match": "enrichment_atualizar",
-                })
+                await self._imovel_fonte_repo.create(
+                    {
+                        "imovel_id": sim_id,
+                        "fonte_registro_id": reg_id,
+                        "campos_usados": list(safe_update.keys()),
+                        "tipo_match": "enrichment_atualizar",
+                    }
+                )
                 result["lineage_records"] += 1
 
         # 3. Mark card as done
@@ -360,8 +398,11 @@ class EnrichmentService:
     # ------------------------------------------------------------------
 
     async def list_cards(
-        self, status: str = "pendente", filters: dict | None = None,
-        limit: int = 50, offset: int = 0,
+        self,
+        status: str = "pendente",
+        filters: dict | None = None,
+        limit: int = 50,
+        offset: int = 0,
     ) -> list[EnrichmentCard]:
         return await self._card_repo.list_by_status(status, filters, limit, offset)
 
@@ -373,9 +414,12 @@ class EnrichmentService:
 # Pure helpers (no I/O — can run anywhere)
 # ======================================================================
 
+
 def _apply_events(
-    original: dict, events: list[EnrichmentEvent],
-    destino_tipo: str, destino_id: str,
+    original: dict,
+    events: list[EnrichmentEvent],
+    destino_tipo: str,
+    destino_id: str,
 ) -> tuple[dict, dict]:
     """Apply events to an original snapshot, return (current_state, changes).
 
@@ -419,26 +463,55 @@ def _event_to_dict(event: EnrichmentEvent) -> dict:
 
 # Fields that map directly to the galpoes table
 _IMOVEL_DIRECT_FIELDS = {
-    "titulo", "tipo", "categoria", "cidade", "bairro", "endereco",
-    "logradouro", "numero", "complemento", "uf", "cep",
-    "latitude", "longitude",
-    "area_total_m2", "area_construida_m2", "area_piso_m2",
-    "area_escritorio_m2", "pe_direito_m",
-    "numero_docas", "vagas_estacionamento", "potencia_eletrica_kva",
-    "valor_condominio", "observacoes", "status", "descricao",
+    "titulo",
+    "cidade",
+    "bairro",
+    "endereco",
+    "logradouro",
+    "numero",
+    "complemento",
+    "uf",
+    "cep",
+    "latitude",
+    "longitude",
+    "area_total_m2",
+    "area_construida_m2",
+    "area_piso_m2",
+    "area_escritorio_m2",
+    "pe_direito_m",
+    "numero_docas",
+    "vagas_estacionamento",
+    "potencia_eletrica_kva",
+    "valor_condominio",
+    "observacoes",
+    "status",
+    "descricao",
     "dados_extras",
 }
 
 # Fields that go into dados_extras JSONB
 _IMOVEL_EXTRAS_FIELDS = {
-    "unidade", "area_mezanino_m2", "elevador", "gerador",
-    "ponte_rolante", "zoneamento", "tipo_operacao",
-    "valor_locacao", "valor_venda", "iptu_valor", "inquilino",
+    "unidade",
+    "area_mezanino_m2",
+    "elevador",
+    "gerador",
+    "ponte_rolante",
+    "zoneamento",
+    "tipo_operacao",
+    "valor_locacao",
+    "valor_venda",
+    "iptu_valor",
+    "inquilino",
 }
 
 
 def _to_imovel_dict(data: dict) -> dict:
-    """Convert enriched registro data to galpoes-compatible dict."""
+    """Convert enriched registro data to imoveis-compatible dict.
+
+    Field mapping (registro → imoveis table):
+      tipo (galpao/terreno) → categoria
+      tipo_operacao (locacao/venda) → tipo
+    """
     result: dict = {}
     extras: dict = {}
 
@@ -454,10 +527,18 @@ def _to_imovel_dict(data: dict) -> dict:
     if extras:
         result["dados_extras"] = {**result.get("dados_extras", {}), **extras}
 
-    # Defaults
-    result.setdefault("tipo", "galpao")
-    result.setdefault("categoria", "Galpão")
+    # Map registro fields to imoveis columns
+    # registro.tipo (galpao/terreno) → imoveis.categoria
+    # registro.tipo_operacao (locacao/venda) → imoveis.tipo
+    raw_tipo = data.get("tipo", "galpao")  # tipo de imóvel
+    raw_operacao = data.get("tipo_operacao")  # tipo de negócio
+    if raw_operacao == "ambos":
+        raw_operacao = "locacao"
+
+    result["categoria"] = raw_tipo if raw_tipo in ("galpao", "terreno", "loja") else "galpao"
+    result["tipo"] = raw_operacao if raw_operacao in ("locacao", "venda") else "locacao"
     result.setdefault("publicado", False)
+
     # Generate titulo from address if missing
     if "titulo" not in result:
         parts = [result.get("logradouro"), result.get("numero")]

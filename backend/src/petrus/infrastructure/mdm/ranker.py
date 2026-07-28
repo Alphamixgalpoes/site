@@ -4,22 +4,42 @@ Reuses scoring logic from the AdaptiveMatcher but returns top N
 results regardless of threshold. Designed for batch operation
 and future cloud execution (stateless, no side effects).
 """
+
 from __future__ import annotations
 
 from petrus.domain.entities.imovel import Imovel
 from petrus.infrastructure.mdm.matcher import (
-    _fuzzy_ratio, _geo_distance_km, _area_similarity,
+    _area_similarity,
+    _fuzzy_ratio,
+    _geo_distance_km,
 )
 
 # Fields to snapshot from an Imovel for comparison in the workspace
 SNAPSHOT_FIELDS = [
-    "titulo", "tipo", "cidade", "bairro", "logradouro", "numero",
-    "complemento", "endereco", "uf", "cep",
-    "latitude", "longitude",
-    "area_total_m2", "area_construida_m2", "area_piso_m2",
-    "area_escritorio_m2", "pe_direito_m",
-    "numero_docas", "vagas_estacionamento", "potencia_eletrica_kva",
-    "valor", "valor_condominio", "observacoes", "status",
+    "titulo",
+    "tipo",
+    "cidade",
+    "bairro",
+    "logradouro",
+    "numero",
+    "complemento",
+    "endereco",
+    "uf",
+    "cep",
+    "latitude",
+    "longitude",
+    "area_total_m2",
+    "area_construida_m2",
+    "area_piso_m2",
+    "area_escritorio_m2",
+    "pe_direito_m",
+    "numero_docas",
+    "vagas_estacionamento",
+    "potencia_eletrica_kva",
+    "valor",
+    "valor_condominio",
+    "observacoes",
+    "status",
     "descricao",
 ]
 
@@ -38,20 +58,37 @@ def _imovel_snapshot(imovel: Imovel) -> dict:
 
 
 def _score_pair(
-    registro: dict, imovel: Imovel,
-    w_address: float = 0.4, w_geo: float = 0.3, w_area: float = 0.3,
+    registro: dict,
+    imovel: Imovel,
+    w_address: float = 0.4,
+    w_geo: float = 0.3,
+    w_area: float = 0.3,
 ) -> float:
     """Score similarity between a registro and an imovel.
 
     Same algorithm as AdaptiveMatcher._score but as a pure function.
     """
     # Address similarity
-    reg_addr = " ".join(filter(None, [
-        registro.get("logradouro"), registro.get("numero"), registro.get("bairro"),
-    ]))
-    im_addr = " ".join(filter(None, [
-        imovel.logradouro, imovel.numero, imovel.bairro,
-    ]))
+    reg_addr = " ".join(
+        filter(
+            None,
+            [
+                registro.get("logradouro"),
+                registro.get("numero"),
+                registro.get("bairro"),
+            ],
+        )
+    )
+    im_addr = " ".join(
+        filter(
+            None,
+            [
+                imovel.logradouro,
+                imovel.numero,
+                imovel.bairro,
+            ],
+        )
+    )
     addr_score = _fuzzy_ratio(reg_addr, im_addr) if reg_addr and im_addr else 0.0
 
     # Geo similarity
@@ -70,21 +107,9 @@ def _score_pair(
         im_area,
     )
 
-    total_weight = 0.0
-    total_score = 0.0
-    if addr_score > 0:
-        total_weight += w_address
-        total_score += w_address * addr_score
-    if geo_score > 0:
-        total_weight += w_geo
-        total_score += w_geo * geo_score
-    if area_score > 0:
-        total_weight += w_area
-        total_score += w_area * area_score
-
-    if total_weight == 0:
-        return 0.0
-    return total_score / total_weight
+    # Always divide by total weight (1.0) to avoid inflating scores
+    # when only one component matches.
+    return w_address * addr_score + w_geo * geo_score + w_area * area_score
 
 
 class SimilarityRanker:
@@ -123,17 +148,21 @@ class SimilarityRanker:
 
         results = []
         for rank_idx, (score, imovel) in enumerate(top, start=1):
-            results.append({
-                "imovel_id": str(imovel.id),
-                "score": round(score, 3),
-                "rank": rank_idx,
-                "snapshot": _imovel_snapshot(imovel),
-            })
+            results.append(
+                {
+                    "imovel_id": str(imovel.id),
+                    "score": round(score, 3),
+                    "rank": rank_idx,
+                    "snapshot": _imovel_snapshot(imovel),
+                }
+            )
 
         return results
 
     def rank_batch(
-        self, registros: list[dict], golden: list[Imovel],
+        self,
+        registros: list[dict],
+        golden: list[Imovel],
     ) -> list[list[dict]]:
         """Rank multiple registros against the same golden set.
 
