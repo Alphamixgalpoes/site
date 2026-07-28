@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import random
 import time
 from urllib.parse import urlparse
 
@@ -12,10 +13,16 @@ class RateLimiter:
 
     Each domain has its own independent bucket.
     Thread-safe via asyncio locks.
+    Adds random jitter (0-30% of interval) to avoid detection.
     """
 
-    def __init__(self, default_interval: float = 1.5) -> None:
+    def __init__(
+        self,
+        default_interval: float = 1.5,
+        jitter_fraction: float = 0.3,
+    ) -> None:
         self._default_interval = default_interval
+        self._jitter_fraction = jitter_fraction
         self._intervals: dict[str, float] = {}
         self._last_request: dict[str, float] = {}
         self._locks: dict[str, asyncio.Lock] = {}
@@ -24,7 +31,9 @@ class RateLimiter:
         self._intervals[domain] = interval
 
     def _get_interval(self, domain: str) -> float:
-        return self._intervals.get(domain, self._default_interval)
+        base = self._intervals.get(domain, self._default_interval)
+        jitter = random.uniform(0, base * self._jitter_fraction)
+        return base + jitter
 
     def _get_lock(self, domain: str) -> asyncio.Lock:
         if domain not in self._locks:

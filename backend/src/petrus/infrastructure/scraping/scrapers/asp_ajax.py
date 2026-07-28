@@ -49,28 +49,26 @@ class AspAjaxScraper(Scraper):
     async def _crawl_via_ajax(
         self, config: ScrapingConfig, ajax_endpoint: str
     ) -> list[CrawlResult]:
-        """Crawl using AJAX endpoint."""
+        """Crawl using AJAX endpoint via PageFetcher.post()."""
         results: list[CrawlResult] = []
         ajax_url = f"{config.base_url}{ajax_endpoint}"
         params = config.filters.get("ajax_params", {})
 
         for page in range(1, config.max_pages + 1):
-            params["pagina"] = str(page)
+            post_data = {**params, "pagina": str(page)}
 
-            import httpx
-            async with httpx.AsyncClient(timeout=30) as client:
-                resp = await client.post(
-                    ajax_url,
-                    data=params,
-                    headers={
-                        "X-Requested-With": "XMLHttpRequest",
-                        "User-Agent": "AlphamixBot/1.0",
-                    },
-                )
-                if resp.status_code != 200:
-                    break
+            page_content = await self._fetcher.post(
+                ajax_url,
+                data=post_data,
+                headers={"X-Requested-With": "XMLHttpRequest"},
+            )
+            if page_content.status_code != 200:
+                break
 
-                html = resp.text
+            try:
+                html = page_content.body.decode("utf-8")
+            except UnicodeDecodeError:
+                html = page_content.body.decode("latin-1")
 
             tree = HTMLParser(html)
             cards = tree.css(".imovel, .property, .resultado, .item")
