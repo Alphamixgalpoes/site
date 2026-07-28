@@ -10,7 +10,6 @@ from petrus.domain.entities.enrichment import EnrichmentCard, EnrichmentEvent
 from petrus.domain.entities.imovel import Imovel, ImovelImagem, ImovelResumido
 from petrus.domain.entities.lead import Lead
 from petrus.domain.entities.mdm import Fonte, FonteRegistro, ImovelFonte, ScrapingRun
-from petrus.domain.entities.mdm_types import CardResumo
 from petrus.domain.entities.processo import (
     Processo,
     ProcessoCategoria,
@@ -21,7 +20,6 @@ from petrus.domain.entities.processo import (
     ProcessoTipoItem,
 )
 from petrus.domain.entities.publicacao import ImovelPublicacao
-from petrus.domain.entities.recomendacao import Recomendacao
 from petrus.domain.repositories.config_repo import ConfigRepository
 from petrus.domain.repositories.contato_repo import ContatoRepository
 from petrus.domain.repositories.enrichment_repo import (
@@ -38,7 +36,6 @@ from petrus.domain.repositories.mdm_repo import (
 )
 from petrus.domain.repositories.processo_repo import ProcessoRepository
 from petrus.domain.repositories.publicacao_repo import PublicacaoRepository
-from petrus.domain.repositories.recomendacao_repo import RecomendacaoRepository
 
 
 def _safe_build(cls, **kwargs):
@@ -386,80 +383,6 @@ class InMemoryPublicacaoRepo(PublicacaoRepository):
             if p.slug == slug:
                 return p
         return None
-
-
-class InMemoryRecomendacaoRepo(RecomendacaoRepository):
-    def __init__(self) -> None:
-        self._store: dict[UUID, Recomendacao] = {}
-
-    async def create(self, data: dict[str, Any]) -> Recomendacao:
-        rec = _safe_build(Recomendacao, id=uuid4(), **data)
-        self._store[rec.id] = rec
-        return rec
-
-    async def get_by_id(self, rec_id: UUID) -> Recomendacao | None:
-        return self._store.get(rec_id)
-
-    async def update_status(
-        self,
-        rec_id: UUID,
-        status: str,
-        dados_aprovados: dict | None = None,
-        notas: str | None = None,
-    ) -> Recomendacao:
-        rec = self._store[rec_id]
-        rec.status = status
-        if notas is not None:
-            rec.notas_resolucao = notas
-        return rec
-
-    async def list_pendentes(self, filtros: dict[str, Any] | None = None) -> list[Recomendacao]:
-        results = [r for r in self._store.values() if r.status == "pendente"]
-        if filtros:
-            if filtros.get("tipo"):
-                results = [r for r in results if r.tipo == filtros["tipo"]]
-            if filtros.get("fonte_id"):
-                results = [r for r in results if str(r.fonte_id) == filtros["fonte_id"]]
-        return results
-
-    async def count_by_tipo(self) -> CardResumo:
-        resumo = CardResumo()
-        for r in self._store.values():
-            if r.status != "pendente":
-                continue
-            if r.tipo == "criar":
-                resumo.criar += 1
-            elif r.tipo == "atualizar":
-                resumo.atualizar += 1
-            elif r.tipo == "mesclar":
-                resumo.mesclar += 1
-            elif r.tipo == "enriquecer":
-                resumo.enriquecer += 1
-            elif r.tipo == "alertar":
-                resumo.alertar += 1
-        resumo.total = (
-            resumo.criar + resumo.atualizar + resumo.mesclar + resumo.enriquecer + resumo.alertar
-        )
-        return resumo
-
-    async def get_by_importacao(self, importacao_id: UUID) -> list[Recomendacao]:
-        return [r for r in self._store.values() if r.importacao_id == importacao_id]
-
-    async def get_by_imovel(self, imovel_id: UUID) -> list[Recomendacao]:
-        return [r for r in self._store.values() if r.imovel_id == imovel_id]
-
-    async def batch_update_status(
-        self,
-        ids: list[UUID],
-        status: str,
-        notas: str | None = None,
-    ) -> int:
-        count = 0
-        for rid in ids:
-            if rid in self._store:
-                self._store[rid].status = status
-                count += 1
-        return count
 
 
 class InMemoryFonteRepo(FonteRepository):

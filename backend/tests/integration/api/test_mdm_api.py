@@ -9,8 +9,7 @@ class TestMdmStats:
         assert resp.status_code == 200
         data = resp.json()
         assert "fontes" in data
-        assert "cards_pendentes" in data
-        assert "cards_por_tipo" in data
+        assert "enrichment" in data
 
     def test_stats_requires_auth(self, anon_client):
         resp = anon_client.get("/api/v1/mdm/stats")
@@ -30,23 +29,6 @@ class TestMdmFontes:
     def test_get_fonte_not_found(self, client):
         resp = client.get("/api/v1/mdm/fontes/00000000-0000-0000-0000-000000000099")
         assert resp.status_code == 404
-
-
-class TestMdmCards:
-    def test_list_cards_empty(self, client):
-        resp = client.get("/api/v1/mdm/cards")
-        assert resp.status_code == 200
-        assert resp.json() == []
-
-    def test_cards_resumo(self, client):
-        resp = client.get("/api/v1/mdm/cards/resumo")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["total"] == 0
-
-    def test_cards_requires_auth(self, anon_client):
-        resp = anon_client.get("/api/v1/mdm/cards")
-        assert resp.status_code == 401
 
 
 class TestMdmSubmitUrl:

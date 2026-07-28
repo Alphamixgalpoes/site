@@ -20,6 +20,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from petrus.api.deps import (  # noqa: E402
     get_config_service,
     get_contato_service,
+    get_enrichment_service,
     get_fonte_registro_repo,
     get_geocoding_service,
     get_image_service,
@@ -33,13 +34,13 @@ from petrus.api.deps import (  # noqa: E402
     get_processo_file_service,
     get_processo_service,
     get_publicacao_service,
-    get_recomendacao_service,
     get_scraping_run_repo,
 )
 from petrus.api.middleware.auth import get_current_user, optional_user  # noqa: E402
 from petrus.api.routers import (  # noqa: E402
     config,
     contatos,
+    enrichment,
     geocode,
     health,
     images,
@@ -63,7 +64,7 @@ from petrus.application.mdm_submission_service import MdmSubmissionService  # no
 from petrus.application.processo_file_service import ProcessoFileService  # noqa: E402
 from petrus.application.processo_service import ProcessoAppService  # noqa: E402
 from petrus.application.publicacao_service import PublicacaoService  # noqa: E402
-from petrus.application.recomendacao_service import RecomendacaoService  # noqa: E402
+from petrus.application.enrichment_service import EnrichmentService  # noqa: E402
 from petrus.infrastructure.mdm.quality import DefaultQualityService  # noqa: E402
 from tests.fakes.repositories import (  # noqa: E402
     InMemoryConfigRepo,
@@ -75,8 +76,9 @@ from tests.fakes.repositories import (  # noqa: E402
     InMemoryLeadRepo,
     InMemoryProcessoRepo,
     InMemoryPublicacaoRepo,
-    InMemoryRecomendacaoRepo,
     InMemoryScrapingRunRepo,
+    InMemoryEnrichmentCardRepo,
+    InMemoryEnrichmentEventRepo,
 )
 from tests.fakes.services import (  # noqa: E402
     FakeEmailService,
@@ -111,6 +113,7 @@ def _build_test_app() -> FastAPI:
         storage,
         publicacao,
         mdm,
+        enrichment,
     ]:
         app.include_router(router_module.router)
 
@@ -121,11 +124,12 @@ def _build_test_app() -> FastAPI:
     processo_repo = InMemoryProcessoRepo()
     config_repo = InMemoryConfigRepo()
     publicacao_repo = InMemoryPublicacaoRepo()
-    recomendacao_repo = InMemoryRecomendacaoRepo()
     fonte_repo = InMemoryFonteRepo()
     fonte_registro_repo = InMemoryFonteRegistroRepo()
     imovel_fonte_repo = InMemoryImovelFonteRepo()
     scraping_run_repo = InMemoryScrapingRunRepo()
+    enrichment_card_repo = InMemoryEnrichmentCardRepo()
+    enrichment_event_repo = InMemoryEnrichmentEventRepo()
 
     email_svc = FakeEmailService()
     storage_svc = FakeStorageService()
@@ -153,11 +157,6 @@ def _build_test_app() -> FastAPI:
     )
     app.dependency_overrides[get_config_service] = lambda: ConfigService(config_repo)
     app.dependency_overrides[get_publicacao_service] = lambda: PublicacaoService(publicacao_repo)
-    app.dependency_overrides[get_recomendacao_service] = lambda: RecomendacaoService(
-        recomendacao_repo,
-        imovel_repo,
-        imovel_fonte_repo,
-    )
     app.dependency_overrides[get_mdm_fonte_service] = lambda: MdmFonteService(fonte_repo)
     app.dependency_overrides[get_mdm_submission_service] = lambda: MdmSubmissionService(
         fonte_repo,
@@ -168,8 +167,14 @@ def _build_test_app() -> FastAPI:
     app.dependency_overrides[get_mdm_processing_service] = lambda: MdmProcessingService(
         fonte_repo,
         fonte_registro_repo,
-        recomendacao_repo,
-        imovel_repo,
+    )
+    app.dependency_overrides[get_enrichment_service] = lambda: EnrichmentService(
+        card_repo=enrichment_card_repo,
+        event_repo=enrichment_event_repo,
+        imovel_repo=imovel_repo,
+        imovel_fonte_repo=imovel_fonte_repo,
+        registro_repo=fonte_registro_repo,
+        fonte_repo=fonte_repo,
     )
     app.dependency_overrides[get_mdm_quality_service] = lambda: MdmQualityService(
         imovel_repo,
