@@ -29,7 +29,10 @@ def _to_fonte(row: dict) -> Fonte:
 def _to_fonte_registro(row: dict) -> FonteRegistro:
     mapped = {k: v for k, v in row.items() if k in {
         "id", "fonte_id", "importacao_id", "dados_brutos",
-        "dados_normalizados", "stage", "raw_registro_id", "created_at",
+        "dados_normalizados", "stage", "raw_registro_id",
+        "source_id", "hash_conteudo", "scraping_run_id",
+        "first_seen_at", "last_seen_at", "seen_count",
+        "created_at",
     }}
     # DB column is "hash", dataclass field is "hash_dedup"
     if "hash" in row:
@@ -96,6 +99,11 @@ class SupabaseFonteRegistroRepo(FonteRegistroRepository):
             rows.append(row)
         res = self._sb.table("fonte_registros").insert(rows).execute()
         return len(res.data or [])
+
+    async def update(self, registro_id: UUID, data: dict[str, Any]) -> None:
+        self._sb.table("fonte_registros").update(data).eq(
+            "id", str(registro_id),
+        ).execute()
 
     async def get_by_importacao(self, importacao_id: UUID) -> list[FonteRegistro]:
         res = self._sb.table("fonte_registros").select("*").eq("importacao_id", str(importacao_id)).execute()

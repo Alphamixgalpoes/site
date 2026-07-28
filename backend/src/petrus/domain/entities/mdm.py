@@ -38,6 +38,12 @@ class FonteRegistro:
     valid_from: str | None = None
     stage: str = "raw"
     raw_registro_id: UUID | None = None
+    source_id: str | None = None
+    hash_conteudo: str | None = None
+    scraping_run_id: UUID | None = None
+    first_seen_at: str | None = None
+    last_seen_at: str | None = None
+    seen_count: int = 1
     created_at: str | None = None
 
 

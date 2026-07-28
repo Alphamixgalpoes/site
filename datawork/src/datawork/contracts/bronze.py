@@ -23,9 +23,52 @@ RawSpreadsheetSchema = DataFrameSchema(
     strict=False,  # allow extra columns
 )
 
-# Generic schema for scraped data (minimal: must have at least an address-like field)
+# Generic schema for scraped data (minimal constraints)
 RawScrapingSchema = DataFrameSchema(
     {},
+    coerce=True,
+    strict=False,
+)
+
+# Schema for Code49 platform raw data
+RawCode49Schema = DataFrameSchema(
+    {
+        "title": Column(str, nullable=True, required=False),
+        "totalArea": Column(str, nullable=True, required=False),
+        "city": Column(str, nullable=True, required=False),
+    },
+    coerce=True,
+    strict=False,
+)
+
+# Schema for ClickGalpoes raw data
+RawClickGalpoesSchema = DataFrameSchema(
+    {
+        "title": Column(str, nullable=True, required=False),
+        "latitude": Column(float, nullable=True, required=False),
+        "longitude": Column(float, nullable=True, required=False),
+    },
+    coerce=True,
+    strict=False,
+)
+
+# Schema for Union platform raw data
+RawUnionSchema = DataFrameSchema(
+    {
+        "title": Column(str, nullable=True, required=False),
+        "price_text": Column(str, nullable=True, required=False),
+    },
+    coerce=True,
+    strict=False,
+)
+
+# Schema for WordPress/Houzez raw data
+RawWordPressSchema = DataFrameSchema(
+    {
+        "title": Column(str, nullable=True, required=False),
+        "latitude": Column(float, nullable=True, required=False),
+        "longitude": Column(float, nullable=True, required=False),
+    },
     coerce=True,
     strict=False,
 )

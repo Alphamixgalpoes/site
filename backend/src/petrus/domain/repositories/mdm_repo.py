@@ -5,7 +5,10 @@ from typing import Any
 from uuid import UUID
 
 from petrus.domain.entities.mdm import (
-    Fonte, FonteRegistro, ImovelFonte, ScrapingRun,
+    Fonte,
+    FonteRegistro,
+    ImovelFonte,
+    ScrapingRun,
 )
 
 
@@ -29,6 +32,9 @@ class FonteRepository(ABC):
 class FonteRegistroRepository(ABC):
     @abstractmethod
     async def create_batch(self, registros: list[dict[str, Any]]) -> int: ...
+
+    @abstractmethod
+    async def update(self, registro_id: UUID, data: dict[str, Any]) -> None: ...
 
     @abstractmethod
     async def get_by_importacao(self, importacao_id: UUID) -> list[FonteRegistro]: ...
