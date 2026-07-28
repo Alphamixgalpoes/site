@@ -294,9 +294,8 @@ class InMemoryConfigRepo(ConfigRepository):
 
     async def upsert_campos(self, campos: list[dict[str, Any]]) -> None:
         for d in campos:
-            cid = uuid4()
-            c = _safe_build(ConfigCampo, id=cid, **d)
-            self._campos[cid] = c
+            c = _safe_build(ConfigCampo, **d)
+            self._campos[c.campo_chave] = c
 
     async def list_tipos(self) -> list[ProcessoTipo]:
         return list(self._tipos.values())
