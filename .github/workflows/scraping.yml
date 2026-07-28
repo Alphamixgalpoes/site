@@ -1,71 +1,75 @@
 name: Scheduled Scraping
 
-  on:
-    workflow_dispatch:
-      inputs:
-        mode:
-          description: 'Scraping mode'
-          required: true
-          default: 'all-pending'
-          type: choice
-          options:
-            - all-pending
-            - preview-only
+on:
+  # Manual trigger
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Scraping mode'
+        required: true
+        default: 'all-pending'
+        type: choice
+        options:
+          - all-pending
+          - preview-only
 
-    schedule:
-      - cron: '0 6 * * 1'
+  # Automated schedule: every Monday at 06:00 UTC (03:00 BRT)
+  schedule:
+    - cron: '0 6 * * 1'
 
-  env:
-    API_URL: ${{ secrets.API_URL }}
-    API_TOKEN: ${{ secrets.API_SERVICE_TOKEN }}
+env:
+  API_URL: ${{ secrets.API_URL }}
+  API_TOKEN: ${{ secrets.API_SERVICE_TOKEN }}
 
-  jobs:
-    scrape:
-      name: Execute Scraping
-      runs-on: ubuntu-latest
-      timeout-minutes: 30
+jobs:
+  scrape:
+    name: Execute Scraping
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
 
-      steps:
-        - name: Check API is healthy
-          run: |
-            status=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/health")
-            if [ "$status" != "200" ]; then
-              echo "API not healthy (status=$status), aborting"
-              exit 1
-            fi
-            echo "API healthy"
+    steps:
+      - name: Check API is healthy
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/health")
+          if [ "$status" != "200" ]; then
+            echo "API not healthy (status=$status), aborting"
+            exit 1
+          fi
+          echo "API healthy"
 
-        - name: Execute all pending scraping runs
-          if: github.event.inputs.mode != 'preview-only'
-          run: |
-            response=$(curl -s -X POST \
-              "$API_URL/api/v1/scraping/executar-todos" \
-              -H "Authorization: Bearer $API_TOKEN" \
-              -H "Content-Type: application/json")
-            echo "Response: $response"
+      - name: Execute all pending scraping runs
+        if: github.event.inputs.mode != 'preview-only'
+        run: |
+          response=$(curl -s -X POST \
+            "$API_URL/api/v1/scraping/executar-todos" \
+            -H "Authorization: Bearer $API_TOKEN" \
+            -H "Content-Type: application/json")
+          echo "Response: $response"
 
-            errors=$(echo "$response" | python3 -c "
-            import sys, json
-            data = json.load(sys.stdin)
-            errs = sum(1 for r in data if r.get('erros', 0) > 0)
-            print(errs)
-            " 2>/dev/null || echo "0")
+          # Check for errors
+          errors=$(echo "$response" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          errs = sum(1 for r in data if r.get('erros', 0) > 0)
+          print(errs)
+          " 2>/dev/null || echo "0")
 
-            if [ "$errors" -gt "0" ]; then
-              echo "::warning::$errors scraping run(s) had errors"
-            fi
+          if [ "$errors" -gt "0" ]; then
+            echo "::warning::$errors scraping run(s) had errors"
+          fi
 
-            echo "$response" | python3 -c "
-            import sys, json
-            data = json.load(sys.stdin)
-            total = len(data)
-            novos = sum(r.get('novos', 0) for r in data)
-            dupl = sum(r.get('duplicados', 0) for r in data)
-            errs = sum(r.get('erros', 0) for r in data)
-            print(f'Runs: {total} | Novos: {novos} | Duplicados: {dupl} | Erros: {errs}')
-            " 2>/dev/null || true
+          # Summary
+          echo "$response" | python3 -c "
+          import sys, json
+          data = json.load(sys.stdin)
+          total = len(data)
+          novos = sum(r.get('novos', 0) for r in data)
+          dupl = sum(r.get('duplicados', 0) for r in data)
+          errs = sum(r.get('erros', 0) for r in data)
+          print(f'Runs: {total} | Novos: {novos} | Duplicados: {dupl} | Erros: {errs}')
+          " 2>/dev/null || true
 
-        - name: Get scraping stats
-          run: |
-            curl -s "$API_URL/api/v1/scraping/stats" \
-              -H "Authorization: Bearer $API_TOKEN" | python3 -m json.tool
+      - name: Get scraping stats
+        run: |
+          curl -s "$API_URL/api/v1/scraping/stats" \
+            -H "Authorization: Bearer $API_TOKEN" | python3 -m json.tool
