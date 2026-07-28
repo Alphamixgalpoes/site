@@ -1,0 +1,65 @@
+{
+  "data": [
+    {
+      "id": 4501,
+      "code": "GL-001",
+      "title": "Galpao Industrial Alphaville",
+      "slug": "/imovel/galpao-industrial-alphaville-4501",
+      "totalArea": "1500",
+      "builtArea": "1200",
+      "rentPrice": "35000",
+      "salePrice": null,
+      "city": "Barueri",
+      "neighborhood": "Alphaville Industrial",
+      "address": "Alameda Africa, 350",
+      "type": "Galpao",
+      "ceilingHeight": "12",
+      "docks": "4",
+      "parkingSpots": "20",
+      "electricPower": "500",
+      "description": "Galpao modular com docas e estacionamento amplo.",
+      "images": [
+        {"url": "/uploads/galpao-alpha-1.jpg"},
+        {"url": "/uploads/galpao-alpha-2.jpg"}
+      ]
+    },
+    {
+      "id": 4502,
+      "code": "GL-002",
+      "title": "Terreno Tamboré 5.000m²",
+      "slug": "/imovel/terreno-tambore-4502",
+      "totalArea": "5000",
+      "builtArea": null,
+      "rentPrice": null,
+      "salePrice": "8000000",
+      "city": "Santana de Parnaíba",
+      "neighborhood": "Tamboré",
+      "address": "Av. Marcos Penteado, s/n",
+      "type": "Terreno",
+      "images": []
+    },
+    {
+      "id": 4503,
+      "code": "GL-003",
+      "title": "Galpao Logistico Cajamar",
+      "slug": null,
+      "totalArea": "3000",
+      "builtArea": "2800",
+      "rentPrice": "55000",
+      "salePrice": "12000000",
+      "city": "Cajamar",
+      "neighborhood": "Jordanésia",
+      "address": "Rod Anhanguera km 32",
+      "type": "Galpao",
+      "ceilingHeight": "14",
+      "docks": "8",
+      "parkingSpots": "50",
+      "images": [
+        {"url": "https://cdn.example.com/galpao-cajamar-1.jpg"}
+      ]
+    }
+  ],
+  "total": 3,
+  "page": 1,
+  "per_page": 20
+}

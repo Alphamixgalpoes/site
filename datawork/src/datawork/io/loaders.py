@@ -91,3 +91,16 @@ def load_raw_registros(
 ) -> pd.DataFrame:
     """Shortcut: load raw registros expanding dados_brutos into columns."""
     return load_from_api(fonte_id, stage="raw", base_url=base_url, token=token)
+
+
+def load_scraping_results(
+    fonte_id: str,
+    base_url: str | None = None,
+    token: str | None = None,
+) -> pd.DataFrame:
+    """Load scraping results (raw FonteRegistros) as DataFrame.
+
+    Wrapper over load_from_api with defaults for scraping data.
+    Expands dados_brutos into columns.
+    """
+    return load_from_api(fonte_id, stage="raw", base_url=base_url, token=token)

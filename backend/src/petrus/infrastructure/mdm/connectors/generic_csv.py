@@ -8,7 +8,6 @@ from petrus.domain.entities.mdm_types import CanonicalRecord
 from petrus.domain.services.source_adapter import SourceAdapter
 from petrus.infrastructure.mdm.transforms.numbers import parse_br_number
 
-
 # Mapping from common CSV column names to CanonicalRecord fields
 _DEFAULT_FIELD_MAP: dict[str, str] = {
     "titulo": "titulo",

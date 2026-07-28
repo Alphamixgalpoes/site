@@ -25,6 +25,10 @@ ai = [
     "pgvector>=0.3.0",
     "pypdf>=5.0.0",
 ]
+scraping = [
+    "selectolax>=0.3.0",
+    "playwright>=1.40.0",
+]
 datawork = [
     "pandas>=2.2.0",
     "pandera>=0.20.0",

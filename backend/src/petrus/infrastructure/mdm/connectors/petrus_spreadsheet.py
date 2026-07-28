@@ -23,13 +23,15 @@ from petrus.domain.entities.mdm_types import CanonicalRecord
 from petrus.domain.services.source_adapter import SourceAdapter
 from petrus.infrastructure.mdm.connectors.petrus_config import (
     STREET_CANONICAL as _DEFAULT_STREET_CANONICAL,
+)
+from petrus.infrastructure.mdm.connectors.petrus_config import (
     STREET_INFO as _DEFAULT_STREET_INFO,
 )
-from petrus.infrastructure.mdm.transforms.numbers import parse_area
 from petrus.infrastructure.mdm.transforms.addresses import normalize_address
+from petrus.infrastructure.mdm.transforms.contacts import extract_contact
+from petrus.infrastructure.mdm.transforms.numbers import parse_area
 from petrus.infrastructure.mdm.transforms.observations import extract_observations
 from petrus.infrastructure.mdm.transforms.values import classify_value
-from petrus.infrastructure.mdm.transforms.contacts import extract_contact
 
 # ---------------------------------------------------------------------------
 # Section markers: map header strings to region names

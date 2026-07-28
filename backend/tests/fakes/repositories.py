@@ -421,6 +421,13 @@ class InMemoryFonteRegistroRepo(FonteRegistroRepository):
             self._store[rid] = r
         return len(registros)
 
+    async def update(self, registro_id: UUID, data: dict[str, Any]) -> None:
+        reg = self._store.get(registro_id)
+        if reg:
+            for k, v in data.items():
+                if hasattr(reg, k):
+                    object.__setattr__(reg, k, v)
+
     async def get_by_importacao(self, importacao_id: UUID) -> list[FonteRegistro]:
         return [r for r in self._store.values() if r.importacao_id == importacao_id]
 

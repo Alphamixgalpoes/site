@@ -46,6 +46,7 @@ from petrus.application.mdm_submission_service import MdmSubmissionService
 from petrus.application.mdm_processing_service import MdmProcessingService
 from petrus.application.mdm_quality_service import MdmQualityService
 from petrus.application.enrichment_service import EnrichmentService
+from petrus.application.scraping_service import ScrapingService
 from petrus.infrastructure.mdm.quality import DefaultQualityService
 
 
@@ -173,6 +174,13 @@ def get_enrichment_card_repo():
 
 def get_enrichment_event_repo():
     return SupabaseEnrichmentEventRepo(get_supabase())
+
+
+def get_scraping_service() -> ScrapingService:
+    return ScrapingService(
+        get_fonte_repo(), get_fonte_registro_repo(),
+        get_scraping_run_repo(),
+    )
 
 
 def get_enrichment_service() -> EnrichmentService:
