@@ -89,7 +89,7 @@ class SupabaseConfigRepo(ConfigRepository):
             .maybe_single()
             .execute()
         )
-        return _to_tipo(res.data) if res.data else None
+        return _to_tipo(res.data) if res and res.data else None
 
     async def create_tipo(self, data: dict[str, Any]) -> ProcessoTipo:
         res = self._sb.table("processo_tipos").insert(data).execute()

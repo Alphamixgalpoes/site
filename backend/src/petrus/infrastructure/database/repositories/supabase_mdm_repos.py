@@ -66,7 +66,7 @@ class SupabaseFonteRepo(FonteRepository):
 
     async def get_by_id(self, fonte_id: UUID) -> Fonte | None:
         res = self._sb.table("fontes").select("*").eq("id", str(fonte_id)).maybe_single().execute()
-        return _to_fonte(res.data) if res.data else None
+        return _to_fonte(res.data) if res and res.data else None
 
     async def create(self, data: dict[str, Any]) -> Fonte:
         res = self._sb.table("fontes").insert(data).execute()
@@ -127,7 +127,7 @@ class SupabaseFonteRegistroRepo(FonteRegistroRepository):
 
     async def get_by_hash(self, hash_dedup: str) -> FonteRegistro | None:
         res = self._sb.table("fonte_registros").select("*").eq("hash", hash_dedup).maybe_single().execute()
-        return _to_fonte_registro(res.data) if res.data else None
+        return _to_fonte_registro(res.data) if res and res.data else None
 
 
 class SupabaseImovelFonteRepo(ImovelFonteRepository):

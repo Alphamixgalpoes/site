@@ -60,7 +60,7 @@ class SupabaseEnrichmentCardRepo(EnrichmentCardRepository):
             .maybe_single()
             .execute()
         )
-        return _to_card(res.data) if res.data else None
+        return _to_card(res.data) if res and res.data else None
 
     async def list_by_status(
         self, status: str = "pendente", filters: dict | None = None,

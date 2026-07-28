@@ -33,7 +33,7 @@ class SupabaseContatoRepo(ContatoRepository):
             .maybe_single()
             .execute()
         )
-        return _to_contato(res.data) if res.data else None
+        return _to_contato(res.data) if res and res.data else None
 
     async def search(self, term: str) -> list[ContatoResumido]:
         res = (
