@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, notFound } from "next/navigation";
-import { apiGet } from "@/lib/api-client";
+import { apiGet, ApiError } from "@/lib/api-client";
 import ImovelForm from "../../_components/ImovelForm";
 import type { ConfigCampo } from "@/lib/visibilidade";
 
@@ -13,6 +13,7 @@ export default function EditarImovelPage() {
   const [configCampos, setConfigCampos] = useState<ConfigCampo[]>([]);
   const [loading, setLoading] = useState(true);
   const [notFoundState, setNotFoundState] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -47,7 +48,11 @@ export default function EditarImovelPage() {
       setConfigCampos(cfg);
     }).catch((err) => {
       console.error("Erro ao carregar imóvel:", err);
-      setNotFoundState(true);
+      if (err instanceof ApiError && err.status === 404) {
+        setNotFoundState(true);
+      } else {
+        setError("Erro ao carregar imóvel. Verifique se a API está acessível.");
+      }
     }).finally(() => setLoading(false));
   }, [id]);
 
@@ -55,6 +60,20 @@ export default function EditarImovelPage() {
 
   if (loading) {
     return <div className="text-sm text-gray-400 py-12 text-center">Carregando...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="text-sm text-red-500 py-12 text-center">
+        <p>{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-4 text-xs text-gray-500 hover:text-gray-700 underline"
+        >
+          Tentar novamente
+        </button>
+      </div>
+    );
   }
 
   return (
