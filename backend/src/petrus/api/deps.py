@@ -7,7 +7,6 @@ from petrus.infrastructure.database.repositories.supabase_lead_repo import Supab
 from petrus.infrastructure.database.repositories.supabase_processo_repo import SupabaseProcessoRepo
 from petrus.infrastructure.database.repositories.supabase_config_repo import SupabaseConfigRepo
 from petrus.infrastructure.database.repositories.supabase_publicacao_repo import SupabasePublicacaoRepo
-from petrus.infrastructure.database.repositories.supabase_recomendacao_repo import SupabaseRecomendacaoRepo
 from petrus.infrastructure.database.repositories.supabase_mdm_repos import (
     SupabaseFonteRepo, SupabaseFonteRegistroRepo,
     SupabaseImovelFonteRepo, SupabaseScrapingRunRepo,
@@ -25,7 +24,6 @@ from petrus.domain.repositories.lead_repo import LeadRepository
 from petrus.domain.repositories.processo_repo import ProcessoRepository
 from petrus.domain.repositories.config_repo import ConfigRepository
 from petrus.domain.repositories.publicacao_repo import PublicacaoRepository
-from petrus.domain.repositories.recomendacao_repo import RecomendacaoRepository
 from petrus.domain.repositories.mdm_repo import (
     FonteRepository, FonteRegistroRepository,
     ImovelFonteRepository, ScrapingRunRepository,
@@ -43,7 +41,6 @@ from petrus.application.processo_service import ProcessoAppService
 from petrus.application.processo_file_service import ProcessoFileService
 from petrus.application.config_service import ConfigService
 from petrus.application.publicacao_service import PublicacaoService
-from petrus.application.recomendacao_service import RecomendacaoService
 from petrus.application.mdm_fonte_service import MdmFonteService
 from petrus.application.mdm_submission_service import MdmSubmissionService
 from petrus.application.mdm_processing_service import MdmProcessingService
@@ -77,10 +74,6 @@ def get_config_repo() -> ConfigRepository:
 
 def get_publicacao_repo() -> PublicacaoRepository:
     return SupabasePublicacaoRepo(get_supabase())
-
-
-def get_recomendacao_repo() -> RecomendacaoRepository:
-    return SupabaseRecomendacaoRepo(get_supabase())
 
 
 def get_fonte_repo() -> FonteRepository:
@@ -153,12 +146,6 @@ def get_publicacao_service() -> PublicacaoService:
     return PublicacaoService(get_publicacao_repo())
 
 
-def get_recomendacao_service() -> RecomendacaoService:
-    return RecomendacaoService(
-        get_recomendacao_repo(), get_imovel_repo(), get_imovel_fonte_repo()
-    )
-
-
 def get_mdm_fonte_service() -> MdmFonteService:
     return MdmFonteService(get_fonte_repo())
 
@@ -173,7 +160,6 @@ def get_mdm_submission_service() -> MdmSubmissionService:
 def get_mdm_processing_service() -> MdmProcessingService:
     return MdmProcessingService(
         get_fonte_repo(), get_fonte_registro_repo(),
-        get_recomendacao_repo(), get_imovel_repo(),
     )
 
 

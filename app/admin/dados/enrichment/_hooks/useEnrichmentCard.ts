@@ -142,7 +142,7 @@ export function useEnrichmentCard(cardId: string) {
 
   // Get the last non-undone event for undo button
   const lastEvent = state?.events
-    .filter((e) => !e.undone)
+    ?.filter((e) => !e.undone)
     .at(-1);
 
   return {
