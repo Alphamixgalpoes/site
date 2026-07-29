@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from dataclasses import dataclass
+import time as _time
+from dataclasses import dataclass, field
+from urllib.parse import urlparse
 
 import httpx
 
@@ -33,6 +35,19 @@ class PageContent:
     cached: bool = False
 
 
+@dataclass
+class RequestLogEntry:
+    """In-memory log entry collected during a crawl."""
+
+    url: str
+    domain: str
+    method: str
+    status_code: int | None
+    response_time_ms: int | None
+    cached: bool
+    error: str | None
+
+
 class PageFetcher:
     """HTTP client shared across all scrapers.
 
@@ -41,8 +56,7 @@ class PageFetcher:
     - Retry with exponential backoff (timeouts + 5xx)
     - robots.txt compliance
     - Local page cache integration
-    - Configurable timeout and headers
-    - Request logging
+    - Request log collection (collector pattern)
     """
 
     def __init__(
@@ -61,6 +75,44 @@ class PageFetcher:
         self._timeout = timeout
         self._max_retries = max_retries
         self._client: httpx.AsyncClient | None = None
+        self._request_logs: list[RequestLogEntry] = []
+
+    def _record(
+        self,
+        url: str,
+        method: str,
+        status_code: int | None,
+        elapsed_ms: int | None,
+        cached: bool = False,
+        error: str | None = None,
+    ) -> None:
+        domain = urlparse(url).netloc or ""
+        self._request_logs.append(RequestLogEntry(
+            url=url,
+            domain=domain,
+            method=method,
+            status_code=status_code,
+            response_time_ms=elapsed_ms,
+            cached=cached,
+            error=error,
+        ))
+
+    def drain_logs(self) -> list[dict]:
+        """Return collected request logs and clear the internal list."""
+        logs = [
+            {
+                "url": e.url,
+                "domain": e.domain,
+                "method": e.method,
+                "status_code": e.status_code,
+                "response_time_ms": e.response_time_ms,
+                "cached": e.cached,
+                "error": e.error,
+            }
+            for e in self._request_logs
+        ]
+        self._request_logs.clear()
+        return logs
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
@@ -84,6 +136,7 @@ class PageFetcher:
         """Fetch a URL respecting rate limits, robots.txt, and cache."""
         if check_robots and not await self._robots.is_allowed(url):
             logger.warning("Blocked by robots.txt: %s", url)
+            self._record(url, "GET", 403, 0, error="blocked_by_robots")
             return PageContent(
                 url=url, status_code=403, body=b"",
                 content_type="", elapsed_ms=0,
@@ -94,6 +147,7 @@ class PageFetcher:
             cached_body = self._cache.get(url)
             if cached_body is not None:
                 logger.debug("Cache hit: %s", url)
+                self._record(url, "GET", 200, 0, cached=True)
                 return PageContent(
                     url=url, status_code=200, body=cached_body,
                     content_type="text/html", elapsed_ms=0, cached=True,
@@ -105,14 +159,14 @@ class PageFetcher:
             self._rate_limiter.set_interval(domain, crawl_delay)
 
         await self._rate_limiter.acquire(url)
-
         client = await self._get_client()
 
         for attempt in range(1, self._max_retries + 1):
             try:
+                t0 = _time.monotonic()
                 resp = await client.get(url, headers=headers or {})
+                elapsed_ms = int((_time.monotonic() - t0) * 1000)
                 content_type = resp.headers.get("content-type", "")
-                elapsed_ms = int(resp.elapsed.total_seconds() * 1000)
 
                 logger.debug(
                     "GET %s -> %d (%dms, attempt %d)",
@@ -121,13 +175,14 @@ class PageFetcher:
 
                 if resp.status_code in _RETRYABLE_STATUS_CODES:
                     if attempt < self._max_retries:
-                        wait = 2 ** attempt
                         logger.warning(
                             "Retryable status %d for %s, retry in %ds",
-                            resp.status_code, url, wait,
+                            resp.status_code, url, 2 ** attempt,
                         )
-                        await asyncio.sleep(wait)
+                        await asyncio.sleep(2 ** attempt)
                         continue
+
+                self._record(url, "GET", resp.status_code, elapsed_ms)
 
                 result = PageContent(
                     url=url,
@@ -137,16 +192,18 @@ class PageFetcher:
                     elapsed_ms=elapsed_ms,
                 )
 
-                # Cache successful responses
                 if self._cache is not None and resp.status_code == 200:
                     self._cache.set(url, resp.content)
 
                 return result
             except (httpx.TimeoutException, httpx.ConnectError) as exc:
+                elapsed_ms = int((_time.monotonic() - t0) * 1000)
                 logger.warning(
                     "Attempt %d/%d failed for %s: %s",
                     attempt, self._max_retries, url, exc,
                 )
+                if attempt == self._max_retries:
+                    self._record(url, "GET", None, elapsed_ms, error=str(exc)[:200])
                 if attempt < self._max_retries:
                     await asyncio.sleep(2 ** attempt)
 
@@ -168,9 +225,10 @@ class PageFetcher:
 
         for attempt in range(1, self._max_retries + 1):
             try:
+                t0 = _time.monotonic()
                 resp = await client.post(url, data=data, headers=headers or {})
+                elapsed_ms = int((_time.monotonic() - t0) * 1000)
                 content_type = resp.headers.get("content-type", "")
-                elapsed_ms = int(resp.elapsed.total_seconds() * 1000)
 
                 logger.debug(
                     "POST %s -> %d (%dms, attempt %d)",
@@ -182,6 +240,8 @@ class PageFetcher:
                         await asyncio.sleep(2 ** attempt)
                         continue
 
+                self._record(url, "POST", resp.status_code, elapsed_ms)
+
                 return PageContent(
                     url=url,
                     status_code=resp.status_code,
@@ -190,10 +250,13 @@ class PageFetcher:
                     elapsed_ms=elapsed_ms,
                 )
             except (httpx.TimeoutException, httpx.ConnectError) as exc:
+                elapsed_ms = int((_time.monotonic() - t0) * 1000)
                 logger.warning(
                     "POST attempt %d/%d failed for %s: %s",
                     attempt, self._max_retries, url, exc,
                 )
+                if attempt == self._max_retries:
+                    self._record(url, "POST", None, elapsed_ms, error=str(exc)[:200])
                 if attempt < self._max_retries:
                     await asyncio.sleep(2 ** attempt)
 

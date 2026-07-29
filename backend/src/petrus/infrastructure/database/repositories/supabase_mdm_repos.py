@@ -163,12 +163,45 @@ class SupabaseScrapingRunRepo(ScrapingRunRepository):
         res = self._sb.table("scraping_queue").update(data).eq("id", str(run_id)).execute()
         return _to_scraping_run(res.data[0])
 
+    async def get_by_id(self, run_id: UUID) -> ScrapingRun | None:
+        res = (
+            self._sb.table("scraping_queue")
+            .select("*")
+            .eq("id", str(run_id))
+            .maybe_single()
+            .execute()
+        )
+        return _to_scraping_run(res.data) if res and res.data else None
+
     async def get_by_fonte(self, fonte_id: UUID) -> list[ScrapingRun]:
         res = (
             self._sb.table("scraping_queue")
             .select("*")
             .eq("fonte_id", str(fonte_id))
             .order("created_at", desc=True)
+            .execute()
+        )
+        return [_to_scraping_run(r) for r in (res.data or [])]
+
+    async def get_by_fonte_recent(
+        self, fonte_id: UUID, limit: int = 5,
+    ) -> list[ScrapingRun]:
+        res = (
+            self._sb.table("scraping_queue")
+            .select("*")
+            .eq("fonte_id", str(fonte_id))
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+        return [_to_scraping_run(r) for r in (res.data or [])]
+
+    async def get_recent(self, limit: int = 20) -> list[ScrapingRun]:
+        res = (
+            self._sb.table("scraping_queue")
+            .select("*")
+            .order("created_at", desc=True)
+            .limit(limit)
             .execute()
         )
         return [_to_scraping_run(r) for r in (res.data or [])]

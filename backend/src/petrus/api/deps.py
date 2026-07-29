@@ -1,54 +1,66 @@
 from __future__ import annotations
 
-from petrus.infrastructure.database.supabase_client import get_supabase
-from petrus.infrastructure.database.repositories.supabase_imovel_repo import SupabaseImovelRepo
-from petrus.infrastructure.database.repositories.supabase_contato_repo import SupabaseContatoRepo
-from petrus.infrastructure.database.repositories.supabase_lead_repo import SupabaseLeadRepo
-from petrus.infrastructure.database.repositories.supabase_processo_repo import SupabaseProcessoRepo
-from petrus.infrastructure.database.repositories.supabase_config_repo import SupabaseConfigRepo
-from petrus.infrastructure.database.repositories.supabase_publicacao_repo import SupabasePublicacaoRepo
-from petrus.infrastructure.database.repositories.supabase_mdm_repos import (
-    SupabaseFonteRepo, SupabaseFonteRegistroRepo,
-    SupabaseImovelFonteRepo, SupabaseScrapingRunRepo,
-)
-from petrus.infrastructure.database.repositories.supabase_enrichment_card_repo import SupabaseEnrichmentCardRepo
-from petrus.infrastructure.database.repositories.supabase_enrichment_event_repo import SupabaseEnrichmentEventRepo
-from petrus.infrastructure.storage.supabase_storage import SupabaseStorageService
-from petrus.infrastructure.email.resend_email import ResendEmailService
-from petrus.infrastructure.geocoding.nominatim_geocoder import NominatimGeocoder
-from petrus.infrastructure.imaging.pillow_watermark import PillowImageService
-
-from petrus.domain.repositories.imovel_repo import ImovelRepository
-from petrus.domain.repositories.contato_repo import ContatoRepository
-from petrus.domain.repositories.lead_repo import LeadRepository
-from petrus.domain.repositories.processo_repo import ProcessoRepository
+from petrus.application.config_service import ConfigService
+from petrus.application.contato_service import ContatoService
+from petrus.application.enrichment_service import EnrichmentService
+from petrus.application.imovel_image_service import ImovelImageService
+from petrus.application.imovel_service import ImovelService
+from petrus.application.lead_service import LeadAppService
+from petrus.application.mdm_fonte_service import MdmFonteService
+from petrus.application.mdm_processing_service import MdmProcessingService
+from petrus.application.mdm_quality_service import MdmQualityService
+from petrus.application.mdm_submission_service import MdmSubmissionService
+from petrus.application.processo_file_service import ProcessoFileService
+from petrus.application.processo_service import ProcessoAppService
+from petrus.application.publicacao_service import PublicacaoService
+from petrus.application.scraping_monitor_service import ScrapingMonitorService
+from petrus.application.scraping_service import ScrapingService
 from petrus.domain.repositories.config_repo import ConfigRepository
-from petrus.domain.repositories.publicacao_repo import PublicacaoRepository
+from petrus.domain.repositories.contato_repo import ContatoRepository
+from petrus.domain.repositories.imovel_repo import ImovelRepository
+from petrus.domain.repositories.lead_repo import LeadRepository
 from petrus.domain.repositories.mdm_repo import (
-    FonteRepository, FonteRegistroRepository,
-    ImovelFonteRepository, ScrapingRunRepository,
+    FonteRegistroRepository,
+    FonteRepository,
+    ImovelFonteRepository,
+    ScrapingRunRepository,
 )
-from petrus.domain.services.storage_service import StorageService
+from petrus.domain.repositories.processo_repo import ProcessoRepository
+from petrus.domain.repositories.publicacao_repo import PublicacaoRepository
+from petrus.domain.repositories.scraping_repo import RequestLogRepository
 from petrus.domain.services.email_service import EmailService
 from petrus.domain.services.geocoding_service import GeocodingService
 from petrus.domain.services.image_service import ImageService
-
-from petrus.application.imovel_service import ImovelService
-from petrus.application.imovel_image_service import ImovelImageService
-from petrus.application.contato_service import ContatoService
-from petrus.application.lead_service import LeadAppService
-from petrus.application.processo_service import ProcessoAppService
-from petrus.application.processo_file_service import ProcessoFileService
-from petrus.application.config_service import ConfigService
-from petrus.application.publicacao_service import PublicacaoService
-from petrus.application.mdm_fonte_service import MdmFonteService
-from petrus.application.mdm_submission_service import MdmSubmissionService
-from petrus.application.mdm_processing_service import MdmProcessingService
-from petrus.application.mdm_quality_service import MdmQualityService
-from petrus.application.enrichment_service import EnrichmentService
-from petrus.application.scraping_service import ScrapingService
+from petrus.domain.services.storage_service import StorageService
+from petrus.infrastructure.database.repositories.supabase_config_repo import SupabaseConfigRepo
+from petrus.infrastructure.database.repositories.supabase_contato_repo import SupabaseContatoRepo
+from petrus.infrastructure.database.repositories.supabase_enrichment_card_repo import (
+    SupabaseEnrichmentCardRepo,
+)
+from petrus.infrastructure.database.repositories.supabase_enrichment_event_repo import (
+    SupabaseEnrichmentEventRepo,
+)
+from petrus.infrastructure.database.repositories.supabase_imovel_repo import SupabaseImovelRepo
+from petrus.infrastructure.database.repositories.supabase_lead_repo import SupabaseLeadRepo
+from petrus.infrastructure.database.repositories.supabase_mdm_repos import (
+    SupabaseFonteRegistroRepo,
+    SupabaseFonteRepo,
+    SupabaseImovelFonteRepo,
+    SupabaseScrapingRunRepo,
+)
+from petrus.infrastructure.database.repositories.supabase_processo_repo import SupabaseProcessoRepo
+from petrus.infrastructure.database.repositories.supabase_publicacao_repo import (
+    SupabasePublicacaoRepo,
+)
+from petrus.infrastructure.database.repositories.supabase_request_log_repo import (
+    SupabaseRequestLogRepo,
+)
+from petrus.infrastructure.database.supabase_client import get_supabase
+from petrus.infrastructure.email.resend_email import ResendEmailService
+from petrus.infrastructure.geocoding.nominatim_geocoder import NominatimGeocoder
+from petrus.infrastructure.imaging.pillow_watermark import PillowImageService
 from petrus.infrastructure.mdm.quality import DefaultQualityService
-
+from petrus.infrastructure.storage.supabase_storage import SupabaseStorageService
 
 # --- Repositories (trocar banco = mudar apenas aqui) ---
 
@@ -176,10 +188,21 @@ def get_enrichment_event_repo():
     return SupabaseEnrichmentEventRepo(get_supabase())
 
 
+def get_request_log_repo() -> RequestLogRepository:
+    return SupabaseRequestLogRepo(get_supabase())
+
+
 def get_scraping_service() -> ScrapingService:
     return ScrapingService(
         get_fonte_repo(), get_fonte_registro_repo(),
-        get_scraping_run_repo(),
+        get_scraping_run_repo(), get_request_log_repo(),
+    )
+
+
+def get_scraping_monitor_service() -> ScrapingMonitorService:
+    return ScrapingMonitorService(
+        get_fonte_repo(), get_scraping_run_repo(),
+        get_request_log_repo(),
     )
 
 
