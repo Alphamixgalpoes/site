@@ -1,0 +1,64 @@
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Bash(rm -rf *)",
+            "command": "echo 'BLOCKED: rm -rf is forbidden' >&2 && exit 2",
+            "statusMessage": "Validating command safety..."
+          },
+          {
+            "type": "command",
+            "if": "Bash(git push --force *)",
+            "command": "echo 'BLOCKED: force push is forbidden. Use --force-with-lease instead.' >&2 && exit 2",
+            "statusMessage": "Checking git safety..."
+          },
+          {
+            "type": "command",
+            "if": "Bash(git checkout main)",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"PreToolUse\",\"additionalContext\":\"REMINDER: Never commit directly to main. Create a feature branch first.\"}}'",
+            "statusMessage": "Checking git workflow..."
+          }
+        ]
+      },
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Edit(*.env*)",
+            "command": "echo 'BLOCKED: Never edit .env files directly via Claude. Ask the user to do it.' >&2 && exit 2",
+            "statusMessage": "Checking file safety..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "if": "Edit(backend/src/**/*.py)",
+            "command": "cd C:/Users/joaos/Petros/petrusweb/backend && ruff check --fix src/ 2>/dev/null; ruff format src/ 2>/dev/null; echo 'Python auto-formatted'",
+            "statusMessage": "Auto-formatting Python..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '{\"hookSpecificOutput\":{\"hookEventName\":\"Stop\",\"additionalContext\":\"Before stopping: Did you run tests? Did you verify the build?\"}}'",
+            "statusMessage": "Final verification reminder..."
+          }
+        ]
+      }
+    ]
+  }
+}
