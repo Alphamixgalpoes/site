@@ -1,0 +1,27 @@
+name: Claude Code Review
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Review this PR for the Alphamix Galpoes project (FastAPI + Next.js + Supabase).
+            Architecture: DDD + Hexagonal.
+
+            Check for:
+            1. Design: Does it fit the DDD + Hexagonal architecture? SOLID principles?
+            2. Security: SQL injection, XSS, auth bypass, secrets in code, LGPD
+            3. Performance: N+1 queries, unnecessary re-renders, large bundles
+            4. Tests: Are there tests? Do they cover edge cases? Using fakes (not mocks)?
+            5. Conventions: TypeScript strict (no 'any'), snake_case Python, kebab-case files
+
+            Post findings as inline comments. Only report actionable issues.
+            For each finding, name the pattern or principle involved.
+          claude_args: "--model claude-sonnet-4-6 --max-turns 5"

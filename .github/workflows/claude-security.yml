@@ -1,0 +1,32 @@
+name: Security Review
+on:
+  pull_request:
+    types: [opened, synchronize]
+    paths:
+      - "backend/src/**"
+      - "app/**"
+      - "lib/**"
+
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            Security review for the Alphamix Galpoes project.
+            Focus on:
+            - SQL injection in Supabase queries (string concatenation, unparameterized queries)
+            - XSS in React components (dangerouslySetInnerHTML, unescaped user input)
+            - JWT handling flaws (missing validation, expired tokens accepted)
+            - RLS bypass possibilities
+            - Secrets or credentials in code
+            - LGPD compliance (Brazilian data protection)
+            - CORS misconfiguration
+            - Missing input validation at API boundaries
+
+            Rate each finding: Critical / High / Medium / Low.
+            Name the security principle violated for each finding.
+          claude_args: "--model claude-sonnet-4-6 --max-turns 5"

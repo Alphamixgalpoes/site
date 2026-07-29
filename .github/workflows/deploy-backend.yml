@@ -1,0 +1,50 @@
+name: Deploy Backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/**"
+
+jobs:
+  deploy:
+    name: Build & Deploy to ECS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: sa-east-1
+
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr-login
+
+      - name: Build and push Docker image
+        working-directory: backend
+        run: |
+          docker build \
+            -t ${{ steps.ecr-login.outputs.registry }}/petrus-api:${{ github.sha }} \
+            -t ${{ steps.ecr-login.outputs.registry }}/petrus-api:latest .
+          docker push --all-tags ${{ steps.ecr-login.outputs.registry }}/petrus-api
+
+      - name: Force new ECS deployment
+        run: |
+          aws ecs update-service \
+            --cluster petrus-api \
+            --service petrus-api-service \
+            --force-new-deployment
+
+      - name: Wait for stability
+        run: |
+          aws ecs wait services-stable \
+            --cluster petrus-api \
+            --services petrus-api-service
+        timeout-minutes: 10
+
+      - name: Health check
+        run: |
+          sleep 30
+          curl -sf https://api.alphamixgalpoes.com.br/health || exit 1
