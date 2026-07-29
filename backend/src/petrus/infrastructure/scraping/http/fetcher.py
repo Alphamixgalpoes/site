@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 
 import httpx
 
+from petrus.infrastructure.scraping.cache.page_cache import PageCache
 from petrus.infrastructure.scraping.http.rate_limiter import RateLimiter
 from petrus.infrastructure.scraping.http.robots import RobotsTxtChecker
 
@@ -15,6 +17,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_USER_AGENT = (
     "AlphamixBot/1.0 (+https://alphamixgalpoes.com.br)"
 )
+
+_RETRYABLE_STATUS_CODES = {500, 502, 503, 504, 429}
 
 
 @dataclass(frozen=True)
@@ -33,9 +37,10 @@ class PageFetcher:
     """HTTP client shared across all scrapers.
 
     Encapsulates:
-    - Per-domain rate limiting
-    - Retry with exponential backoff
+    - Per-domain rate limiting with jitter
+    - Retry with exponential backoff (timeouts + 5xx)
     - robots.txt compliance
+    - Local page cache integration
     - Configurable timeout and headers
     - Request logging
     """
@@ -44,12 +49,14 @@ class PageFetcher:
         self,
         rate_limiter: RateLimiter | None = None,
         robots_checker: RobotsTxtChecker | None = None,
+        cache: PageCache | None = None,
         user_agent: str = DEFAULT_USER_AGENT,
         timeout: float = 30.0,
         max_retries: int = 3,
     ) -> None:
         self._rate_limiter = rate_limiter or RateLimiter()
         self._robots = robots_checker or RobotsTxtChecker()
+        self._cache = cache
         self._user_agent = user_agent
         self._timeout = timeout
         self._max_retries = max_retries
@@ -74,13 +81,23 @@ class PageFetcher:
         headers: dict[str, str] | None = None,
         check_robots: bool = True,
     ) -> PageContent:
-        """Fetch a URL respecting rate limits and robots.txt."""
+        """Fetch a URL respecting rate limits, robots.txt, and cache."""
         if check_robots and not await self._robots.is_allowed(url):
             logger.warning("Blocked by robots.txt: %s", url)
             return PageContent(
                 url=url, status_code=403, body=b"",
                 content_type="", elapsed_ms=0,
             )
+
+        # Check cache first
+        if self._cache is not None:
+            cached_body = self._cache.get(url)
+            if cached_body is not None:
+                logger.debug("Cache hit: %s", url)
+                return PageContent(
+                    url=url, status_code=200, body=cached_body,
+                    content_type="text/html", elapsed_ms=0, cached=True,
+                )
 
         crawl_delay = await self._robots.get_crawl_delay(url)
         if crawl_delay:
@@ -102,6 +119,69 @@ class PageFetcher:
                     url, resp.status_code, elapsed_ms, attempt,
                 )
 
+                if resp.status_code in _RETRYABLE_STATUS_CODES:
+                    if attempt < self._max_retries:
+                        wait = 2 ** attempt
+                        logger.warning(
+                            "Retryable status %d for %s, retry in %ds",
+                            resp.status_code, url, wait,
+                        )
+                        await asyncio.sleep(wait)
+                        continue
+
+                result = PageContent(
+                    url=url,
+                    status_code=resp.status_code,
+                    body=resp.content,
+                    content_type=content_type,
+                    elapsed_ms=elapsed_ms,
+                )
+
+                # Cache successful responses
+                if self._cache is not None and resp.status_code == 200:
+                    self._cache.set(url, resp.content)
+
+                return result
+            except (httpx.TimeoutException, httpx.ConnectError) as exc:
+                logger.warning(
+                    "Attempt %d/%d failed for %s: %s",
+                    attempt, self._max_retries, url, exc,
+                )
+                if attempt < self._max_retries:
+                    await asyncio.sleep(2 ** attempt)
+
+        logger.error("All %d attempts failed for %s", self._max_retries, url)
+        return PageContent(
+            url=url, status_code=0, body=b"",
+            content_type="", elapsed_ms=0,
+        )
+
+    async def post(
+        self,
+        url: str,
+        data: dict | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> PageContent:
+        """POST request with rate limiting (for AJAX endpoints)."""
+        await self._rate_limiter.acquire(url)
+        client = await self._get_client()
+
+        for attempt in range(1, self._max_retries + 1):
+            try:
+                resp = await client.post(url, data=data, headers=headers or {})
+                content_type = resp.headers.get("content-type", "")
+                elapsed_ms = int(resp.elapsed.total_seconds() * 1000)
+
+                logger.debug(
+                    "POST %s -> %d (%dms, attempt %d)",
+                    url, resp.status_code, elapsed_ms, attempt,
+                )
+
+                if resp.status_code in _RETRYABLE_STATUS_CODES:
+                    if attempt < self._max_retries:
+                        await asyncio.sleep(2 ** attempt)
+                        continue
+
                 return PageContent(
                     url=url,
                     status_code=resp.status_code,
@@ -111,14 +191,13 @@ class PageFetcher:
                 )
             except (httpx.TimeoutException, httpx.ConnectError) as exc:
                 logger.warning(
-                    "Attempt %d/%d failed for %s: %s",
+                    "POST attempt %d/%d failed for %s: %s",
                     attempt, self._max_retries, url, exc,
                 )
                 if attempt < self._max_retries:
-                    import asyncio
                     await asyncio.sleep(2 ** attempt)
 
-        logger.error("All %d attempts failed for %s", self._max_retries, url)
+        logger.error("All %d POST attempts failed for %s", self._max_retries, url)
         return PageContent(
             url=url, status_code=0, body=b"",
             content_type="", elapsed_ms=0,

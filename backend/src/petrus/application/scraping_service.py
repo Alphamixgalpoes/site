@@ -22,6 +22,7 @@ from petrus.domain.repositories.mdm_repo import (
     ScrapingRunRepository,
 )
 from petrus.domain.services.scraper import ScrapingConfig
+from petrus.infrastructure.scraping.cache.page_cache import PageCache
 from petrus.infrastructure.scraping.http.fetcher import PageFetcher
 from petrus.infrastructure.scraping.http.rate_limiter import RateLimiter
 from petrus.infrastructure.scraping.http.robots import RobotsTxtChecker
@@ -62,6 +63,7 @@ class ScrapingService:
             self._fetcher = PageFetcher(
                 rate_limiter=RateLimiter(default_interval=1.5),
                 robots_checker=RobotsTxtChecker(),
+                cache=PageCache(),
             )
         return self._fetcher
 
