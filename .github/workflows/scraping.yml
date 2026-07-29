@@ -46,30 +46,16 @@ jobs:
             -H "Content-Type: application/json")
           echo "Response: $response"
 
-          # Check for errors
-          errors=$(echo "$response" | python3 -c "
-          import sys, json
-          data = json.load(sys.stdin)
-          errs = sum(1 for r in data if r.get('erros', 0) > 0)
-          print(errs)
-          " 2>/dev/null || echo "0")
-
-          if [ "$errors" -gt "0" ]; then
-            echo "::warning::$errors scraping run(s) had errors"
-          fi
-
-          # Summary
           echo "$response" | python3 -c "
           import sys, json
           data = json.load(sys.stdin)
-          total = len(data)
-          novos = sum(r.get('novos', 0) for r in data)
-          dupl = sum(r.get('duplicados', 0) for r in data)
-          errs = sum(r.get('erros', 0) for r in data)
-          print(f'Runs: {total} | Novos: {novos} | Duplicados: {dupl} | Erros: {errs}')
+          started = data.get('started', 0)
+          print(f'Started: {started} runs')
+          if started == 0:
+            print('No pending runs found')
           " 2>/dev/null || true
 
       - name: Get scraping stats
         run: |
-          curl -s "$API_URL/api/v1/scraping/stats" \
+          curl -s "$API_URL/api/v1/scraping/monitor/overview" \
             -H "Authorization: Bearer $API_TOKEN" | python3 -m json.tool
