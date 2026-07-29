@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  backend-lint:
+    name: Backend Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: ruff check src/ tests/
+      - run: ruff format --check src/ tests/
+
+  backend-test:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      SUPABASE_URL: "https://test.supabase.co"
+      SUPABASE_ANON_KEY: "test-anon-key"
+      SUPABASE_SERVICE_ROLE_KEY: "test-service-role-key"
+      SUPABASE_JWT_SECRET: "test-jwt-secret-minimum-32-chars-long-for-hs256"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+      - run: pip install -e ".[dev]"
+      - run: pytest --tb=short -q
+
+  frontend-build:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_API_URL: "https://api.test.example.com"
+      NEXT_PUBLIC_SUPABASE_URL: "https://test.supabase.co"
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: "test-anon-key"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npx next build
+
+  frontend-lint:
+    name: Frontend Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
