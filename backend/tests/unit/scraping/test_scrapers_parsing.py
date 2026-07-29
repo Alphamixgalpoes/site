@@ -11,11 +11,29 @@ from pathlib import Path
 
 import pytest
 
+from petrus.infrastructure.scraping.scrapers.asp_ajax import (
+    _extract_id as asp_extract_id,
+)
+from petrus.infrastructure.scraping.scrapers.asp_ajax import (
+    _parse_asp_feature,
+)
+from petrus.infrastructure.scraping.scrapers.asp_ajax import (
+    _resolve_url as asp_resolve_url,
+)
 from petrus.infrastructure.scraping.scrapers.code49 import (
     _build_detail_url,
     _extract_image_urls,
     _extract_items,
     _parse_feature,
+)
+from petrus.infrastructure.scraping.scrapers.imobibrasil import (
+    _extract_id as imobi_extract_id,
+)
+from petrus.infrastructure.scraping.scrapers.imobibrasil import (
+    _parse_feature as imobi_parse_feature,
+)
+from petrus.infrastructure.scraping.scrapers.imobibrasil import (
+    _resolve_url as imobi_resolve_url,
 )
 from petrus.infrastructure.scraping.scrapers.nextjs import (
     _extract_hydration_payload,
@@ -295,3 +313,185 @@ class TestNextJsParsing:
     def test_hydration_empty_on_plain_html(self):
         data = _extract_hydration_payload("<html><body>No Next.js</body></html>")
         assert data is None
+
+
+# ============================================================
+# ImobiBrasil parsing tests
+# ============================================================
+
+@pytest.mark.unit
+class TestImobiBrasilParsing:
+    def test_listing_page_card_extraction(self):
+        from selectolax.parser import HTMLParser
+
+        html = _load_fixture("imobibrasil", "listing_page.html")
+        tree = HTMLParser(html)
+        cards = tree.css(".imovel-card")
+        assert len(cards) == 3
+
+        link = cards[0].css_first("a")
+        assert link is not None
+        assert link.attributes["href"] == "/imovel/galpao-cajamar-450"
+
+    def test_detail_page_extraction(self):
+        from selectolax.parser import HTMLParser
+
+        html = _load_fixture("imobibrasil", "detail_page.html")
+        tree = HTMLParser(html)
+
+        title = tree.css_first("h1")
+        assert "2.500" in title.text(strip=True)
+
+        price = tree.css_first(".valor")
+        assert "22.000" in price.text(strip=True)
+
+        address = tree.css_first(".endereco")
+        assert "Cajamar" in address.text(strip=True)
+
+        ref = tree.css_first(".codigo")
+        assert "IMB-450" in ref.text(strip=True)
+
+        features = tree.css(".caracteristicas li")
+        assert len(features) == 5
+
+    def test_detail_images_skip_placeholder(self):
+        from selectolax.parser import HTMLParser
+
+        html = _load_fixture("imobibrasil", "detail_page.html")
+        tree = HTMLParser(html)
+        images = []
+        for img in tree.css(".galeria img"):
+            src = (
+                img.attributes.get("data-src")
+                or img.attributes.get("src")
+                or ""
+            )
+            if src and "placeholder" not in src.lower():
+                images.append(src)
+        # 2 real images, placeholder skipped
+        assert len(images) == 2
+        assert all("cdn-imobibrasil" in u for u in images)
+
+    def test_parse_feature_area(self):
+        data: dict = {}
+        imobi_parse_feature("Área total: 2.500 m²", data)
+        assert data["area_total"] == "2.500"
+
+    def test_parse_feature_pe_direito(self):
+        data: dict = {}
+        imobi_parse_feature("Pé direito: 10 m", data)
+        assert data["pe_direito"] == "10"
+
+    def test_parse_feature_docas(self):
+        data: dict = {}
+        imobi_parse_feature("Docas: 4", data)
+        assert data["docas"] == "4"
+
+    def test_parse_feature_vagas(self):
+        data: dict = {}
+        imobi_parse_feature("Vagas: 20", data)
+        assert data["vagas"] == "20"
+
+    def test_resolve_url_relative(self):
+        assert imobi_resolve_url(
+            "https://example.com", "/imovel/123"
+        ) == "https://example.com/imovel/123"
+
+    def test_resolve_url_absolute(self):
+        assert imobi_resolve_url(
+            "https://example.com", "https://other.com/img.jpg"
+        ) == "https://other.com/img.jpg"
+
+    def test_extract_id(self):
+        assert imobi_extract_id(
+            "https://example.com/imovel/galpao-450"
+        ) == "galpao-450"
+
+
+# ============================================================
+# ASP.NET AJAX parsing tests
+# ============================================================
+
+@pytest.mark.unit
+class TestAspAjaxParsing:
+    def test_listing_page_card_extraction(self):
+        from selectolax.parser import HTMLParser
+
+        html = _load_fixture("asp_ajax", "listing_page.html")
+        tree = HTMLParser(html)
+        cards = tree.css(".imovel")
+        assert len(cards) == 2
+
+        link = cards[0].css_first("a")
+        assert link is not None
+        assert "galpao-barueri-101" in link.attributes["href"]
+
+    def test_detail_page_extraction(self):
+        from selectolax.parser import HTMLParser
+
+        html = _load_fixture("asp_ajax", "detail_page.html")
+        tree = HTMLParser(html)
+
+        title = tree.css_first("h1")
+        assert "1.800" in title.text(strip=True)
+
+        price = tree.css_first(".valor")
+        assert "30.000" in price.text(strip=True)
+
+        address = tree.css_first(".endereco")
+        assert "Alphaville" in address.text(strip=True)
+
+        desc = tree.css_first(".descricao")
+        assert "pe direito alto" in desc.text(strip=True)
+
+    def test_detail_images_skip_logo(self):
+        from selectolax.parser import HTMLParser
+
+        html = _load_fixture("asp_ajax", "detail_page.html")
+        tree = HTMLParser(html)
+        images = []
+        for img in tree.css(".galeria img"):
+            src = (
+                img.attributes.get("src")
+                or img.attributes.get("data-src")
+                or ""
+            )
+            if src and "logo" not in src.lower():
+                images.append(src)
+        # 2 real images, logo skipped
+        assert len(images) == 2
+
+    def test_parse_asp_feature_area_total(self):
+        data: dict = {}
+        _parse_asp_feature("Área total: 1.800 m²", data)
+        assert data["area_total"] == "1.800"
+
+    def test_parse_asp_feature_area_construida(self):
+        data: dict = {}
+        _parse_asp_feature("Área construída: 1.500 m²", data)
+        assert data["area_construida"] == "1.500"
+
+    def test_parse_asp_feature_pe_direito(self):
+        data: dict = {}
+        _parse_asp_feature("Pé direito: 12 m", data)
+        assert data["pe_direito"] == "12"
+
+    def test_parse_asp_feature_docas(self):
+        data: dict = {}
+        _parse_asp_feature("Docas: 3", data)
+        assert data["docas"] == "3"
+
+    def test_parse_asp_feature_eletrica(self):
+        data: dict = {}
+        _parse_asp_feature("Elétrica: 300 KVA", data)
+        assert data["eletrica"] == "300"
+
+    def test_resolve_url(self):
+        assert asp_resolve_url(
+            "https://jmorais.com.br", "/uploads/img.jpg"
+        ) == "https://jmorais.com.br/uploads/img.jpg"
+
+    def test_extract_id(self):
+        assert asp_extract_id(
+            "https://jmorais.com.br/imovel/galpao-101"
+        ) == "galpao-101"

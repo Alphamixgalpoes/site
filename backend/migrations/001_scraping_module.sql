@@ -94,6 +94,7 @@ CREATE TABLE IF NOT EXISTS scraping_request_log (
   run_id uuid REFERENCES scraping_queue(id) ON DELETE SET NULL,
   url text NOT NULL,
   domain text NOT NULL,
+  method text NOT NULL DEFAULT 'GET',
   status_code int,
   response_time_ms int,
   cached boolean DEFAULT false,

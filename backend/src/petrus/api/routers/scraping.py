@@ -79,6 +79,37 @@ async def preview_scraping(
         raise HTTPException(status_code=404, detail=str(exc))
 
 
+@router.post("/executar-fonte/{fonte_id}")
+async def execute_fonte(
+    fonte_id: UUID,
+    background_tasks: BackgroundTasks,
+    service: ScrapingService = Depends(get_scraping_service),
+):
+    """Create a new run for a fonte and execute it in background."""
+    try:
+        fonte = await service._fonte_repo.get_by_id(fonte_id)
+        if not fonte:
+            raise ValueError(f"Fonte {fonte_id} nao encontrada")
+
+        run = await service._scraping_repo.create({
+            "fonte_id": str(fonte.id),
+            "url": fonte.url or fonte.config.get("base_url", ""),
+            "status": "pendente",
+        })
+
+        await service.start_run(run.id)
+        bg_service = get_scraping_service()
+        background_tasks.add_task(bg_service.execute_run, run.id)
+
+        return {
+            "run_id": str(run.id),
+            "fonte_id": str(fonte.id),
+            "status": "processando",
+        }
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
 # === Full pipeline ===
 
 

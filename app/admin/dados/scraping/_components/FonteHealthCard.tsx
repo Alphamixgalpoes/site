@@ -46,9 +46,11 @@ function formatDate(iso: string | null): string {
 export function FonteHealthCard({
   fonte,
   onSelectRun,
+  onExecute,
 }: {
   fonte: FonteHealth;
   onSelectRun?: (runId: string) => void;
+  onExecute?: (fonteId: string) => void;
 }) {
   const cfg = statusConfig[fonte.status] || statusConfig.never;
 
@@ -86,11 +88,22 @@ export function FonteHealthCard({
         </div>
       </div>
 
-      {/* Last run + sparkline */}
+      {/* Last run + sparkline + execute */}
       <div className="flex items-center justify-between">
-        <p className="text-[10px] text-gray-400">
-          Ultimo: {formatDate(fonte.last_run_at)}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="text-[10px] text-gray-400">
+            Ultimo: {formatDate(fonte.last_run_at)}
+          </p>
+          {onExecute && (
+            <button
+              type="button"
+              onClick={() => onExecute(fonte.fonte_id)}
+              className="text-[10px] px-1.5 py-0.5 border border-gray-300 text-gray-600 hover:bg-white"
+            >
+              Executar
+            </button>
+          )}
+        </div>
         <div className="flex items-center gap-0.5">
           {fonte.recent_runs.map((r) => (
             <button
