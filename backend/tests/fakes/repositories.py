@@ -36,6 +36,8 @@ from petrus.domain.repositories.mdm_repo import (
 )
 from petrus.domain.repositories.processo_repo import ProcessoRepository
 from petrus.domain.repositories.publicacao_repo import PublicacaoRepository
+from petrus.domain.repositories.scraping_repo import RequestLogRepository
+from petrus.domain.entities.scraping import RequestLog
 
 
 def _safe_build(cls, **kwargs):
@@ -482,11 +484,59 @@ class InMemoryScrapingRunRepo(ScrapingRunRepository):
                 setattr(sr, k, v)
         return sr
 
+    async def get_by_id(self, run_id: UUID) -> ScrapingRun | None:
+        return self._store.get(run_id)
+
     async def get_by_fonte(self, fonte_id: UUID) -> list[ScrapingRun]:
         return [sr for sr in self._store.values() if sr.fonte_id == fonte_id]
 
+    async def get_by_fonte_recent(
+        self, fonte_id: UUID, limit: int = 5,
+    ) -> list[ScrapingRun]:
+        runs = [sr for sr in self._store.values() if sr.fonte_id == fonte_id]
+        runs.sort(key=lambda r: r.created_at or "", reverse=True)
+        return runs[:limit]
+
+    async def get_recent(self, limit: int = 20) -> list[ScrapingRun]:
+        runs = list(self._store.values())
+        runs.sort(key=lambda r: r.created_at or "", reverse=True)
+        return runs[:limit]
+
     async def list_pending(self) -> list[ScrapingRun]:
         return [sr for sr in self._store.values() if sr.status == "pendente"]
+
+
+class InMemoryRequestLogRepo(RequestLogRepository):
+    def __init__(self) -> None:
+        self._store: list[dict[str, Any]] = []
+
+    async def create_batch(self, logs: list[dict[str, Any]]) -> int:
+        self._store.extend(logs)
+        return len(logs)
+
+    async def get_by_run(self, run_id: UUID) -> list[RequestLog]:
+        return [
+            RequestLog(
+                id=uuid4(),
+                run_id=run_id,
+                url=log.get("url", ""),
+                domain=log.get("domain", ""),
+                method=log.get("method", "GET"),
+                status_code=log.get("status_code"),
+                response_time_ms=log.get("response_time_ms"),
+                cached=log.get("cached", False),
+                error=log.get("error"),
+            )
+            for log in self._store
+            if str(log.get("run_id")) == str(run_id)
+        ]
+
+    async def count_by_run(self, run_id: UUID) -> dict[str, int]:
+        matching = [l for l in self._store if str(l.get("run_id")) == str(run_id)]
+        total = len(matching)
+        cached = sum(1 for l in matching if l.get("cached"))
+        failed = sum(1 for l in matching if not l.get("status_code") or l["status_code"] >= 400)
+        return {"total": total, "successful": total - failed, "failed": failed, "cached": cached}
 
 
 class InMemoryEnrichmentCardRepo(EnrichmentCardRepository):

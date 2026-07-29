@@ -36,6 +36,7 @@ from petrus.api.deps import (  # noqa: E402
     get_publicacao_service,
     get_scraping_run_repo,
     get_scraping_service,
+    get_scraping_monitor_service,
 )
 from petrus.api.middleware.auth import get_current_user, optional_user  # noqa: E402
 from petrus.api.routers import (  # noqa: E402
@@ -68,6 +69,7 @@ from petrus.application.processo_service import ProcessoAppService  # noqa: E402
 from petrus.application.publicacao_service import PublicacaoService  # noqa: E402
 from petrus.application.enrichment_service import EnrichmentService  # noqa: E402
 from petrus.application.scraping_service import ScrapingService  # noqa: E402
+from petrus.application.scraping_monitor_service import ScrapingMonitorService  # noqa: E402
 from petrus.infrastructure.mdm.quality import DefaultQualityService  # noqa: E402
 from tests.fakes.repositories import (  # noqa: E402
     InMemoryConfigRepo,
@@ -82,6 +84,7 @@ from tests.fakes.repositories import (  # noqa: E402
     InMemoryScrapingRunRepo,
     InMemoryEnrichmentCardRepo,
     InMemoryEnrichmentEventRepo,
+    InMemoryRequestLogRepo,
 )
 from tests.fakes.services import (  # noqa: E402
     FakeEmailService,
@@ -134,6 +137,7 @@ def _build_test_app() -> FastAPI:
     scraping_run_repo = InMemoryScrapingRunRepo()
     enrichment_card_repo = InMemoryEnrichmentCardRepo()
     enrichment_event_repo = InMemoryEnrichmentEventRepo()
+    request_log_repo = InMemoryRequestLogRepo()
 
     email_svc = FakeEmailService()
     storage_svc = FakeStorageService()
@@ -190,6 +194,12 @@ def _build_test_app() -> FastAPI:
         fonte_repo,
         fonte_registro_repo,
         scraping_run_repo,
+        request_log_repo,
+    )
+    app.dependency_overrides[get_scraping_monitor_service] = lambda: ScrapingMonitorService(
+        fonte_repo,
+        scraping_run_repo,
+        request_log_repo,
     )
 
     return app
