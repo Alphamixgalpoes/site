@@ -15,7 +15,7 @@ const statusOrder: Record<string, number> = {
 };
 
 export default function ScrapingPage() {
-  const { overview, fontes, loading, reload, executarTodos } = useScrapingMonitor();
+  const { overview, fontes, loading, reload, executarTodos, executarFonte } = useScrapingMonitor();
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [executing, setExecuting] = useState(false);
 
@@ -80,6 +80,10 @@ export default function ScrapingPage() {
                     key={f.fonte_id}
                     fonte={f}
                     onSelectRun={setSelectedRunId}
+                    onExecute={async (id) => {
+                      const runId = await executarFonte(id);
+                      setSelectedRunId(runId);
+                    }}
                   />
                 ))}
               </div>

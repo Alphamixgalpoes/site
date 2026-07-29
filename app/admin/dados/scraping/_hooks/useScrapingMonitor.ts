@@ -71,5 +71,16 @@ export function useScrapingMonitor() {
     await load();
   }, [load]);
 
-  return { overview, fontes, loading, reload: load, executarRun, executarTodos };
+  const executarFonte = useCallback(async (fonteId: string) => {
+    const res = await apiPost<{ run_id: string }>(
+      `/api/v1/scraping/executar-fonte/${fonteId}`, {}, { auth: true },
+    );
+    await load();
+    return res.run_id;
+  }, [load]);
+
+  return {
+    overview, fontes, loading, reload: load,
+    executarRun, executarTodos, executarFonte,
+  };
 }
