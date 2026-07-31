@@ -29,10 +29,22 @@ class Code49Adapter(SourceAdapter):
             return []
 
     def transform(self, raw: dict[str, Any]) -> CanonicalRecord:
+        # Ensure price fields are populated (fallback from price_text)
+        _ensure_prices(raw)
+
+        # Parse city + UF if combined (e.g. "Barueri - SP")
+        city = raw.get("city") or raw.get("cidade") or ""
+        uf = None
+        if " - " in city:
+            city, uf = city.rsplit(" - ", 1)
+            city = city.strip()
+            uf = uf.strip()
+
         return CanonicalRecord(
             titulo=raw.get("title"),
             endereco=raw.get("address"),
-            cidade=raw.get("city") or raw.get("cidade"),
+            cidade=city or None,
+            uf=uf,
             bairro=raw.get("neighborhood") or raw.get("bairro"),
             area_total_m2=_p(raw.get("totalArea") or raw.get("area_total")),
             area_construida_m2=_p(raw.get("builtArea") or raw.get("area_construida")),
@@ -51,6 +63,28 @@ class Code49Adapter(SourceAdapter):
             data_coleta=datetime.now(),
             dados_extras=_extras(raw),
         )
+
+
+def _ensure_prices(raw: dict) -> None:
+    """Populate rentPrice/salePrice from price_text if missing."""
+    if raw.get("rentPrice") or raw.get("salePrice"):
+        return
+    price_text = raw.get("price_text", "")
+    if not price_text:
+        return
+    import re
+
+    prices = re.findall(r"R\$\s*([\d.,]+)", price_text)
+    text_lower = price_text.lower()
+    if "venda" in text_lower and "locacao" in text_lower and len(prices) >= 2:
+        raw["salePrice"] = prices[0]
+        raw["rentPrice"] = prices[1]
+    elif "venda" in text_lower and prices:
+        raw["salePrice"] = prices[0]
+    elif any(w in text_lower for w in ("locacao", "locação", "aluguel")) and prices:
+        raw["rentPrice"] = prices[0]
+    elif prices:
+        raw["salePrice"] = prices[0]
 
 
 def _p(val: Any) -> float | None:

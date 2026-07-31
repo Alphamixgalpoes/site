@@ -39,6 +39,9 @@ class Code49Scraper(Scraper):
         self._fetcher = fetcher
 
     async def crawl(self, config: ScrapingConfig) -> list[CrawlResult]:
+        if config.filters.get("html_mode") or config.listing_urls:
+            return await self._crawl_html(config)
+
         results: list[CrawlResult] = []
         filters = config.filters
         api_path = filters.get("api_path", "/api/properties")
@@ -91,6 +94,36 @@ class Code49Scraper(Scraper):
 
         return results
 
+    async def _crawl_html(self, config: ScrapingConfig) -> list[CrawlResult]:
+        """Crawl Code49 sites that use server-rendered HTML (no JSON API)."""
+        results: list[CrawlResult] = []
+        urls_to_crawl = list(config.listing_urls) or [config.base_url]
+        seen_ids: set[str] = set()
+
+        for page_url in urls_to_crawl:
+            html = await self._fetcher.fetch_text(page_url)
+            if not html:
+                continue
+
+            tree = HTMLParser(html)
+            links = _extract_property_links(tree, config.base_url)
+
+            for detail_url, prop_id in links:
+                if prop_id in seen_ids:
+                    continue
+                seen_ids.add(prop_id)
+
+                detail = await self.crawl_detail(detail_url, config)
+                if detail:
+                    results.append(detail)
+
+            logger.info(
+                "HTML page %s: %d links, %d total results",
+                page_url, len(links), len(results),
+            )
+
+        return results
+
     async def crawl_detail(
         self, url: str, config: ScrapingConfig
     ) -> CrawlResult | None:
@@ -105,23 +138,38 @@ class Code49Scraper(Scraper):
         if title_node:
             data["title"] = title_node.text(strip=True)
 
-        desc_node = tree.css_first(".description, .descricao, .property-description")
+        desc_node = tree.css_first(
+            ".description, .descricao, .property-description"
+        )
         if desc_node:
             data["description"] = desc_node.text(strip=True)
 
-        for node in tree.css(".property-info li, .caracteristicas li, .features li"):
-            text = node.text(strip=True)
-            _parse_feature(text, data)
+        # Standard feature lists
+        for node in tree.css(
+            ".property-info li, .caracteristicas li, .features li"
+        ):
+            _parse_feature(node.text(strip=True), data)
 
+        # Code49 HTML variant: labeled fields in <p><strong> and <table>
+        _parse_labeled_fields(tree, data)
+
+        # Price: standard selectors + Code49 HTML variant
         price_node = tree.css_first(".price, .preco, .valor")
         if price_node:
             data["price_text"] = price_node.text(strip=True)
+        _extract_prices(tree, data)
 
+        # Images: standard + Code49 carousel + tab sections
         images: list[str] = []
-        for img in tree.css(".gallery img, .carousel img, .slider img, .fotos img"):
+        for img in tree.css(
+            ".gallery img, .carousel img, .slider img, .fotos img, "
+            "#photos-property-carousel img, [id^=c49mod-24] img"
+        ):
             src = img.attributes.get("src") or img.attributes.get("data-src", "")
-            if src and "thumb" not in src:
-                images.append(_resolve_url(config.base_url, src))
+            if src and "thumb" not in src and "logo" not in src.lower():
+                resolved = _resolve_url(config.base_url, src)
+                if resolved not in images:
+                    images.append(resolved)
 
         return CrawlResult(
             url=url,
@@ -129,6 +177,124 @@ class Code49Scraper(Scraper):
             images=images,
             source_id=_extract_source_id(url),
         )
+
+
+def _extract_property_links(
+    tree: HTMLParser, base_url: str,
+) -> list[tuple[str, str]]:
+    """Extract property detail links from an HTML listing page.
+
+    Returns list of (full_url, property_id) tuples, deduplicated by ID.
+    """
+    links: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for a_tag in tree.css("a[href]"):
+        href = a_tag.attributes.get("href", "")
+        match = re.search(r"/(\d+)/imoveis?/", href)
+        if match:
+            prop_id = match.group(1)
+            if prop_id not in seen:
+                seen.add(prop_id)
+                links.append((_resolve_url(base_url, href), prop_id))
+    return links
+
+
+_LABEL_MAP: dict[str, str] = {
+    "cidade": "city",
+    "bairro": "neighborhood",
+    "regiao": "region",
+    "metragem": "totalArea",
+    "area total": "totalArea",
+    "area construida": "builtArea",
+    "area construída": "builtArea",
+    "pe direito": "ceilingHeight",
+    "pé direito": "ceilingHeight",
+    "docas": "docks",
+    "doca": "docks",
+    "vagas": "parkingSpots",
+    "eletrica": "electricPower",
+    "elétrica": "electricPower",
+    "transacao": "transaction_type",
+    "transação": "transaction_type",
+    "finalidade": "purpose",
+    "tipo de imovel": "property_type",
+    "tipo de imóvel": "property_type",
+}
+
+
+def _parse_labeled_fields(tree: HTMLParser, data: dict) -> None:
+    """Parse <p><strong>Label:</strong> Value</p> and <tr><td> patterns."""
+    # <p> with <strong> label
+    for p_node in tree.css("p"):
+        strong = p_node.css_first("strong")
+        if not strong:
+            continue
+        label_text = strong.text(strip=True).rstrip(":").lower()
+        full_text = p_node.text(strip=True)
+        # Value is everything after the label + colon
+        value = full_text.split(":", 1)[-1].strip() if ":" in full_text else ""
+        if not value:
+            continue
+
+        for pattern, field in _LABEL_MAP.items():
+            if pattern in label_text:
+                if field in ("totalArea", "builtArea"):
+                    num = re.search(r"[\d.,]+", value)
+                    if num:
+                        data.setdefault(field, num.group())
+                elif field in ("ceilingHeight",):
+                    num = re.search(r"[\d.,]+", value)
+                    if num:
+                        data.setdefault(field, num.group())
+                elif field in ("docks", "parkingSpots", "electricPower"):
+                    num = re.search(r"\d+", value)
+                    if num:
+                        data.setdefault(field, num.group())
+                else:
+                    data.setdefault(field, value)
+                break
+
+    # <table> with <td> pairs
+    for row in tree.css("tr"):
+        cells = row.css("td")
+        if len(cells) < 2:
+            continue
+        label_text = cells[0].text(strip=True).rstrip(":").lower()
+        value = cells[1].text(strip=True)
+        if not value:
+            continue
+        for pattern, field in _LABEL_MAP.items():
+            if pattern in label_text:
+                if field in ("totalArea", "builtArea", "ceilingHeight"):
+                    num = re.search(r"[\d.,]+", value)
+                    if num:
+                        data.setdefault(field, num.group())
+                elif field in ("docks", "parkingSpots", "electricPower"):
+                    num = re.search(r"\d+", value)
+                    if num:
+                        data.setdefault(field, num.group())
+                else:
+                    data.setdefault(field, value)
+                break
+
+
+def _extract_prices(tree: HTMLParser, data: dict) -> None:
+    """Extract sale/rent prices from Code49 HTML variant."""
+    price_section = tree.css_first(".price-section")
+    if not price_section:
+        return
+
+    for div in price_section.css("div"):
+        text = div.text(strip=True)
+        price_match = re.search(r"R\$\s*([\d.,]+)", text)
+        if not price_match:
+            continue
+        price_str = price_match.group(1)
+        text_lower = text.lower()
+        if "venda" in text_lower:
+            data.setdefault("salePrice", price_str)
+        elif any(w in text_lower for w in ("locacao", "locação", "aluguel")):
+            data.setdefault("rentPrice", price_str)
 
 
 def _extract_items(data: Any) -> list[dict]:
@@ -203,5 +369,10 @@ def _resolve_url(base: str, href: str) -> str:
 
 
 def _extract_source_id(url: str) -> str:
+    # Try numeric ID from /{id}/imoveis/ pattern (Code49 HTML variant)
+    match = re.search(r"/(\d+)/imoveis?/", url)
+    if match:
+        return match.group(1)
+    # Fallback: last path segment
     parts = url.rstrip("/").split("/")
     return parts[-1] if parts else ""
