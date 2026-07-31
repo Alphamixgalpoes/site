@@ -24,7 +24,13 @@ from petrus.infrastructure.scraping.scrapers.code49 import (
     _build_detail_url,
     _extract_image_urls,
     _extract_items,
+    _extract_prices,
+    _extract_property_links,
     _parse_feature,
+    _parse_labeled_fields,
+)
+from petrus.infrastructure.scraping.scrapers.code49 import (
+    _extract_source_id as code49_extract_id,
 )
 from petrus.infrastructure.scraping.scrapers.imobibrasil import (
     _extract_id as imobi_extract_id,
@@ -495,3 +501,105 @@ class TestAspAjaxParsing:
         assert asp_extract_id(
             "https://jmorais.com.br/imovel/galpao-101"
         ) == "galpao-101"
+
+
+# ============================================================
+# Code49 HTML mode parsing tests
+# ============================================================
+
+@pytest.mark.unit
+class TestCode49HtmlParsing:
+    def test_extract_property_links(self):
+        from selectolax.parser import HTMLParser
+
+        html = _load_fixture("code49", "listing_page_html.html")
+        tree = HTMLParser(html)
+        links = _extract_property_links(tree, "https://example.com")
+        assert len(links) == 3
+        assert links[0] == (
+            "https://example.com/773/imoveis/"
+            "venda-locacao-galpao-jardim-iracema-aldeia-barueri-sp",
+            "773",
+        )
+        assert links[1][1] == "918"
+        assert links[2][1] == "1050"
+
+    def test_extract_property_links_dedup(self):
+        from selectolax.parser import HTMLParser
+
+        html = '<a href="/100/imoveis/x">A</a><a href="/100/imoveis/y">B</a>'
+        tree = HTMLParser(html)
+        links = _extract_property_links(tree, "https://example.com")
+        assert len(links) == 1
+
+    def test_extract_property_links_ignores_non_property(self):
+        from selectolax.parser import HTMLParser
+
+        html = _load_fixture("code49", "listing_page_html.html")
+        tree = HTMLParser(html)
+        links = _extract_property_links(tree, "https://example.com")
+        # /about-us and /contato should NOT be extracted
+        ids = [link_id for _, link_id in links]
+        assert "about-us" not in ids
+        assert "contato" not in ids
+
+    def test_parse_labeled_fields_paragraphs(self):
+        from selectolax.parser import HTMLParser
+
+        html = _load_fixture("code49", "detail_page_html.html")
+        tree = HTMLParser(html)
+        data: dict = {}
+        _parse_labeled_fields(tree, data)
+        assert data["city"] == "Barueri - SP"
+        assert data["neighborhood"] == "Jardim Iracema/Aldeia"
+        assert data["totalArea"] == "2.021"
+        assert data["builtArea"] == "2.021"
+        assert data["ceilingHeight"] == "10"
+
+    def test_parse_labeled_fields_table(self):
+        from selectolax.parser import HTMLParser
+
+        html = _load_fixture("code49", "detail_page_html.html")
+        tree = HTMLParser(html)
+        data: dict = {}
+        _parse_labeled_fields(tree, data)
+        assert data["docks"] == "3"
+        assert data["parkingSpots"] == "15"
+        assert data["electricPower"] == "150"
+
+    def test_extract_prices(self):
+        from selectolax.parser import HTMLParser
+
+        html = _load_fixture("code49", "detail_page_html.html")
+        tree = HTMLParser(html)
+        data: dict = {}
+        _extract_prices(tree, data)
+        assert data["salePrice"] == "13.000.000,00"
+        assert data["rentPrice"] == "47.000,00"
+
+    def test_detail_page_title(self):
+        from selectolax.parser import HTMLParser
+
+        html = _load_fixture("code49", "detail_page_html.html")
+        tree = HTMLParser(html)
+        title = tree.css_first("h1")
+        assert title is not None
+        assert "Barueri" in title.text(strip=True)
+
+    def test_detail_page_images(self):
+        from selectolax.parser import HTMLParser
+
+        html = _load_fixture("code49", "detail_page_html.html")
+        tree = HTMLParser(html)
+        images = tree.css(
+            "#photos-property-carousel img, [id^=c49mod-24] img"
+        )
+        assert len(images) == 4  # 3 carousel + 1 tab
+
+    def test_extract_source_id_numeric(self):
+        url = "https://example.com/773/imoveis/venda-galpao-barueri-sp"
+        assert code49_extract_id(url) == "773"
+
+    def test_extract_source_id_fallback(self):
+        url = "https://example.com/imovel/galpao-alpha-4501"
+        assert code49_extract_id(url) == "galpao-alpha-4501"
