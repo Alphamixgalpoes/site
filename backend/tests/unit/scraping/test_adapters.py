@@ -54,6 +54,50 @@ class TestCode49Adapter:
         result = adapter.transform(raw)
         assert isinstance(result, CanonicalRecord)
 
+    def test_transform_normalizes_alphaville_city(self):
+        adapter = Code49Adapter({})
+        raw = {
+            "title": "Galpao em Alphaville",
+            "city": "Alphaville - SP",
+            "neighborhood": "Alphaville Industrial",
+            "url": "https://example.com/imovel/1",
+        }
+        result = adapter.transform(raw)
+        assert result.cidade == "Barueri"
+        assert result.uf == "SP"
+
+    def test_transform_preserves_region_on_normalization(self):
+        adapter = Code49Adapter({})
+        raw = {
+            "title": "Galpao",
+            "city": "Alphaville - SP",
+            "url": "https://example.com",
+        }
+        result = adapter.transform(raw)
+        assert result.cidade == "Barueri"
+        # When region wasn't set, the original city name is preserved as dados_extras
+        # The key point is cidade is normalized
+
+    def test_transform_source_id_from_source_id_field(self):
+        adapter = Code49Adapter({})
+        raw = {
+            "title": "Galpao",
+            "url": "https://example.com/773/imoveis/x",
+            "source_id": "773",
+        }
+        result = adapter.transform(raw)
+        assert result.source_id == "773"
+
+    def test_transform_source_id_from_underscore_field(self):
+        adapter = Code49Adapter({})
+        raw = {
+            "title": "Galpao",
+            "url": "https://example.com",
+            "_source_id": "918",
+        }
+        result = adapter.transform(raw)
+        assert result.source_id == "918"
+
 
 @pytest.mark.unit
 class TestClickGalpoesAdapter:

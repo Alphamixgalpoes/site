@@ -139,10 +139,17 @@ class Code49Scraper(Scraper):
             data["title"] = title_node.text(strip=True)
 
         desc_node = tree.css_first(
-            ".description, .descricao, .property-description"
+            ".property-description, .description, .descricao"
         )
         if desc_node:
             data["description"] = desc_node.text(strip=True)
+            # Extract structured data from free-text description
+            _parse_description_fields(desc_node.text(strip=True), data)
+
+        # Code49 features bar: "12 salas 4 banh. 15 Vagas descobertas"
+        features_node = tree.css_first(".c49-property-features")
+        if features_node:
+            _parse_features_bar(features_node.text(strip=True), data)
 
         # Standard feature lists
         for node in tree.css(
@@ -159,17 +166,37 @@ class Code49Scraper(Scraper):
             data["price_text"] = price_node.text(strip=True)
         _extract_prices(tree, data)
 
-        # Images: standard + Code49 carousel + tab sections
+        # Images: multiple extraction strategies
         images: list[str] = []
+        seen_imgs: set[str] = set()
+
+        def _add_img(src: str) -> None:
+            if not src or "logo" in src.lower():
+                return
+            resolved = _resolve_url(config.base_url, src)
+            if resolved not in seen_imgs:
+                seen_imgs.add(resolved)
+                images.append(resolved)
+
+        # Strategy 1: data-foto on carousel items (full-size, preferred)
+        for item in tree.css(".carousel-item[data-foto]"):
+            _add_img(item.attributes.get("data-foto") or "")
+
+        # Strategy 2: background-image in carousel indicator <li>
+        for li in tree.css("#photos-property-carousel li[style]"):
+            style = li.attributes.get("style") or ""
+            m = re.search(r"url\(([^)]+)\)", style)
+            if m:
+                _add_img(m.group(1))
+
+        # Strategy 3: standard img tags in gallery/carousel sections
         for img in tree.css(
             ".gallery img, .carousel img, .slider img, .fotos img, "
             "#photos-property-carousel img, [id^=c49mod-24] img"
         ):
-            src = img.attributes.get("src") or img.attributes.get("data-src", "")
-            if src and "thumb" not in src and "logo" not in src.lower():
-                resolved = _resolve_url(config.base_url, src)
-                if resolved not in images:
-                    images.append(resolved)
+            src = img.attributes.get("src") or img.attributes.get("data-src") or ""
+            if "thumb" not in src:
+                _add_img(src)
 
         return CrawlResult(
             url=url,
@@ -189,7 +216,7 @@ def _extract_property_links(
     links: list[tuple[str, str]] = []
     seen: set[str] = set()
     for a_tag in tree.css("a[href]"):
-        href = a_tag.attributes.get("href", "")
+        href = a_tag.attributes.get("href") or ""
         match = re.search(r"/(\d+)/imoveis?/", href)
         if match:
             prop_id = match.group(1)
@@ -203,10 +230,15 @@ _LABEL_MAP: dict[str, str] = {
     "cidade": "city",
     "bairro": "neighborhood",
     "regiao": "region",
+    "região": "region",
     "metragem": "totalArea",
     "area total": "totalArea",
+    "área total": "totalArea",
     "area construida": "builtArea",
     "area construída": "builtArea",
+    "área construída": "builtArea",
+    "area privativa": "builtArea",
+    "área privativa": "builtArea",
     "pe direito": "ceilingHeight",
     "pé direito": "ceilingHeight",
     "docas": "docks",
@@ -219,82 +251,153 @@ _LABEL_MAP: dict[str, str] = {
     "finalidade": "purpose",
     "tipo de imovel": "property_type",
     "tipo de imóvel": "property_type",
+    "salas": "rooms",
 }
+
+_NUMERIC_FIELDS = {"totalArea", "builtArea", "ceilingHeight"}
+_INT_FIELDS = {"docks", "parkingSpots", "electricPower", "rooms"}
 
 
 def _parse_labeled_fields(tree: HTMLParser, data: dict) -> None:
-    """Parse <p><strong>Label:</strong> Value</p> and <tr><td> patterns."""
-    # <p> with <strong> label
+    """Parse labeled field pairs from multiple Code49 HTML patterns.
+
+    Supports three structures found in real Code49 sites:
+    1. div.table-row with child divs (label, value) — most common
+    2. <p><strong>Label:</strong> Value</p>
+    3. <tr><td>Label</td><td>Value</td></tr>
+    """
+    pairs: list[tuple[str, str]] = []
+
+    # Pattern 1: div.table-row — the real Code49 structure
+    # row.css("div") returns the row itself + children; skip the row
+    for row in tree.css(".table-row"):
+        children = [
+            d for d in row.css("div")
+            if "table-row" not in (d.attributes.get("class") or "")
+        ]
+        if len(children) >= 2:
+            label = children[0].text(strip=True).rstrip(":").lower()
+            value = children[1].text(strip=True)
+            if label and value:
+                pairs.append((label, value))
+
+    # Pattern 2: <p> with <strong> label
     for p_node in tree.css("p"):
         strong = p_node.css_first("strong")
         if not strong:
             continue
-        label_text = strong.text(strip=True).rstrip(":").lower()
+        label = strong.text(strip=True).rstrip(":").lower()
         full_text = p_node.text(strip=True)
-        # Value is everything after the label + colon
         value = full_text.split(":", 1)[-1].strip() if ":" in full_text else ""
-        if not value:
-            continue
+        if label and value:
+            pairs.append((label, value))
 
-        for pattern, field in _LABEL_MAP.items():
-            if pattern in label_text:
-                if field in ("totalArea", "builtArea"):
-                    num = re.search(r"[\d.,]+", value)
-                    if num:
-                        data.setdefault(field, num.group())
-                elif field in ("ceilingHeight",):
-                    num = re.search(r"[\d.,]+", value)
-                    if num:
-                        data.setdefault(field, num.group())
-                elif field in ("docks", "parkingSpots", "electricPower"):
-                    num = re.search(r"\d+", value)
-                    if num:
-                        data.setdefault(field, num.group())
-                else:
-                    data.setdefault(field, value)
-                break
-
-    # <table> with <td> pairs
+    # Pattern 3: <table> with <td> pairs
     for row in tree.css("tr"):
         cells = row.css("td")
         if len(cells) < 2:
             continue
-        label_text = cells[0].text(strip=True).rstrip(":").lower()
+        label = cells[0].text(strip=True).rstrip(":").lower()
         value = cells[1].text(strip=True)
-        if not value:
-            continue
+        if label and value:
+            pairs.append((label, value))
+
+    # Map all collected pairs to data fields
+    for label, value in pairs:
         for pattern, field in _LABEL_MAP.items():
-            if pattern in label_text:
-                if field in ("totalArea", "builtArea", "ceilingHeight"):
-                    num = re.search(r"[\d.,]+", value)
-                    if num:
-                        data.setdefault(field, num.group())
-                elif field in ("docks", "parkingSpots", "electricPower"):
-                    num = re.search(r"\d+", value)
-                    if num:
-                        data.setdefault(field, num.group())
-                else:
-                    data.setdefault(field, value)
-                break
+            if pattern not in label:
+                continue
+            if field in _NUMERIC_FIELDS:
+                num = re.search(r"[\d.,]+", value)
+                if num:
+                    data.setdefault(field, num.group())
+            elif field in _INT_FIELDS:
+                num = re.search(r"\d+", value)
+                if num:
+                    data.setdefault(field, num.group())
+            else:
+                data.setdefault(field, value)
+            break
 
 
 def _extract_prices(tree: HTMLParser, data: dict) -> None:
-    """Extract sale/rent prices from Code49 HTML variant."""
-    price_section = tree.css_first(".price-section")
-    if not price_section:
-        return
+    """Extract sale/rent prices from Code49 HTML.
 
-    for div in price_section.css("div"):
-        text = div.text(strip=True)
-        price_match = re.search(r"R\$\s*([\d.,]+)", text)
+    Supports two structures:
+    1. div.c49-property-price (real Code49): title + value sub-divs
+    2. div.price-section with text containing "Venda"/"Locação" near "R$"
+    """
+    # Pattern 1: div.c49-property-price (real Code49 sites)
+    for price_div in tree.css(".c49-property-price"):
+        title_node = price_div.css_first(".c49-property-price-title")
+        value_node = price_div.css_first(".c49-property-price-value")
+        if not value_node:
+            continue
+        value_text = value_node.text(strip=True)
+        price_match = re.search(r"R\$\s*([\d.,]+)", value_text)
         if not price_match:
             continue
         price_str = price_match.group(1)
-        text_lower = text.lower()
-        if "venda" in text_lower:
+        title_text = (title_node.text(strip=True) if title_node else "").lower()
+        if "venda" in title_text:
             data.setdefault("salePrice", price_str)
-        elif any(w in text_lower for w in ("locacao", "locação", "aluguel")):
+        elif any(w in title_text for w in ("locacao", "locação", "aluguel")):
             data.setdefault("rentPrice", price_str)
+
+    # Pattern 2: div.price-section (fixture/older variant)
+    price_section = tree.css_first(".price-section")
+    if price_section:
+        for div in price_section.css("div"):
+            text = div.text(strip=True)
+            price_match = re.search(r"R\$\s*([\d.,]+)", text)
+            if not price_match:
+                continue
+            price_str = price_match.group(1)
+            text_lower = text.lower()
+            if "venda" in text_lower:
+                data.setdefault("salePrice", price_str)
+            elif any(w in text_lower for w in ("locacao", "locação", "aluguel")):
+                data.setdefault("rentPrice", price_str)
+
+
+def _parse_features_bar(text: str, data: dict) -> None:
+    """Parse the c49-property-features bar: '12 salas 4 banh. 15 Vagas'."""
+    text_lower = text.lower()
+    if "parkingSpots" not in data:
+        m = re.search(r"(\d+)\s*vagas?", text_lower)
+        if m:
+            data["parkingSpots"] = m.group(1)
+    if "rooms" not in data:
+        m = re.search(r"(\d+)\s*salas?", text_lower)
+        if m:
+            data["rooms"] = m.group(1)
+
+
+def _parse_description_fields(text: str, data: dict) -> None:
+    """Extract structured fields from free-text description as fallback."""
+    text_lower = text.lower()
+
+    # Pé direito: "pé direito com 8 metros" or "pé direito de 10m"
+    if "ceilingHeight" not in data:
+        m = re.search(
+            r"p[eé]\s*direito\s*(?:com|de)?\s*([\d.,]+)\s*m", text_lower
+        )
+        if m:
+            data["ceilingHeight"] = m.group(1)
+
+    # Docas: "3 docas" or "uma doca" or "doca frontal"
+    if "docks" not in data:
+        m = re.search(r"(\d+)\s*docas?", text_lower)
+        if m:
+            data["docks"] = m.group(1)
+        elif "uma doca" in text_lower:
+            data["docks"] = "1"
+
+    # Energia elétrica: "300 kva" or "150 KVA"
+    if "electricPower" not in data:
+        m = re.search(r"(\d+)\s*kva", text_lower)
+        if m:
+            data["electricPower"] = m.group(1)
 
 
 def _extract_items(data: Any) -> list[dict]:
