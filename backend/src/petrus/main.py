@@ -1,14 +1,28 @@
-from contextlib import asynccontextmanager
 from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from petrus.api.routers import (
+    config,
+    contatos,
+    enrichment,
+    geocode,
+    health,
+    images,
+    imoveis,
+    leads,
+    mdm,
+    processos,
+    publicacao,
+    registros,
+    scraping,
+    staticmap,
+    storage,
+)
 from petrus.config import settings
-from petrus.api.routers import health, leads, geocode, images, staticmap
-from petrus.api.routers import imoveis, contatos, processos, config, storage, publicacao, mdm
-from petrus.api.routers import enrichment, scraping
-from petrus.infrastructure.database.supabase_client import init_supabase, get_supabase
+from petrus.infrastructure.database.supabase_client import init_supabase
 
 
 @asynccontextmanager
@@ -51,3 +65,4 @@ app.include_router(publicacao.router)
 app.include_router(mdm.router)
 app.include_router(enrichment.router)
 app.include_router(scraping.router)
+app.include_router(registros.router)
