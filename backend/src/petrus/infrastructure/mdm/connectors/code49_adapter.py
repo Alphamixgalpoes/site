@@ -10,11 +10,20 @@ from petrus.domain.entities.mdm_types import CanonicalRecord
 from petrus.domain.services.source_adapter import SourceAdapter
 from petrus.infrastructure.mdm.transforms.numbers import parse_br_number
 
+# Regions that appear as "cidade" but are actually neighborhoods/regions
+_REGION_TO_CITY: dict[str, tuple[str, str]] = {
+    "alphaville": ("Barueri", "SP"),
+    "alphaville industrial": ("Barueri", "SP"),
+    "alphaville empresarial": ("Barueri", "SP"),
+    "tamboré": ("Barueri", "SP"),
+    "tambore": ("Barueri", "SP"),
+}
+
 
 class Code49Adapter(SourceAdapter):
     """Transforms raw dicts from Code49Scraper into CanonicalRecords.
 
-    Handles data from: Caixeta, IMOBPARC, MK Prime.
+    Handles data from: Caixeta, IMOBPARC, MK Prime, Claudio Alphaville.
     """
 
     source_type = "code49"
@@ -40,6 +49,16 @@ class Code49Adapter(SourceAdapter):
             city = city.strip()
             uf = uf.strip()
 
+        # Normalize region names used as city (e.g. "Alphaville" → "Barueri")
+        region = raw.get("region")
+        city_lower = city.lower()
+        if city_lower in _REGION_TO_CITY:
+            real_city, real_uf = _REGION_TO_CITY[city_lower]
+            if not region:
+                region = city  # preserve original as region
+            city = real_city
+            uf = uf or real_uf
+
         return CanonicalRecord(
             titulo=raw.get("title"),
             endereco=raw.get("address"),
@@ -59,7 +78,13 @@ class Code49Adapter(SourceAdapter):
             status=raw.get("status"),
             observacoes=raw.get("description"),
             source_url=raw.get("url"),
-            source_id=str(raw.get("id", raw.get("code", ""))),
+            source_id=str(
+                raw.get("_source_id")
+                or raw.get("source_id")
+                or raw.get("id")
+                or raw.get("code")
+                or ""
+            ),
             data_coleta=datetime.now(),
             dados_extras=_extras(raw),
         )

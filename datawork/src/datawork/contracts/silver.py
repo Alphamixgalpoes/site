@@ -13,7 +13,8 @@ from pandera.pandas import Column, Check, DataFrameSchema
 CIDADES_VALIDAS = [
     "Barueri", "Cotia", "Osasco", "Jandira",
     "Santana de Parnaíba", "Carapicuíba", "Itapevi",
-    "Araçariguama", "São Roque",
+    "Araçariguama", "São Roque", "São Paulo", "Sorocaba",
+    "Cajamar", "Vargem Grande Paulista",
 ]
 
 TIPOS_OPERACAO = ["venda", "locacao", "ambos"]

@@ -26,7 +26,9 @@ from petrus.infrastructure.scraping.scrapers.code49 import (
     _extract_items,
     _extract_prices,
     _extract_property_links,
+    _parse_description_fields,
     _parse_feature,
+    _parse_features_bar,
     _parse_labeled_fields,
 )
 from petrus.infrastructure.scraping.scrapers.code49 import (
@@ -543,7 +545,8 @@ class TestCode49HtmlParsing:
         assert "about-us" not in ids
         assert "contato" not in ids
 
-    def test_parse_labeled_fields_paragraphs(self):
+    def test_parse_labeled_fields_table_rows(self):
+        """div.table-row parsing — the real Code49 HTML structure."""
         from selectolax.parser import HTMLParser
 
         html = _load_fixture("code49", "detail_page_html.html")
@@ -552,22 +555,28 @@ class TestCode49HtmlParsing:
         _parse_labeled_fields(tree, data)
         assert data["city"] == "Barueri - SP"
         assert data["neighborhood"] == "Jardim Iracema/Aldeia"
+        assert data["region"] == "Alphaville"
         assert data["totalArea"] == "2.021"
         assert data["builtArea"] == "2.021"
-        assert data["ceilingHeight"] == "10"
+        assert data["transaction_type"] == "Venda, Locacao"
+        assert data["property_type"] == "Galpao"
+        assert data["rooms"] == "12"
 
-    def test_parse_labeled_fields_table(self):
+    def test_parse_description_fields(self):
+        """Fallback: extract specs from free-text description."""
         from selectolax.parser import HTMLParser
 
         html = _load_fixture("code49", "detail_page_html.html")
         tree = HTMLParser(html)
+        desc = tree.css_first(".property-description")
         data: dict = {}
-        _parse_labeled_fields(tree, data)
+        _parse_description_fields(desc.text(strip=True), data)
+        assert data["ceilingHeight"] == "10"
         assert data["docks"] == "3"
-        assert data["parkingSpots"] == "15"
         assert data["electricPower"] == "150"
 
-    def test_extract_prices(self):
+    def test_extract_prices_c49(self):
+        """Prices from div.c49-property-price (real Code49 pattern)."""
         from selectolax.parser import HTMLParser
 
         html = _load_fixture("code49", "detail_page_html.html")
@@ -576,6 +585,22 @@ class TestCode49HtmlParsing:
         _extract_prices(tree, data)
         assert data["salePrice"] == "13.000.000,00"
         assert data["rentPrice"] == "47.000,00"
+
+    def test_extract_prices_price_section_fallback(self):
+        """Prices from div.price-section (older variant fallback)."""
+        from selectolax.parser import HTMLParser
+
+        html = """
+        <div class="price-section">
+          <div><strong>Venda</strong> R$ 5.000.000,00</div>
+          <div><strong>Locacao</strong> R$ 30.000,00</div>
+        </div>
+        """
+        tree = HTMLParser(html)
+        data: dict = {}
+        _extract_prices(tree, data)
+        assert data["salePrice"] == "5.000.000,00"
+        assert data["rentPrice"] == "30.000,00"
 
     def test_detail_page_title(self):
         from selectolax.parser import HTMLParser
@@ -586,15 +611,47 @@ class TestCode49HtmlParsing:
         assert title is not None
         assert "Barueri" in title.text(strip=True)
 
-    def test_detail_page_images(self):
+    def test_detail_page_images_data_foto(self):
+        """Images from data-foto attribute on carousel-item (full-size)."""
         from selectolax.parser import HTMLParser
 
         html = _load_fixture("code49", "detail_page_html.html")
         tree = HTMLParser(html)
-        images = tree.css(
-            "#photos-property-carousel img, [id^=c49mod-24] img"
-        )
-        assert len(images) == 4  # 3 carousel + 1 tab
+        images = [
+            item.attributes.get("data-foto")
+            for item in tree.css(".carousel-item[data-foto]")
+        ]
+        assert len(images) == 3
+        assert "773-foto1.jpg" in images[0]
+
+    def test_detail_page_images_background_url(self):
+        """Images from background-image in carousel indicator li."""
+        import re
+
+        from selectolax.parser import HTMLParser
+
+        html = _load_fixture("code49", "detail_page_html.html")
+        tree = HTMLParser(html)
+        images = []
+        for li in tree.css("#photos-property-carousel li[style]"):
+            style = li.attributes.get("style") or ""
+            m = re.search(r"url\(([^)]+)\)", style)
+            if m:
+                images.append(m.group(1))
+        assert len(images) == 3
+        assert "/admin/imovel/mini/773-foto1.jpg" in images[0]
+
+    def test_parse_features_bar(self):
+        """Extract parking spots and rooms from c49-property-features."""
+        from selectolax.parser import HTMLParser
+
+        html = _load_fixture("code49", "detail_page_html.html")
+        tree = HTMLParser(html)
+        features = tree.css_first(".c49-property-features")
+        data: dict = {}
+        _parse_features_bar(features.text(strip=True), data)
+        assert data["parkingSpots"] == "15"
+        assert data["rooms"] == "12"
 
     def test_extract_source_id_numeric(self):
         url = "https://example.com/773/imoveis/venda-galpao-barueri-sp"
