@@ -13,6 +13,7 @@ from petrus.application.mdm_submission_service import MdmSubmissionService
 from petrus.application.processo_file_service import ProcessoFileService
 from petrus.application.processo_service import ProcessoAppService
 from petrus.application.publicacao_service import PublicacaoService
+from petrus.application.registro_service import RegistroAppService
 from petrus.application.scraping_monitor_service import ScrapingMonitorService
 from petrus.application.scraping_service import ScrapingService
 from petrus.domain.repositories.config_repo import ConfigRepository
@@ -27,6 +28,7 @@ from petrus.domain.repositories.mdm_repo import (
 )
 from petrus.domain.repositories.processo_repo import ProcessoRepository
 from petrus.domain.repositories.publicacao_repo import PublicacaoRepository
+from petrus.domain.repositories.registro_repo import RegistroRepository
 from petrus.domain.repositories.scraping_repo import RequestLogRepository
 from petrus.domain.services.email_service import EmailService
 from petrus.domain.services.geocoding_service import GeocodingService
@@ -52,6 +54,7 @@ from petrus.infrastructure.database.repositories.supabase_processo_repo import S
 from petrus.infrastructure.database.repositories.supabase_publicacao_repo import (
     SupabasePublicacaoRepo,
 )
+from petrus.infrastructure.database.repositories.supabase_registro_repo import SupabaseRegistroRepo
 from petrus.infrastructure.database.repositories.supabase_request_log_repo import (
     SupabaseRequestLogRepo,
 )
@@ -103,6 +106,10 @@ def get_imovel_fonte_repo() -> ImovelFonteRepository:
 
 def get_scraping_run_repo() -> ScrapingRunRepository:
     return SupabaseScrapingRunRepo(get_supabase())
+
+
+def get_registro_repo() -> RegistroRepository:
+    return SupabaseRegistroRepo(get_supabase())
 
 
 # --- Infrastructure services ---
@@ -204,6 +211,10 @@ def get_scraping_monitor_service() -> ScrapingMonitorService:
         get_fonte_repo(), get_scraping_run_repo(),
         get_request_log_repo(),
     )
+
+
+def get_registro_service() -> RegistroAppService:
+    return RegistroAppService(get_registro_repo(), get_storage_service())
 
 
 def get_enrichment_service() -> EnrichmentService:

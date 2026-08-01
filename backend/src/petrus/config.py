@@ -21,6 +21,9 @@ class Settings(BaseSettings):
         "https://petrusweb.vercel.app",
     ]
 
+    # Registro Rapido (API Key para iPhone Shortcuts)
+    registro_api_key: str = ""
+
     # AI (optional)
     openai_api_key: str = ""
     anthropic_api_key: str = ""
