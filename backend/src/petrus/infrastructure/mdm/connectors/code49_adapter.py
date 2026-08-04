@@ -140,14 +140,29 @@ def _detect_op(raw: dict) -> str:
 
 
 def _detect_tipo(raw: dict) -> str:
-    text = ((raw.get("type") or "") + " " + (raw.get("title") or "")).lower()
-    if "terreno" in text:
+    prop_type = (raw.get("property_type") or raw.get("type") or "").lower()
+    title = (raw.get("title") or "").lower()
+    text = f"{prop_type} {title}"
+
+    if "galp" in text or "barrac" in text:
+        return "galpao"
+    if "terreno" in text or "lote" in text:
         return "terreno"
-    if "sala" in text:
-        return "sala"
+    if "apartamento" in text or "duplex" in text or "cobertura" in text:
+        return "apartamento"
+    if "prédio" in text or "predio" in text or "andar" in text:
+        return "predio_comercial"
+    if "sobreloja" in text:
+        return "loja"
     if "loja" in text:
         return "loja"
-    return "galpao"
+    if "sala" in text:
+        return "sala"
+    if "casa" in text or "mansão" in text or "mansao" in text or "sobrado" in text:
+        return "casa"
+    if "rural" in text or "chácara" in text or "chacara" in text or "sítio" in text:
+        return "rural"
+    return "outro"
 
 
 def _extras(raw: dict) -> dict:

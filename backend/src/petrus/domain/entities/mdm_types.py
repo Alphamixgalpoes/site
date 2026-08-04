@@ -43,7 +43,9 @@ class CanonicalRecord:
 
     # --- Commercial ---
     titulo: str | None = None
-    tipo: str | None = None  # galpao, terreno, sala, loja
+    # galpao, casa, apartamento, sala, loja, terreno,
+    # predio_comercial, andar_comercial, rural, outro
+    tipo: str | None = None
     categoria: str | None = None
     tipo_operacao: str | None = None  # venda, locacao, ambos
     valor_locacao: float | None = None

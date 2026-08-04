@@ -18,7 +18,11 @@ CIDADES_VALIDAS = [
 ]
 
 TIPOS_OPERACAO = ["venda", "locacao", "ambos"]
-TIPOS_IMOVEL = ["galpao", "terreno", "sala", "loja"]
+TIPOS_IMOVEL = [
+    "galpao", "terreno", "sala", "loja",
+    "casa", "apartamento", "predio_comercial",
+    "andar_comercial", "rural", "outro",
+]
 STATUS_OCUPACAO = ["vago", "alugado", "vendido", "obra", "reformado"]
 
 CleanRecordSchema = DataFrameSchema(
